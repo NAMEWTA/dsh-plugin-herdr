@@ -17,6 +17,9 @@ Herdr control-plane plugin for [DeepSeek Harness (DSH)](https://github.com/deeps
 Prerequisites: a DSH profile (e.g. `web`) and a running Herdr server. The plugin talks to the local Herdr socket; the panel can start the server from `PATH` if needed.
 
 ```sh
+# npm (published as dsh-plugin-herdr)
+dsh plugin --profile web add dsh-plugin-herdr
+
 # local directory
 dsh plugin --profile web add /path/to/dsh-plugin-herdr
 

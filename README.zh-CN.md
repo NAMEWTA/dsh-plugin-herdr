@@ -17,6 +17,9 @@
 前置条件：一个 DSH profile（如 `web`）和运行中的 Herdr server。插件通过本机 Herdr socket 通信；面板可按需从 `PATH` 拉起 server。
 
 ```sh
+# npm（已发布为 dsh-plugin-herdr）
+dsh plugin --profile web add dsh-plugin-herdr
+
 # 本地目录
 dsh plugin --profile web add /path/to/dsh-plugin-herdr
 
