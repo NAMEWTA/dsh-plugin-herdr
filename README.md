@@ -2,7 +2,7 @@
 
 > **English** | [简体中文](README.zh-CN.md)
 
-![home](assets/home.gif)
+![home](assets/demo.gif)
 
 Herdr control-plane plugin for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness): observe and drive [Herdr](https://herdr.dev) — a terminal workspace manager for AI coding agents — directly from DSH sessions.
 
