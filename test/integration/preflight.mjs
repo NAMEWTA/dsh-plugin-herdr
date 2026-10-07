@@ -12,7 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export function checkPreflight(opts = {}) {
   const { requireServer = true } = opts
   const reasons = []
-  if (!existsSync(join(root, 'lib', 'index.mjs'))) {
+  if (!existsSync(join(root, 'lib', 'index.js'))) {
     reasons.push('lib/ not built (run: pnpm build)')
   }
   try {
