@@ -1,4 +1,4 @@
-// Shipped package contract for DSH 0.2.0-rc.2: manifest, locales, and the built client.
+// Shipped package contract for DSH 0.2.1-alpha.1: manifest, locales, and the built client.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
@@ -25,19 +25,19 @@ const CLIENT_INJECT = [
 ]
 
 const PEERS: Record<string, string> = {
-  '@deepseek-ai/cordis': '~4.0.4',
-  '@deepseek-ai/schemastery': '3.18.4',
-  '@deepseek-ai/dsh-agent': '0.2.0-rc.2',
-  '@deepseek-ai/dsh-jobs': '0.2.0-rc.2',
-  '@deepseek-ai/dsh-skill': '0.2.0-rc.2',
-  '@deepseek-ai/dsh-tools': '0.2.0-rc.2',
-  '@deepseek-ai/dsh-typert-protocol': '0.2.0-rc.2',
-  '@deepseek-ai/dsh-host-webserver': '0.2.0-rc.2',
+  '@deepseek-ai/cordis': '4.0.5-alpha.1',
+  '@deepseek-ai/schemastery': '3.18.5-alpha.1',
+  '@deepseek-ai/dsh-agent': '0.2.1-alpha.1',
+  '@deepseek-ai/dsh-jobs': '0.2.1-alpha.1',
+  '@deepseek-ai/dsh-skill': '0.2.1-alpha.1',
+  '@deepseek-ai/dsh-tools': '0.2.1-alpha.1',
+  '@deepseek-ai/dsh-typert-protocol': '0.2.1-alpha.1',
+  '@deepseek-ai/dsh-host-webserver': '0.2.1-alpha.1',
 }
 
-test('package manifest matches the 0.2.0-rc.2 installer checks', () => {
+test('package manifest matches the 0.2.1-alpha.1 installer checks', () => {
   assert.equal(pkg.engines.node, '>=24')
-  assert.equal(pkg.engines.dsh, '0.2.0-rc.2')
+  assert.equal(pkg.engines.dsh, '0.2.1-alpha.1')
   assert.equal(pkg.dsh.manifestVersion, 1)
   assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
   assert.equal(pkg.dsh.client.platform, 'web')
