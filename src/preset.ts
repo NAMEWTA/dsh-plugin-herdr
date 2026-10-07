@@ -36,7 +36,7 @@ export function registerHerdrPreset(ctx: Context, logger: PresetLogger): () => v
       description: HERDR_PRESET_DESCRIPTION,
       plugins: [
         { id: 'persona', name: '@deepseek-ai/dsh-persona', config: { prefix: HERDR_PERSONA } },
-        { id: 'herdr-session-mode', name: 'dsh-plugin-herdr/session-mode', config: { paneId: '', label: '' } },
+        { id: 'herdr-session-mode', name: '@namewta/dsh-plugin-herdr/session-mode', config: { paneId: '', label: '' } },
       ],
     })).then(disposer => {
       stop = disposer

@@ -2,7 +2,7 @@
 // ctx.typert accepts TYPERT.face === 'host' plus a documented model and strict codecs.
 import { writeFileSync } from 'node:fs'
 
-const pkg = 'dsh-plugin-herdr'
+const pkg = '@namewta/dsh-plugin-herdr'
 const methods = [
   ['status', 'status(request?: unknown): Promise<unknown>', true, false],
   ['dashboard', 'dashboard(): Promise<unknown>', false, false],

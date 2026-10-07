@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-Contributor guide for **dsh-plugin-herdr**, the Herdr control-plane plugin for DeepSeek Harness (DSH): it registers `herdr_*` tools, a Web panel, and the "Herdr 模式" agent preset.
+Contributor guide for **@namewta/dsh-plugin-herdr**, the Herdr control-plane plugin for DeepSeek Harness (DSH): it registers `herdr_*` tools, a Web panel, and the "Herdr 模式" agent preset.
 
 ## Project Structure & Module Organization
 

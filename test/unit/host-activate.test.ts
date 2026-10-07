@@ -111,7 +111,7 @@ function hostContext(options: { skills: boolean; webServer: boolean }) {
 test('tools, jobs, skills, webServer, typert, and typertGateway activate the three plugins', async () => {
   const patch = readFileSync(join(root, 'cordis.patch.yml'), 'utf8')
   assert.doesNotMatch(patch, /session-mode/)
-  assert.match(patch, /dsh-plugin-herdr\/client-entry/)
+  assert.match(patch, /@namewta\/dsh-plugin-herdr\/client-entry/)
 
   const { ctx, tools, routes, skills, presets, typert } = hostContext({ skills: true, webServer: true })
   const stopTypert = typert.register(TYPERT as never)
@@ -124,7 +124,7 @@ test('tools, jobs, skills, webServer, typert, and typertGateway activate the thr
     assert.equal(typeof ctx.herdr.snapshot, 'function')
     await waitUntil(() => presets.length === 1, 'preset did not register')
     assert.equal(presets[0].id, 'herdr')
-    assert.ok(presets[0].plugins.some(plugin => plugin.name === 'dsh-plugin-herdr/session-mode'))
+    assert.ok(presets[0].plugins.some(plugin => plugin.name === '@namewta/dsh-plugin-herdr/session-mode'))
     assert.ok(presets[0].plugins.some(plugin => plugin.name === '@deepseek-ai/dsh-persona'))
     sessionFiber = await ctx.plugin({
       name: sessionMode.name,

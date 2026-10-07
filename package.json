@@ -1,8 +1,17 @@
 {
-  "name": "dsh-plugin-herdr",
-  "version": "0.2.0",
+  "name": "@namewta/dsh-plugin-herdr",
+  "version": "0.0.1",
   "description": "Observe and drive Herdr from DeepSeek Harness: herdr tools, a session preset, and a Web panel.",
   "license": "MIT",
+  "author": "NAMEWTA",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NAMEWTA/dsh-plugin-herdr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NAMEWTA/dsh-plugin-herdr/issues"
+  },
+  "homepage": "https://github.com/NAMEWTA/dsh-plugin-herdr#readme",
   "type": "module",
   "icon": "./icon.svg",
   "main": "lib/index.js",

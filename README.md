@@ -1,4 +1,4 @@
-# dsh-plugin-herdr
+# @namewta/dsh-plugin-herdr
 
 > **English** | [简体中文](README.zh-CN.md)
 
@@ -17,18 +17,15 @@ Herdr control-plane plugin for [DeepSeek Harness (DSH)](https://github.com/deeps
 Prerequisites: a DSH profile (e.g. `web`) and a running Herdr server. The plugin talks to the local Herdr socket; the panel can start the server from `PATH` if needed.
 
 ```sh
-# npm (published as dsh-plugin-herdr)
-dsh plugin --profile web add dsh-plugin-herdr
-
 # local directory
 dsh plugin --profile web add /path/to/dsh-plugin-herdr
 
 # tarball (pnpm pack output)
 pnpm pack
-dsh plugin --profile web add ./dsh-plugin-herdr-*.tgz
+dsh plugin --profile web add ./namewta-dsh-plugin-herdr-*.tgz
 
 # git
-dsh plugin --profile web add github:sunny0826/dsh-plugin-herdr
+dsh plugin --profile web add github:NAMEWTA/dsh-plugin-herdr
 ```
 
 Restart the profile after install. Verify with `dsh plugin --profile web list`.
@@ -36,7 +33,7 @@ Restart the profile after install. Verify with `dsh plugin --profile web list`.
 ## Uninstall
 
 ```sh
-dsh plugin --profile web remove dsh-plugin-herdr
+dsh plugin --profile web remove @namewta/dsh-plugin-herdr
 ```
 
 Restart the profile to unload tools, panel, and Herdr mode. The preset copy at `$DSH_HOME/.agent-presets/herdr/` is left behind — remove it manually if needed.
@@ -51,3 +48,7 @@ pnpm test         # unit tests (node --test)
 pnpm test:integration  # against a live herdr server; SKIPs when unavailable
 pnpm gen:types    # regenerate protocol types from the herdr schema fixture
 ```
+
+## License
+
+MIT © 2026 NAMEWTA. Contains code originally written by sunny0826 (MIT); see [LICENSE](LICENSE).

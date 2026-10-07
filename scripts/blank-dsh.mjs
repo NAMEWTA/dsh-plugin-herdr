@@ -37,11 +37,11 @@ function ensureProfile() {
     name: `dsh-profile-${profileName}`,
     private: true,
     dependencies: {
-      'dsh-plugin-herdr': `link:${repoRoot}`,
+      '@namewta/dsh-plugin-herdr': `link:${repoRoot}`,
     },
     dsh: {
       profile: {
-        bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', 'dsh-plugin-herdr'],
+        bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@namewta/dsh-plugin-herdr'],
       },
     },
   }
