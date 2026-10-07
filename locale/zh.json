@@ -3,6 +3,11 @@
     "title": "Herdr",
     "description": "在 DeepSeek Harness 中观察并驱动 Herdr 的 workspace、pane 与 agent。"
   },
+  "brand.heroText": "Herdr 助你探索未至之境",
+  "brand.heroBrand": "Herdr 助你",
+  "brand.heroPlain": "探索未至之境",
+  "brand.presetName": "Herdr 模式",
+  "brand.presetDesc": "会话绑定 Herdr——本对话视为运行在 Herdr 中的 Agent，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作 workspace / pane / agent。",
   "pane.drag": "拖拽排序",
   "pane.rename": "重命名",
   "pane.close": "关闭窗格",

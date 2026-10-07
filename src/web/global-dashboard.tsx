@@ -12,7 +12,7 @@ import {
   deriveMarkerServerState,
   formatTime,
   type MarkerServerState,
-} from '../client-logic.ts'
+} from './logic.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import {
   statusStore,

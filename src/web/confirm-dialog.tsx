@@ -6,7 +6,7 @@
 import { useEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { MouseEvent } from 'react'
-import { dialogFocusModel } from '../client-logic.ts'
+import { dialogFocusModel } from './logic.ts'
 import { t, useHerdrLang } from './i18n.ts'
 
 export interface ConfirmDialogProps {

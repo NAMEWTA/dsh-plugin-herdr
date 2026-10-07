@@ -14,7 +14,7 @@ import {
   paneDisplayState,
   validateLabel,
   focusBeforeRemoval,
-} from '../client-logic.ts'
+} from './logic.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import type { HerdrAgentStatus, HerdrPaneView } from './types.ts'
 import { PaneTerminal } from './pane-terminal.tsx'

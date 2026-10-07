@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { Button, Pill, StateDot } from './ui.tsx'
-import { agentTheme, dotState, shouldPushTerminalResize, type AgentAccent } from '../client-logic.ts'
+import { agentTheme, dotState, shouldPushTerminalResize, type AgentAccent } from './logic.ts'
 import {
   fetchTerminalBootstrap,
   sendPaneInput,

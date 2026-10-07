@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { HerdrClient } from './service.ts'
 import { HerdrError } from '../../core/errors.ts'
 import { MAX_OUTPUT_BYTES, truncateUtf8Bytes } from '../../core/output.ts'
-import { truncateAnsiTail } from '../../client-logic.ts'
+import { truncateAnsiTail } from '../../web/logic.ts'
 import { pollPaneUntilStable } from '../../core/poll.ts'
 import type { HerdrResultMap } from '../../core/protocol.ts'
 import type {

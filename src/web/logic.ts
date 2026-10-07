@@ -14,8 +14,8 @@
  * dsh-client-ui-primitives 运行时注入——当前环境不可用，属明确遗留（M6/M7/M10-M12
  * 人工验收项保持开放，逻辑层以上述单测自动覆盖）。
  */
-import type { I18nKey } from './web/i18n.ts'
-import type { HerdrAgentStatus, HerdrPaneView, HerdrTopology } from './host/status.ts'
+import type { I18nKey } from './i18n.ts'
+import type { HerdrAgentStatus, HerdrPaneView, HerdrTopology } from '../host/status.ts'
 
 // ---------------------------------------------------------------------------
 // 排序 / 分组 / 状态派生（纯函数）
@@ -665,9 +665,9 @@ export function agentTheme(agentName: string | undefined): AgentAccent {
 // ANSI SGR 解析器（design: pane-log-terminal-design §3）。
 // 委托到 src/terminal-ansi.ts 独立模块（纯函数，不依赖 React/DOM）。
 // ---------------------------------------------------------------------------
-export type { AnsiColor, AnsiColorKind, AnsiStyle, AnsiToken, AnsiLine } from './core/ansi.ts'
-export type { TerminalScreen, TerminalCell, TerminalCursor } from './core/ansi.ts'
-export { parseAnsiOutput, ansiPlainText, stripAnsi, compactAnsiLines, trimAnsiSnapshotPadding, rebaseTerminalFrame, truncateAnsiTail, replayTerminalSnapshot } from './core/ansi.ts'
+export type { AnsiColor, AnsiColorKind, AnsiStyle, AnsiToken, AnsiLine } from '../core/ansi.ts'
+export type { TerminalScreen, TerminalCell, TerminalCursor } from '../core/ansi.ts'
+export { parseAnsiOutput, ansiPlainText, stripAnsi, compactAnsiLines, trimAnsiSnapshotPadding, rebaseTerminalFrame, truncateAnsiTail, replayTerminalSnapshot } from '../core/ansi.ts'
 
 // ---------------------------------------------------------------------------
 // 交互式终端输入映射与滚动状态（design: pane-interactive-terminal §3.3/§3.5）

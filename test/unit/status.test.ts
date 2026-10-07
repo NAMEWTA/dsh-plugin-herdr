@@ -365,7 +365,7 @@ test('T05: pollTopology maps pane label from snapshot PaneInfo.label', async () 
 
 test('ANSI contract: status.ts uses truncateAnsiTail for OUTPUT_CAP', async () => {
   // 验证 truncateAnsiTail 在 OUTPUT_CAP 边界正确清理不完整 escape
-  const { truncateAnsiTail } = await import('../../src/client-logic.ts')
+  const { truncateAnsiTail } = await import('../../src/web/logic.ts')
   const pad = 'x'.repeat(8000 - 10)
   const tail = '\u001b[31mincomplete'
   const big = pad + tail
@@ -389,7 +389,7 @@ test('ANSI contract: truncateAnsiTail cleans incomplete escape at OUTPUT_CAP bou
   const tail = '\u001b[31mincomplete' // 不完整 SGR
   const big = pad + tail
   // 模拟 status.ts 的 truncateAnsiTail 调用
-  const { truncateAnsiTail } = await import('../../src/client-logic.ts')
+  const { truncateAnsiTail } = await import('../../src/web/logic.ts')
   const result = truncateAnsiTail(big, 8000)
   assert.ok(!result.includes('\u001b'), 'incomplete escape must be discarded')
   assert.ok(result.length <= 8000, 'result must not exceed cap')

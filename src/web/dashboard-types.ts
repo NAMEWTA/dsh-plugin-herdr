@@ -1,4 +1,4 @@
-// Dashboard DTO 的 Web 类型（镜像服务端 src/dashboard.ts / src/client-logic.ts；
+// Dashboard DTO 的 Web 类型（镜像服务端 src/host/dashboard.ts / src/web/logic.ts；
 // v4：彻底去会话边界——无 is_self/focused/active tab/pane，agent 明细挂 workspace）。
 
 export interface HerdrDashboardHost {

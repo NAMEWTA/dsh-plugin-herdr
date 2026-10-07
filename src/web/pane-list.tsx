@@ -12,7 +12,7 @@ import {
   paneKeyboardHandlers,
   shouldAutoExpand,
   toggleCollapse,
-} from '../client-logic.ts'
+} from './logic.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import { useFloatingDrag, SNAP } from './floating-drag.ts'
 import { HERDR_LOGO_PATH_D } from './logo-path.ts'

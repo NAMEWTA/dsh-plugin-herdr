@@ -11,9 +11,9 @@ import {
   paneDisplayState,
   paneKeyboardHandlers,
   sortedStatusCounts,
-} from '../client-logic.ts'
+} from './logic.ts'
 import { t, useHerdrLang, type I18nKey } from './i18n.ts'
-import type { PaneDisplayState } from '../client-logic.ts'
+import type { PaneDisplayState } from './logic.ts'
 import type { HerdrDashboardSnapshot, HerdrDashboardAgent, HerdrDashboardPaneRef } from './dashboard-types.ts'
 
 export const STATUS_LABEL_KEYS: Record<PaneDisplayState, I18nKey> = {

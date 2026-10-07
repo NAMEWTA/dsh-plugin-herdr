@@ -1,4 +1,4 @@
-// CA-016：Web 面板纯 UI 逻辑单测（client-logic.ts；真实浏览器渲染不可用属明确遗留）。
+// CA-016：Web 面板纯 UI 逻辑单测（web/logic.ts；真实浏览器渲染不可用属明确遗留）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
@@ -46,8 +46,8 @@ import {
   rebaseTerminalFrame,
   truncateAnsiTail,
   validateLabel,
-} from '../../src/client-logic.ts'
-import type { PaneOrderStorageLike } from '../../src/client-logic.ts'
+} from '../../src/web/logic.ts'
+import type { PaneOrderStorageLike } from '../../src/web/logic.ts'
 import type { HerdrPaneView, HerdrTopology } from '../../src/host/status.ts'
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))

@@ -18,7 +18,7 @@ import {
   shouldProbeNow,
   sortedStatusCounts,
   type DashboardTopologyLike,
-} from '../../src/client-logic.ts'
+} from '../../src/web/logic.ts'
 
 // ---------------------------------------------------------------------------
 // agent 状态计数

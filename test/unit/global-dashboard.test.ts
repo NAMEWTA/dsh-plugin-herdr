@@ -16,7 +16,7 @@ import {
   SIDEBAR_RAIL_WIDTH,
   SIDEBAR_RAIL_WIDTH_THRESHOLD,
   type GlobalDashboardStore,
-} from '../../src/client-logic.ts'
+} from '../../src/web/logic.ts'
 import { I18N_KEYS } from '../../src/web/i18n.ts'
 import {
   getPendingFocusPane,

@@ -5,7 +5,7 @@
 // 就绪后立即翻转（同步内存数据，无可见闪烁）。
 
 import { useEffect, useState } from 'react'
-import { deriveHerdrMode } from '../client-logic.ts'
+import { deriveHerdrMode } from './logic.ts'
 
 /** sessions.list 的最小形状（ObservableSnapshot<SessionListState> 的子集）。 */
 export interface SessionListLike {

@@ -6,7 +6,7 @@
 //   1) host 元数据（node:os，进程内一次采集）；
 //   2) POSIX best-effort 进程探测（pgrep/ps，macOS/Linux；失败/不支持 → unavailable，
 //      携带 source/reason，绝不返回伪造数值）；
-//   3) 归一化 DTO 装配（聚合纯函数在 src/client-logic.ts，可 node:test 直测）。
+//   3) 归一化 DTO 装配（聚合纯函数在 src/web/logic.ts，可 node:test 直测）。
 //
 // 失败语义：进程探测有独立超时（≤1.5s）且与装配并行，不阻塞状态读取；拓扑始终来自
 // status tracker 的“最后一份有效快照”（失败不覆盖）；stop() 中止在途探测且结果不落盘。
@@ -24,7 +24,7 @@ import {
   type DashboardSummaryLike,
   type DashboardTopologyLike,
   type DashboardWorkspaceAgg,
-} from '../client-logic.ts'
+} from '../web/logic.ts'
 import { createLogger, createRateLimiter, errText } from './log.ts'
 
 // ---------------------------------------------------------------------------
