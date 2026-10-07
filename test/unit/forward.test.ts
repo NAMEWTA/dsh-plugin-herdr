@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { SocketHerdrClient } from '../../src/host/herdr/socket.ts'
 import { HerdrError } from '../../src/core/errors.ts'
-import { computeBackoffDelayMs, setupEventForwarding } from '../../src/events/forward.ts'
+import { computeBackoffDelayMs, setupEventForwarding } from '../../src/host/events/forward.ts'
 
 interface Req { id: string; method: string; params: unknown }
 

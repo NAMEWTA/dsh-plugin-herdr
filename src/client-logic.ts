@@ -15,7 +15,7 @@
  * 人工验收项保持开放，逻辑层以上述单测自动覆盖）。
  */
 import type { I18nKey } from './web/i18n.ts'
-import type { HerdrAgentStatus, HerdrPaneView, HerdrTopology } from './status.ts'
+import type { HerdrAgentStatus, HerdrPaneView, HerdrTopology } from './host/status.ts'
 
 // ---------------------------------------------------------------------------
 // 排序 / 分组 / 状态派生（纯函数）

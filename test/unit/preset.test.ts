@@ -8,7 +8,7 @@ import {
   HERDR_PRESET_NAME_EN,
   HERDR_PRESET_NAME_ZH,
   registerHerdrPreset,
-} from '../../src/preset.ts'
+} from '../../src/host/preset.ts'
 
 test('registerHerdrPreset registers the herdr preset and removes it on dispose', async () => {
   const ctx = new Context()

@@ -1,7 +1,7 @@
 import { test, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
-import { setupStateReporting } from '../../src/events/state-report.ts'
+import { setupStateReporting } from '../../src/host/events/state-report.ts'
 
 const ORIG_ENV = { ...process.env }
 

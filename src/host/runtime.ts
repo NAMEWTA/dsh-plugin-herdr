@@ -34,14 +34,14 @@ import { HerdrPanelService } from './panel/remote.ts'
 // cordis 通过模块导出的 Config 校验插件配置并填充默认值
 export { Config } from './config.ts'
 
-export const name = 'dsh-plugin-herdr'
+export const name = 'dsh-plugin-herdr-runtime'
 export const inject = ['tools', 'herdr', 'jobs']
 
 /**
  * 消费者插件：注册 herdr_* 工具与事件转发。
- * herdr 服务由 dsh-plugin-herdr-client（client-entry.ts）提供；
+ * herdr 服务由 provider.ts 提供（index.ts 先装配它）；
  * jobs 由 dsh-base 的 dsh-jobs-local 提供（后台化，§9）。
- * cordis 4 要求访问服务的 fiber 显式 inject（见 client-entry.ts 注释）。
+ * cordis 4 要求访问服务的 fiber 显式 inject（见 index.ts 注释）。
  */
 export function apply(ctx: Context, config: ConfigType) {
   // M1 MVP 工具

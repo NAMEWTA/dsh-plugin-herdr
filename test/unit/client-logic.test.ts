@@ -48,7 +48,7 @@ import {
   validateLabel,
 } from '../../src/client-logic.ts'
 import type { PaneOrderStorageLike } from '../../src/client-logic.ts'
-import type { HerdrPaneView, HerdrTopology } from '../../src/status.ts'
+import type { HerdrPaneView, HerdrTopology } from '../../src/host/status.ts'
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 

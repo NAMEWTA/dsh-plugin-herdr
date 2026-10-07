@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { registerWorkspaceCreate } from '../../src/tools/workspace-create.ts'
-import { getBindingRegistry } from '../../src/binding-registry.ts'
+import { registerWorkspaceCreate } from '../../src/host/tools/workspace-create.ts'
+import { getBindingRegistry } from '../../src/host/binding-registry.ts'
 
 // MG-54：herdr 模式一个会话一个专属 workspace——拒绝创建新 workspace
 

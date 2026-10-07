@@ -1,8 +1,8 @@
 // Panel wire contract shared by the Host Remote service and the Web client.
 // Values are plain JSON so Typert strict codecs can validate them.
 
-import type { HerdrDashboardSnapshot } from '../web/dashboard-types.ts'
-import type { HerdrStatusSnapshot } from '../web/types.ts'
+import type { HerdrDashboardSnapshot } from '../../web/dashboard-types.ts'
+import type { HerdrStatusSnapshot } from '../../web/types.ts'
 
 export type PanelScope = 'project' | 'all'
 export type PanelResourceKind = 'workspace' | 'pane'

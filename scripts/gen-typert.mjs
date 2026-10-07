@@ -55,7 +55,7 @@ function invocation(name, _signature, hasArgs, stream) {
         typeSymbol: '${pkg}#${name}:result',
         create: ${name}Result,
       },
-      sourceLocation: { file: 'src/panel/remote.ts', line: 1, column: 1 },
+      sourceLocation: { file: 'src/host/panel/remote.ts', line: 1, column: 1 },
     }`
 }
 

@@ -2,9 +2,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { TerminalSessionManager } from '../../src/terminal-session/manager.ts'
-import type { BrowserTerminalEvent, TerminalSessionStartRequest } from '../../src/terminal-session/types.ts'
-import type { TerminalSessionConfig } from '../../src/config.ts'
+import { TerminalSessionManager } from '../../src/host/terminal-session/manager.ts'
+import type { BrowserTerminalEvent, TerminalSessionStartRequest } from '../../src/host/terminal-session/types.ts'
+import type { TerminalSessionConfig } from '../../src/host/config.ts'
 
 class FakeStream extends EventEmitter {
   private paused = false
@@ -62,7 +62,7 @@ function setup(partial: Partial<TerminalSessionConfig> = {}) {
     spawnChild: (() => {
       const c = new FakeChild()
       children.push(c)
-      return c as unknown as ReturnType<typeof import('../../src/terminal-session/process.ts').spawnTerminalSession>
+      return c as unknown as ReturnType<typeof import('../../src/host/terminal-session/process.ts').spawnTerminalSession>
     }) as never,
   })
   return { manager, children }

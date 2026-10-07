@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { SocketHerdrClient } from './host/herdr/socket.ts'
+import { SocketHerdrClient } from './herdr/socket.ts'
 import { resolveSocketPath, type Config } from './config.ts'
 import { registerHerdrPreset } from './preset.ts'
 import { createLogger } from './log.ts'
@@ -7,7 +7,7 @@ import { createLogger } from './log.ts'
 // cordis 通过模块导出的 Config 校验插件配置并填充默认值
 export { Config } from './config.ts'
 
-export const name = 'dsh-plugin-herdr-client'
+export const name = 'dsh-plugin-herdr-provider'
 
 /**
  * 提供者插件：注册 ctx.herdr 服务（DESIGN.md §3.2 能力分层）。

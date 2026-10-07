@@ -1,6 +1,6 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Context } from '@deepseek-ai/cordis'
-import type { HerdrSnapshot } from '../host/herdr/service.ts'
+import type { HerdrSnapshot } from '../herdr/service.ts'
 import { toToolError } from './shared.ts'
 
 /** 摘要渲染（纯函数；规范值本身是完整 snapshot JSON）。 */

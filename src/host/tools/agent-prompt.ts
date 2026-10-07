@@ -1,6 +1,6 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Context } from '@deepseek-ai/cordis'
-import type { AgentStatus, AgentPromptResult } from '../host/herdr/service.ts'
+import type { AgentStatus, AgentPromptResult } from '../herdr/service.ts'
 import { requireNonEmpty, toToolError } from './shared.ts'
 
 const STATUSES = ['idle', 'working', 'blocked', 'done', 'unknown']

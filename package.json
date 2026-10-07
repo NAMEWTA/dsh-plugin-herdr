@@ -29,10 +29,6 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
-    "./client-entry": {
-      "types": "./lib/client-entry.d.ts",
-      "default": "./lib/client-entry.js"
-    },
     "./session-mode": {
       "types": "./lib/session-mode.d.ts",
       "default": "./lib/session-mode.js"

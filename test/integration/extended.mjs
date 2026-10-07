@@ -4,8 +4,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { Context } from '@deepseek-ai/cordis'
-import { apply } from '../../lib/index.mjs'
-import { apply as applyClient } from '../../lib/client-entry.mjs'
+import { apply } from '../../lib/index.js'
 import { assertPreflight, ensureWorkspace } from './preflight.mjs'
 
 // CA-009：前置条件（herdr CLI + lib 构建 + server running）；不满足 → 明确 SKIP
@@ -42,8 +41,7 @@ const closePane = (id) => {
   const ctx = new Context()
   ctx.provide('tools', { register: () => () => {} })
   ctx.provide('jobs', { start: () => 'herdr-1' })
-  const cf = await ctx.plugin({ name: 'c', apply: applyClient, inject: [] }, BASE_CONFIG)
-  const f = await ctx.plugin({ name: 'h', apply, inject: ['tools', 'herdr', 'jobs'] }, BASE_CONFIG)
+  const f = await ctx.plugin({ name: 'h', apply, inject: [] }, BASE_CONFIG)
 
   // 全新 server 没有默认 workspace（CI runner 场景）：先确保存在，
   // 否则下方 snapshot.panes 为空（首个 workspace create 检查会创建后立即关闭）
@@ -106,7 +104,6 @@ const closePane = (id) => {
   for (const id of createdPanes) closePane(id)
   closeWorkspace()
   await f.dispose()
-  await cf.dispose()
 }
 
 // ---- socket 传输：独立实例加载 ----
@@ -115,11 +112,11 @@ const closePane = (id) => {
   ctx.provide('tools', { register: () => () => {} })
   ctx.provide('jobs', { start: () => 'herdr-1' })
   const config = { ...BASE_CONFIG }
-  let cf, f
+  let f
   let socketPaneId = null
   try {
-    cf = await ctx.plugin({ name: 'c', apply: applyClient, inject: [] }, config)
-    f = await ctx.plugin({ name: 'h', apply, inject: ['tools', 'herdr', 'jobs'] }, config)
+
+    f = await ctx.plugin({ name: 'h', apply, inject: [] }, config)
   } catch (err) {
     check('socket transport loads', () => { throw err })
     process.exit(failures === 0 ? 0 : 1)
@@ -160,7 +157,6 @@ const closePane = (id) => {
 
   closeWorkspace()
   await f.dispose()
-  await cf.dispose()
 }
 
 console.log(failures === 0 ? 'ALL EXTENDED CHECKS PASSED' : failures + ' CHECK(S) FAILED')

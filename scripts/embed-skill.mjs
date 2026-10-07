@@ -1,4 +1,4 @@
-// 把 src/assets/herdr-skill.md 内联为 src/herdr-skill.ts（JSON 字符串字面量，无转义问题）。
+// 把 src/assets/herdr-skill.md 内联为 src/host/herdr-skill.ts（JSON 字符串字面量，无转义问题）。
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -11,5 +11,5 @@ const lines = [
   'export const HERDR_SKILL_MD: string = ' + JSON.stringify(md),
   '',
 ]
-writeFileSync(join(root, 'src/herdr-skill.ts'), lines.join('\n'))
-console.log('embedded', md.length, 'chars -> src/herdr-skill.ts')
+writeFileSync(join(root, 'src/host/herdr-skill.ts'), lines.join('\n'))
+console.log('embedded', md.length, 'chars -> src/host/herdr-skill.ts')

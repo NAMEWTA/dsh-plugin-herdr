@@ -1,7 +1,7 @@
 // CA-017：统一日志与高频错误限流（log.ts）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createRateLimiter, errText } from '../../src/log.ts'
+import { createRateLimiter, errText } from '../../src/host/log.ts'
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 

@@ -24,7 +24,7 @@ import {
   type DashboardSummaryLike,
   type DashboardTopologyLike,
   type DashboardWorkspaceAgg,
-} from './client-logic.ts'
+} from '../client-logic.ts'
 import { createLogger, createRateLimiter, errText } from './log.ts'
 
 // ---------------------------------------------------------------------------

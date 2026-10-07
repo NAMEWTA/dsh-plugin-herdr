@@ -7,10 +7,9 @@ import { fileURLToPath } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import { TypertRegistry } from '@deepseek-ai/dsh-typert-registry'
 import { apply } from '../../lib/index.js'
-import { apply as applyClient } from '../../lib/client-entry.js'
 import * as sessionMode from '../../lib/session-mode.js'
 import { TYPERT } from '../../lib/typert.host.js'
-import type { Config as ConfigType } from '../../src/config.ts'
+import type { Config as ConfigType } from '../../src/host/config.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -108,18 +107,17 @@ function hostContext(options: { skills: boolean; webServer: boolean }) {
   return { ctx, tools, routes, skills, presets, typert }
 }
 
-test('tools, jobs, skills, webServer, typert, and typertGateway activate the three plugins', async () => {
+test('tools, jobs, skills, webServer, typert, and typertGateway activate the single host entry', async () => {
   const patch = readFileSync(join(root, 'cordis.patch.yml'), 'utf8')
   assert.doesNotMatch(patch, /session-mode/)
-  assert.match(patch, /@namewta\/dsh-plugin-herdr\/client-entry/)
+  assert.match(patch, /name: '@namewta\/dsh-plugin-herdr'$/m)
+  assert.doesNotMatch(patch, /client-entry/)
 
   const { ctx, tools, routes, skills, presets, typert } = hostContext({ skills: true, webServer: true })
   const stopTypert = typert.register(TYPERT as never)
-  const clientFiber = await ctx.plugin({ name: 'dsh-plugin-herdr-client', apply: applyClient, inject: [] }, FULL_CONFIG)
-  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: ['tools', 'herdr', 'jobs'] }, FULL_CONFIG)
+  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: [] }, FULL_CONFIG)
   let sessionFiber: { dispose(): Promise<void>; state: number } | undefined
   try {
-    assert.equal(clientFiber.state, 2)
     assert.equal(fiber.state, 2)
     assert.equal(typeof ctx.herdr.snapshot, 'function')
     await waitUntil(() => presets.length === 1, 'preset did not register')
@@ -163,14 +161,12 @@ test('tools, jobs, skills, webServer, typert, and typertGateway activate the thr
     stopTypert()
     await sessionFiber?.dispose()
     await fiber.dispose()
-    await clientFiber.dispose()
   }
 })
 
 test('missing webServer and skills still registers tools', async () => {
   const { ctx, tools, routes, skills } = hostContext({ skills: false, webServer: false })
-  const clientFiber = await ctx.plugin({ name: 'dsh-plugin-herdr-client', apply: applyClient, inject: [] }, FULL_CONFIG)
-  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: ['tools', 'herdr', 'jobs'] }, FULL_CONFIG)
+  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: [] }, FULL_CONFIG)
   try {
     assert.equal(fiber.state, 2)
     assert.equal(typeof ctx.herdr.snapshot, 'function')
@@ -179,6 +175,5 @@ test('missing webServer and skills still registers tools', async () => {
     assert.deepEqual(skills, [])
   } finally {
     await fiber.dispose()
-    await clientFiber.dispose()
   }
 })

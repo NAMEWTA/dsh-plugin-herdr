@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { registerAgentStart } from '../../src/tools/agent-start.ts'
-import { getBindingRegistry } from '../../src/binding-registry.ts'
+import { registerAgentStart } from '../../src/host/tools/agent-start.ts'
+import { getBindingRegistry } from '../../src/host/binding-registry.ts'
 
 // MG-53：herdr_agent_start —— 开启 agent 执行任务的正确定路径（缺省在本会话
 // 专属 workspace 的绑定 pane 旁 split 启动）。

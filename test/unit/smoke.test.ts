@@ -2,8 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
 import { apply } from '../../lib/index.js'
-import { apply as applyClient } from '../../lib/client-entry.js'
-import { Config, type Config as ConfigType } from '../../src/config.ts'
+import { Config, type Config as ConfigType } from '../../src/host/config.ts'
 
 const FULL_CONFIG: ConfigType = {
   timeoutMs: 30000,
@@ -12,13 +11,12 @@ const FULL_CONFIG: ConfigType = {
   reportState: true,
 }
 
-test('provider + consumer plugins load and register ctx.herdr + tools', async () => {
+test('single host entry loads and register ctx.herdr + tools', async () => {
   const ctx = new Context()
   ctx.provide('tools', { register: () => () => {} })
   ctx.provide('jobs', { start: () => 'herdr-1' })
-  const clientFiber = await ctx.plugin({ name: 'dsh-plugin-herdr-client', apply: applyClient, inject: [] }, FULL_CONFIG)
   const fiber = await ctx.plugin(
-    { name: 'dsh-plugin-herdr', apply, inject: ['tools', 'herdr', 'jobs'] },
+    { name: 'dsh-plugin-herdr', apply, inject: [] },
     FULL_CONFIG,
   )
   try {
@@ -26,18 +24,23 @@ test('provider + consumer plugins load and register ctx.herdr + tools', async ()
     assert.ok(ctx.herdr.snapshot, 'ctx.herdr should expose service methods')
   } finally {
     await fiber.dispose()
-    await clientFiber.dispose()
   }
 })
 
-test('consumer plugin does not load before provider registers herdr', async () => {
+test('single entry activates even when tools arrive late; tools register on arrival', async () => {
   const ctx = new Context()
-  ctx.provide('tools', { register: () => () => {} })
   ctx.provide('jobs', { start: () => 'herdr-1' })
-  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: ['tools', 'herdr', 'jobs'] }, FULL_CONFIG)
-  // herdr 未提供 → fiber 应停留在等待状态而非激活
-  assert.notEqual(fiber.state, 2 /* ACTIVE */)
-  await fiber.dispose()
+  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: [] }, FULL_CONFIG)
+  try {
+    assert.equal(fiber.state, 2 /* ACTIVE */)
+    assert.ok(ctx.herdr, 'provider mounts ctx.herdr without tools')
+    const names: string[] = []
+    ctx.provide('tools', { register: (def: { name: string }) => { names.push(def.name); return () => {} } })
+    for (let i = 0; i < 50 && names.length === 0; i++) await new Promise(r => setTimeout(r, 10))
+    assert.equal(names.length, 19)
+  } finally {
+    await fiber.dispose()
+  }
 })
 
 test('tools register the herdr control surface', async () => {
@@ -48,8 +51,7 @@ test('tools register the herdr control surface', async () => {
     return () => {}
   } })
   ctx.provide('jobs', { start: () => 'herdr-1' })
-  const clientFiber = await ctx.plugin({ name: 'dsh-plugin-herdr-client', apply: applyClient, inject: [] }, FULL_CONFIG)
-  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: ['tools', 'herdr', 'jobs'] }, FULL_CONFIG)
+  const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: [] }, FULL_CONFIG)
   try {
     const names = registered.map(r => r.name)
     // 全量 socket 迁移后 layout_apply 恒注册；agent_start 恒注册（19 个工具）
@@ -61,7 +63,6 @@ test('tools register the herdr control surface', async () => {
   } finally {
     // 断言失败也必须清理（tracker interval 泄漏会让测试进程挂起）
     await fiber.dispose()
-    await clientFiber.dispose()
   }
 })
 

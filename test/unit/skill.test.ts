@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
-import { registerHerdrSkill, skillDescription } from '../../src/skill.ts'
-import { HERDR_SKILL_MD } from '../../src/herdr-skill.ts'
+import { registerHerdrSkill, skillDescription } from '../../src/host/skill.ts'
+import { HERDR_SKILL_MD } from '../../src/host/herdr-skill.ts'
 
 test('skillDescription parses frontmatter description', () => {
   const desc = skillDescription(HERDR_SKILL_MD)

@@ -3,8 +3,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { Context } from '@deepseek-ai/cordis'
-import { apply } from '../../lib/index.mjs'
-import { apply as applyClient } from '../../lib/client-entry.mjs'
+import { apply } from '../../lib/index.js'
 import { assertPreflight, ensureWorkspace } from './preflight.mjs'
 
 // CA-009：前置条件（herdr CLI + lib 构建 + server running）；不满足 → 明确 SKIP
@@ -21,8 +20,7 @@ const ctx = new Context()
 ctx.provide('tools', { register: () => () => {} })
 ctx.provide('jobs', { start: () => 'herdr-1' })
 // 提供者先加载（ctx.herdr），消费者后加载（工具）
-const clientFiber = await ctx.plugin({ name: 'dsh-plugin-herdr-client', apply: applyClient, inject: [] }, CONFIG)
-const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: ['tools', 'herdr', 'jobs'] }, CONFIG)
+const fiber = await ctx.plugin({ name: 'dsh-plugin-herdr', apply, inject: [] }, CONFIG)
 
 let failures = 0
 const check = async (name, fn) => {
@@ -103,7 +101,6 @@ try {
   for (const id of createdPanes) closePane(id)
   closeWorkspace()
   await fiber.dispose()
-  await clientFiber.dispose()
   console.log(failures === 0 ? 'ALL INTEGRATION CHECKS PASSED' : `${failures} CHECK(S) FAILED`)
   process.exit(failures === 0 ? 0 : 1)
 }

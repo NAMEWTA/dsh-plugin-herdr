@@ -7,7 +7,7 @@ import {
   HerdrDashboardTracker,
   type HerdrDashboardProcess,
   type HerdrDashboardStatusSource,
-} from '../../src/dashboard.ts'
+} from '../../src/host/dashboard.ts'
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 

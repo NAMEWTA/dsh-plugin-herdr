@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { comparePaneId, filterTopology, serverInfoFromPing, startHerdrServer, type PingProbeFn, type SpawnFn } from '../../src/status.ts'
+import { comparePaneId, filterTopology, serverInfoFromPing, startHerdrServer, type PingProbeFn, type SpawnFn } from '../../src/host/status.ts'
 
 test('comparePaneId: natural order (p2 < p10)', () => {
   const ids = ['w8:p10', 'w8:p2', 'w8:p1', 'w9:p1', 'w8:p11']
@@ -100,7 +100,7 @@ test('startHerdrServer: timeout returns not running', async () => {
 // ---------------------------------------------------------------------------
 
 import { Context } from '@deepseek-ai/cordis'
-import { HerdrStatusTracker } from '../../src/status.ts'
+import { HerdrStatusTracker } from '../../src/host/status.ts'
 import type { HerdrClient } from '../../src/host/herdr/service.ts'
 
 const EMPTY_SNAP = {
@@ -221,7 +221,7 @@ test('CR: a successful cycle clears last_error from a previous failure', async (
 // 失败回退原值，前缀边界比较在原始字符串上仍然成立（跨平台确定性）。
 // ---------------------------------------------------------------------------
 
-import type { HerdrTopology } from '../../src/status.ts'
+import type { HerdrTopology } from '../../src/host/status.ts'
 
 const PROJ = '/proj/repo'
 const ROOT = PROJ + '/root'
@@ -397,7 +397,7 @@ test('ANSI contract: truncateAnsiTail cleans incomplete escape at OUTPUT_CAP bou
 
 test('ANSI contract: status.ts pollOutputs uses format:ansi (source code verification)', () => {
   // 验证 status.ts 源码中 pollOutputs 调用包含 format:'ansi' 和 truncateAnsiTail
-  const statusSource = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'status.ts'), 'utf8')
+  const statusSource = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'host', 'status.ts'), 'utf8')
   assert.ok(statusSource.includes("format: 'ansi'"), 'status.ts must pass format:ansi to paneRead')
   assert.ok(statusSource.includes('truncateAnsiTail'), 'status.ts must use truncateAnsiTail')
   assert.ok(statusSource.includes('outputTruncated'), 'status.ts must set outputTruncated')

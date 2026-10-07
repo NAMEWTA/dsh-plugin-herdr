@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { registerPaneRun } from '../../src/tools/pane-run.ts'
-import { getBindingRegistry } from '../../src/binding-registry.ts'
+import { registerPaneRun } from '../../src/host/tools/pane-run.ts'
+import { getBindingRegistry } from '../../src/host/binding-registry.ts'
 
 // MG-50 修复轮：herdr_pane_run 默认复用本会话绑定 pane；显式新建时以绑定 pane
 // 为 split target（新 pane 落在本会话专属 workspace）。

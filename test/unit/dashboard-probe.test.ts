@@ -1,7 +1,7 @@
 // P2-2：probeHerdrProcess 的 ps/pgrep 输出解析纯函数单测（唯一原先无直接覆盖的解析逻辑）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parsePgrepOutput, parsePsOutput } from '../../src/dashboard.ts'
+import { parsePgrepOutput, parsePsOutput } from '../../src/host/dashboard.ts'
 
 // ---------------------------------------------------------------------------
 // parsePgrepOutput
