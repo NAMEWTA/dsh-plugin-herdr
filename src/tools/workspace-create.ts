@@ -27,7 +27,6 @@ export function registerWorkspaceCreate(ctx: Context) {
       },
       render: (_args, value) => [{ type: 'text', text: 'created workspace ' + (value as { workspace_id: string }).workspace_id }],
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Create workspace ' + ((args as any).label ?? '') } as const),
     async execute(args, exec) {
       try {
         // herdr 模式：拒绝创建新 workspace（一个会话一个专属 workspace 的约束）

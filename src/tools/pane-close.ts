@@ -19,7 +19,6 @@ export function registerPaneClose(ctx: Context) {
       },
       render: () => [{ type: 'text', text: 'closed pane' }],
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Close pane ' + args.pane_id, rawInput: args.pane_id } as const),
     async execute(args) {
       try {
         requireNonEmpty(args.pane_id, 'pane_id')

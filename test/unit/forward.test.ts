@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server, type Socket as NetSocket } from 'node:net'
+import { randomBytes } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,7 +17,10 @@ function startFakeServer(
 ): Promise<{ path: string; server: Server; dir: string }> {
   return new Promise(resolve => {
     const dir = mkdtempSync(join(tmpdir(), 'herdr-fwd-test-'))
-    const path = join(dir, 'test.sock')
+    // Windows 不能在文件系统路径上 listen unix socket（EACCES）。命名管道走同一套 net JSONL。
+    const path = process.platform === 'win32'
+      ? `\\\\.\\pipe\\herdr-fwd-${randomBytes(8).toString('hex')}`
+      : join(dir, 'test.sock')
     const server = createServer(conn => {
       let buf = ''
       conn.setEncoding('utf8')

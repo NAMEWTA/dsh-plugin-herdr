@@ -12,9 +12,9 @@ test('skillDescription parses frontmatter description', () => {
 
 test('registerHerdrSkill registers herdr skill with embedded content', async () => {
   const ctx = new Context()
-  const registered: Array<{ name: string; description: string; content: string; source?: string }> = []
+  const registered: Array<{ name: string; description: string; content: string; source?: unknown; provider?: unknown }> = []
   ctx.provide('skills', {
-    register: (s: { name: string; description: string; content: string; source?: string }) => {
+    register: (s: { name: string; description: string; content: string; source?: unknown; provider?: unknown }) => {
       registered.push(s)
       return () => {}
     },
@@ -24,7 +24,8 @@ test('registerHerdrSkill registers herdr skill with embedded content', async () 
   await new Promise(res => setTimeout(res, 100))
   assert.equal(registered.length, 1, 'skill should be registered')
   assert.equal(registered[0].name, 'herdr')
-  assert.equal(registered[0].source, 'runtime', 'source is required by SkillRegistration')
+  assert.equal(registered[0].source, 'runtime', 'registry source label')
+  assert.equal(registered[0].provider, undefined, 'registry fills runtime provider')
   assert.ok(registered[0].content.startsWith('---'), 'content should be the SKILL.md body')
   assert.ok(registered[0].content.includes('## Learn the current CLI'))
   assert.ok(registered[0].description.includes('Herdr'))

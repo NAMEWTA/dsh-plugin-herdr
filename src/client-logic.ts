@@ -787,7 +787,7 @@ export function terminalFocusTransition(
 // filterGroupsToSession：面板只保留包含本会话绑定 pane 的 workspace 组。
 // ---------------------------------------------------------------------------
 
-/** herdr agent preset id（与服务端 preset-install.ts 的 PRESET_ID 一致；两处需同步修改）。 */
+/** herdr agent preset id（与 src/preset.ts 的 HERDR_PRESET_ID 一致）。 */
 export const HERDR_PRESET_ID = 'herdr'
 
 /** 会话列表状态 → 当前会话是否为 herdr 模式（agentPreset === HERDR_PRESET_ID）。 */

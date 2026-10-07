@@ -4,6 +4,27 @@
 // 组件文案经 t(key) 或 useHerdrLang() 切换；新增用户可见文案必须同时补 zh + en。
 
 import { useEffect, useState } from 'react'
+import en from '../../locale/en.json' with { type: 'json' }
+import zh from '../../locale/zh.json' with { type: 'json' }
+
+export const HERDR_LOCALE_NS = 'herdr'
+
+type LocaleDictionary = Record<string, string>
+type LocaleRegistrar = {
+  register(namespace: string, dictionaries: { zh: LocaleDictionary; en: LocaleDictionary }): () => void
+}
+
+/** Register panel copy. Plugin metadata stays in the same files under meta. */
+export function registerHerdrLocale(locale: LocaleRegistrar): () => void {
+  const entries = (file: Record<string, unknown>): LocaleDictionary => {
+    const dictionary: LocaleDictionary = {}
+    for (const [key, value] of Object.entries(file)) {
+      if (key !== 'meta' && typeof value === 'string') dictionary[key] = value
+    }
+    return dictionary
+  }
+  return locale.register(HERDR_LOCALE_NS, { zh: entries(zh), en: entries(en) })
+}
 
 /** 界面语言（'zh' | 'en'；未知语言回退 zh）。 */
 let herdrLang: 'zh' | 'en' = 'zh'
@@ -45,7 +66,15 @@ export function useHerdrLang(): 'zh' | 'en' {
   return lang
 }
 
-/** 文案字典：key → { zh, en }。 */
+type LocaleTranslate = (key: string, params?: Record<string, string | number>) => string
+let localeTranslate: LocaleTranslate | null = null
+
+/** Point panel copy at ctx.locale.bind('herdr'). Null keeps the local fallback. */
+export function setHerdrLocaleTranslate(next: LocaleTranslate | null): void {
+  localeTranslate = next
+}
+
+/** 文案字典：key → { zh, en }。权威副本在 locale/*.json，这里保留给无 locale 服务的回退。 */
 export const I18N_KEYS = {
   'pane.drag': { zh: '拖拽排序', en: 'Drag to reorder' },
   'pane.rename': { zh: '重命名', en: 'Rename' },
@@ -206,6 +235,10 @@ export type I18nKey = keyof typeof I18N_KEYS
 
 /** 取当前语言文案（模板参数 {x} 用 params 替换；缺失 key 回退 zh，再缺失返回 key 本身）。 */
 export function t(key: I18nKey, params?: Record<string, string | number>): string {
+  if (localeTranslate) {
+    const translated = localeTranslate(key, params)
+    if (translated !== key) return translated
+  }
   const entry = I18N_KEYS[key]
   if (entry === undefined) return key
   const text = entry[herdrLang] ?? entry.zh

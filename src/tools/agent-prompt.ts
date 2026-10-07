@@ -38,7 +38,6 @@ export function registerAgentPrompt(ctx: Context) {
       },
       render: (_args, value) => [{ type: 'text', text: renderPrompt(value as AgentPromptResult) }],
     },
-    presentCall: (args) => ({ card: 'generic', title: `Prompt ${args.target}`, rawInput: args.text } as const),
     async execute(args, exec) {
       try {
         requireNonEmpty(args.target, 'target')

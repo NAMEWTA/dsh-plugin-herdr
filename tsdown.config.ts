@@ -5,6 +5,8 @@ export default defineConfig({
   outDir: 'lib',
   format: ['esm'],
   dts: true,
-  target: 'node22',
+  target: 'node24',
   clean: true,
+  // package.json exports point at .js / .d.ts. Node platform otherwise emits .mjs.
+  outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
 })

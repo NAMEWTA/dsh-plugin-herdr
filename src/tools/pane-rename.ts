@@ -22,7 +22,6 @@ export function registerPaneRename(ctx: Context) {
       },
       render: () => [{ type: 'text', text: 'pane renamed' }],
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Rename pane ' + args.pane_id, rawInput: args.pane_id } as const),
     async execute(args) {
       try {
         requireNonEmpty(args.pane_id, 'pane_id')

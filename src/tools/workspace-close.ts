@@ -20,11 +20,6 @@ export function registerWorkspaceClose(ctx: Context) {
       },
       render: (_args, value) => [{ type: 'text', text: 'closed workspace (' + ((value as { closed_panes: number }).closed_panes) + ' panes)' }],
     },
-    presentCall: (args) => ({
-      card: 'generic',
-      title: 'Close workspace ' + args.workspace_id + ' (destructive)',
-      rawInput: args.workspace_id,
-    } as const),
     async execute(args) {
       try {
         // 关闭前统计该 workspace 的 pane 数（展示用）；快照失败不阻塞关闭

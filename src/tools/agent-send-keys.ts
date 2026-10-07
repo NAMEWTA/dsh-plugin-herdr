@@ -14,7 +14,6 @@ export function registerAgentSendKeys(ctx: Context) {
       schema: { type: 'object', additionalProperties: false, properties: { sent: { type: 'boolean', required: true } } },
       render: (_args, value) => [{ type: 'text', text: (value as { sent: boolean }).sent ? 'keys sent' : 'failed' }],
     },
-    presentCall: (args) => ({ card: 'generic', title: `Send keys to ${args.target}`, rawInput: args.keys } as const),
     async execute(args) {
       try {
         requireNonEmpty(args.target, 'target')

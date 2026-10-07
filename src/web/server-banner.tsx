@@ -1,7 +1,7 @@
 // 服务状态看板条（会话页 Herdr Tab 顶部 + 新建会话浮层卡片复用）
 
 import type { ReactNode } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Pill, StateDot } from './ui.tsx'
 import { t, useHerdrLang } from './i18n.ts'
 import { useHerdrStart } from './store.ts'
 

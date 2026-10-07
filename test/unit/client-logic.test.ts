@@ -543,7 +543,7 @@ test('agentTheme: prefix match with lowercase', () => {
 // Herdr 模式判定与面板会话聚焦（design: herdr-mode-gating MG-02）
 // ---------------------------------------------------------------------------
 
-test('MG-02: HERDR_PRESET_ID 与服务端 preset id 一致（preset-install.ts PRESET_ID）', () => {
+test('MG-02: HERDR_PRESET_ID matches the registered preset id', () => {
   assert.equal(HERDR_PRESET_ID, 'herdr')
 })
 

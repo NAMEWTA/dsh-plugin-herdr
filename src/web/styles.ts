@@ -20,6 +20,11 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   const style = document.createElement('style')
   style.id = STYLE_ID
   style.textContent = `
+.herdr-button { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 8px; padding: 4px 8px; }
+.herdr-pill { color: var(--dsw-alias-label-secondary); }
+.herdr-state-dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; background: var(--dsw-alias-state-idle-primary); }
+.herdr-state-dot.is-working, .herdr-state-dot.is-running { background: var(--dsw-alias-state-success-primary); }
+.herdr-state-dot.is-blocked, .herdr-state-dot.is-error { background: var(--dsw-alias-state-error-primary); }
 .herdr-root {
   display: flex; flex-direction: column; gap: 10px;
   padding: 14px 16px 24px; min-height: 100%; box-sizing: border-box;
@@ -370,7 +375,7 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   font-family: var(--ds-font-family-code);
   font-size: 12px;
   line-height: 18px;
-  background: #1f2937;
+  background: var(--dsw-alias-bg-layer-2);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -393,14 +398,14 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   position: absolute; top: 6px; right: 8px; z-index: 3;
   font-size: 10px; line-height: 14px; font-weight: 500;
   padding: 2px 7px; border-radius: 999px;
-  background: rgba(15, 18, 25, .72);
-  color: #d1d5db;
-  border: 1px solid rgba(255, 255, 255, .14);
+  background: var(--dsw-alias-bg-overlay);
+  color: var(--dsw-alias-label-secondary);
+  border: 1px solid var(--dsw-alias-border-l1);
   white-space: nowrap;
   user-select: none;
 }
-.herdr-term-chip[data-mode='snapshot'] { color: #fbbf24; border-color: rgba(251, 191, 36, .35); }
-.herdr-term-chip[data-error] { color: #fca5a5; border-color: rgba(239, 68, 68, .5); }
+.herdr-term-chip[data-mode='snapshot'] { color: var(--dsw-alias-state-warn-primary); border-color: var(--dsw-alias-state-warn-primary); }
+.herdr-term-chip[data-error] { color: var(--dsw-alias-state-error-primary); border-color: var(--dsw-alias-state-error-primary); }
 .herdr-list-detail .herdr-term {
   min-height: 420px;
 }
@@ -459,8 +464,8 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   position: absolute;
   z-index: 6;
   white-space: nowrap;
-  background: #1f2937;
-  color: #ffffff;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
 }
 .herdr-xterm-host .composition-view.active { display: block; }
 .herdr-xterm-host .xterm-viewport {
@@ -570,28 +575,28 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   transition: background-color 180ms, border-color 180ms;
 }
 .herdr-term-header[data-mode="controlling"] {
-  background: color-mix(in srgb, var(--accent, #7c3aed) 6%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, transparent);
   border-color: var(--accent);
 }
 .herdr-term-header[data-mode="conflict"] {
-  background: #fee2e2;
-  border-color: #fecaca;
+  background: var(--dsw-alias-bg-layer-1);
+  border-color: var(--dsw-alias-state-error-primary);
 }
 .herdr-term-header[data-mode="snapshot"] {
-  background: #fef3c7;
-  border-color: #fde68a;
+  background: var(--dsw-alias-bg-layer-1);
+  border-color: var(--dsw-alias-state-warn-primary);
 }
 body[data-ds-dark-theme] .herdr-term-header[data-mode="controlling"] {
-  background: color-mix(in srgb, var(--accent, #7c3aed) 12%, #1f2937);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, var(--dsw-alias-bg-layer-2));
   border-color: var(--accent);
 }
 body[data-ds-dark-theme] .herdr-term-header[data-mode="conflict"] {
-  background: #450a0a;
-  border-color: #7f1d1d;
+  background: var(--dsw-alias-bg-layer-1);
+  border-color: var(--dsw-alias-state-error-primary);
 }
 body[data-ds-dark-theme] .herdr-term-header[data-mode="snapshot"] {
-  background: #451a03;
-  border-color: #92400e;
+  background: var(--dsw-alias-bg-layer-1);
+  border-color: var(--dsw-alias-state-warn-primary);
 }
 .herdr-term-header-left {
   display: inline-flex;
@@ -658,17 +663,17 @@ body[data-ds-dark-theme] .herdr-term-header[data-mode="snapshot"] {
   .herdr-term-header { transition: none; }
 }
 .herdr-term-conflict-bar {
-  background: #fee2e2;
-  border: 1px solid #fecaca;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-state-error-primary);
   padding: 6px 8px;
   display: flex;
   gap: 8px;
   align-items: center;
 }
 body[data-ds-dark-theme] .herdr-term-conflict-bar {
-  background: #450a0a;
-  border-color: #7f1d1d;
-  color: #fecaca;
+  background: var(--dsw-alias-bg-layer-1);
+  border-color: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-state-error-primary);
 }
 .herdr-term-output {
   flex: 1;
@@ -1864,6 +1869,16 @@ svg.herdr-preset-logo > * {
   .herdr-pane-flash { animation: none; }
 }
 
+.herdr-panel-icon { position: relative; display: inline-flex; }
+.herdr-panel-icon .herdr-state-dot { position: absolute; right: -2px; bottom: -2px; }
+.herdr-panel-icon .herdr-state-dot[data-state='running'] { background: var(--dsw-alias-state-success-primary); }
+.herdr-panel-icon .herdr-state-dot[data-state='not-installed'] { background: var(--dsw-alias-state-warn-primary); }
+.herdr-dash-panel {
+  display: flex; flex-direction: column; min-height: 100%;
+  background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary);
+}
+.herdr-dash-panel .herdr-gds-body { overflow-y: auto; flex: 1; }
+
 /* ── 全局 Dashboard 入口与右侧工作区 surface（design: dashboard-global v3） ──
    按钮为 sidebar 文档流内的 marker（v3 不再有 fixed 悬浮按钮）；rail/wide 由
    data-rail 切换；surface 从 sidebar 右边界覆盖右侧工作区（left/top/宽高内联）。 */
@@ -2018,7 +2033,7 @@ svg.herdr-preset-logo > * {
 .herdr-state-dot[data-state='not-installed'] { background: var(--dsw-alias-state-warn-primary); }
 .herdr-state-dot[data-state='checking'] {
   background: var(--dsw-alias-label-tertiary);
-  animation: herdr-state-pulse 1.4s var(--ds-ease-in-out) infinite;
+  animation: herdr-state-pulse 1.4s ease-in-out infinite;
 }
 .herdr-gds-version {
   font-family: var(--ds-font-family-code);

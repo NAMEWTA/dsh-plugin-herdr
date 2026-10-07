@@ -57,7 +57,6 @@ export function registerAgentStart(ctx: Context) {
         return [{ type: 'text', text: lines.join('\n') }]
       },
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Agent start ' + (args as any).kind, rawInput: (args as any).kind } as const),
     async execute(args, exec) {
       try {
         requireNonEmpty(args.kind, 'kind')

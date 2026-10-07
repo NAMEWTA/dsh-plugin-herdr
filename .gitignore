@@ -6,6 +6,7 @@ dist/
 .pnpm-store/
 
 # 本地测试环境
+.dsh-extract/
 .dsh-home/
 .dsh-blank/
 scratch-plugin/

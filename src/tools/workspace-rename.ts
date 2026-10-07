@@ -27,7 +27,6 @@ export function registerWorkspaceRename(ctx: Context) {
       },
       render: () => [{ type: 'text', text: 'workspace renamed' }],
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Rename workspace ' + args.workspace_id + ' to ' + args.label, rawInput: args.workspace_id } as const),
     async execute(args) {
       try {
         requireNonEmpty(args.workspace_id, 'workspace_id')

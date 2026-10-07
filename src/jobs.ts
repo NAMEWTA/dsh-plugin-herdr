@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { JobKindMap, JobOutcome, JobStart } from '@deepseek-ai/dsh-jobs'
+import type { JobKindMap, JobOutcome, JobSpec } from '@deepseek-ai/dsh-jobs'
 
 // 声明我们的 producer kind（id 前缀 herdr-1, herdr-2 ...）
 declare module '@deepseek-ai/dsh-jobs' {
@@ -24,7 +24,7 @@ export type HerdrJobKind = JobKindMap['herdr']
  */
 export interface WaitJobSpec<T> {
   /** 拥有该任务的 agent（会话围栏 + 所有者清理）。 */
-  owner?: JobStart['owner']
+  owner?: JobSpec['owner']
   /** 一行模型可见标签。 */
   label: string
   /** 真实等待逻辑（观察/转发 signal）。 */
@@ -47,7 +47,7 @@ export function startWaitJob<T>(ctx: Context, spec: WaitJobSpec<T>): string {
         .wait(controller.signal)
         .then<JobOutcome>(result => {
           lastOutput = spec.render(result)
-          return { status: 'completed', output: lastOutput }
+          return { status: 'completed', result: lastOutput }
         })
         .catch((err: unknown): JobOutcome => {
           const detail = err instanceof Error ? err.message : String(err)
@@ -55,9 +55,9 @@ export function startWaitJob<T>(ctx: Context, spec: WaitJobSpec<T>): string {
           // CA-015：取消（cancel → abort）是 killed 语义；真实失败才是 failed
           if (controller.signal.aborted) {
             const why = cancelReason ?? 'cancelled'
-            return { status: 'killed', detail: why, output: detail }
+            return { status: 'killed', detail: why, result: detail }
           }
-          return { status: 'failed', detail, output: detail }
+          return { status: 'failed', detail, result: detail }
         })
       return {
         // CA-015：同步、幂等（AbortController.abort 二次调用为 no-op）、reason 首报即锁定
@@ -66,7 +66,6 @@ export function startWaitJob<T>(ctx: Context, spec: WaitJobSpec<T>): string {
           controller.abort(reason)
         },
         done,
-        readOutput: () => lastOutput,
       }
     },
   })

@@ -5,7 +5,7 @@
 // 新增：maximize 按钮、PaneTerminal
 
 import { useCallback, useRef, useState, type DragEvent } from 'react'
-import { Pill, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Pill, StateDot } from './ui.tsx'
 import {
   agentTheme,
   ariaStateLabel,

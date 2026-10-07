@@ -5,14 +5,15 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2023", "DOM"],
     "jsx": "react-jsx",
-    "experimentalDecorators": true,
+    "experimentalDecorators": false,
     "strict": true,
     "noEmit": true,
     "declaration": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"]
 }

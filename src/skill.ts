@@ -15,6 +15,7 @@ export function skillDescription(md: string): string {
  * 注册 Herdr skill 到会话 skill 目录（DESIGN.md §19）。
  * 启用插件即给当前及后续会话加载官方 SKILL.md（v0.8.0 内嵌快照）。
  * 通过 ctx.inject(['skills']) 等待 registry；headless 无 skills 服务时跳过。
+ * register() 会补 provider，但 skills.get() 仍要求 source 为字符串，故保留 source: 'runtime'。
  */
 export function registerHerdrSkill(ctx: Context): () => void {
   let off: (() => void) | null = null
@@ -24,9 +25,7 @@ export function registerHerdrSkill(ctx: Context): () => void {
       name: 'herdr',
       description: skillDescription(HERDR_SKILL_MD),
       content: HERDR_SKILL_MD,
-      // SkillRegistration 必填：来源桶（prompt 可见元数据）与提供者
       source: 'runtime',
-      provider: 'runtime',
     })
     createLogger(ctx, 'skill').info('skill "herdr" registered (v0.8.0 SKILL.md embedded)')
   })

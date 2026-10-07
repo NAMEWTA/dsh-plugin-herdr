@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Pill, StateDot } from './ui.tsx'
+import { getHerdrRemote } from './remote.ts'
 import {
   agentTheme,
   applyPaneOrder,
@@ -264,13 +265,8 @@ export function HerdrPanesView() {
   const postClose = useCallback(async (paneId: string): Promise<void> => {
     setHiddenPaneIds(prev => new Set(prev).add(paneId))
     try {
-      const resp = await fetch('/herdr-close', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ kind: 'pane', id: paneId }),
-      })
-      const body = (await resp.json()) as { ok?: boolean; error?: string }
-      if (!body.ok) throw new Error(body.error ?? `herdr-close HTTP ${resp.status}`)
+      const body = await getHerdrRemote().close({ kind: 'pane', id: paneId }) as { ok?: boolean; error?: string }
+      if (!body.ok) throw new Error(body.error ?? 'herdr close failed')
       refresh()
     } catch (e) {
       // 回滚乐观移除
@@ -286,13 +282,8 @@ export function HerdrPanesView() {
   // ── T12 重命名交互 ────────────────────────────────────────────────
   const doRename = useCallback(async (kind: 'pane' | 'workspace', id: string, label: string | null): Promise<void> => {
     try {
-      const resp = await fetch('/herdr-rename', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ kind, id, label }),
-      })
-      const body = (await resp.json()) as { ok?: boolean; error?: string }
-      if (!body.ok) throw new Error(body.error ?? `herdr-rename HTTP ${resp.status}`)
+      const body = await getHerdrRemote().rename({ kind, id, label }) as { ok?: boolean; error?: string }
+      if (!body.ok) throw new Error(body.error ?? 'herdr rename failed')
       // 乐观覆盖可持续展示（服务端持久化后 refresh 收敛；此处保留覆盖避免闪回）
       setLabelOverrides(prev => { const n = new Map(prev); n.set(id, label); return n })
       refresh()

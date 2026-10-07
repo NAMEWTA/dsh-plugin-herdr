@@ -4,11 +4,21 @@ import type { SseEvent } from '../client-logic.ts'
 import type { HerdrStatusSnapshot } from './types.ts'
 import type { HerdrDashboardSnapshot } from './dashboard-types.ts'
 import { getHerdrMode, useHerdrMode } from './mode.ts'
+import { getHerdrRemote, type HerdrRemote } from './remote.ts'
+
+function herdrRemote(): HerdrRemote | null {
+  try {
+    return getHerdrRemote()
+  } catch {
+    return null
+  }
+}
 
 async function fetchStatus(signal: AbortSignal): Promise<HerdrStatusSnapshot> {
-  const resp = await fetch('/herdr-status', { signal })
-  if (!resp.ok) throw new Error(`herdr-status HTTP ${resp.status}`)
-  return (await resp.json()) as HerdrStatusSnapshot
+  if (signal.aborted) throw new Error('aborted')
+  const remote = herdrRemote()
+  if (!remote) throw new Error('herdr remote is not mounted')
+  return await remote.status({ scope: 'project' }) as HerdrStatusSnapshot
 }
 
 export function statusIntervalFor(snap: HerdrStatusSnapshot | null): number {
@@ -68,6 +78,7 @@ export function patchHerdrStatus(snap: HerdrStatusSnapshot, event: SseEvent): He
 
 export function openHerdrEvents(signal: AbortSignal, onEvent: (e: SseEvent) => void): { close(): void } {
   let closed = false
+  let generation = 0
   let lastRevision: number | null = null
   let curController: AbortController | null = null
   let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -110,52 +121,27 @@ export function openHerdrEvents(signal: AbortSignal, onEvent: (e: SseEvent) => v
   }
   const connect = async (): Promise<void> => {
     if (closed || signal.aborted) return
+    const current = ++generation
     curController = new AbortController()
     const linkSignal = curController.signal
     const onOuterAbort = (): void => { try { curController!.abort() } catch { /* ignore */ } }
     signal.addEventListener('abort', onOuterAbort, { once: true })
-    const url = lastRevision != null ? `/herdr-events?after_revision=${lastRevision}` : '/herdr-events'
+    const request = lastRevision != null ? { after_revision: lastRevision } : {}
+    const remote = herdrRemote()
+    if (!remote) {
+      if (!closed && !signal.aborted && current === generation) retryTimer = setTimeout(() => { void connect() }, 3000)
+      return
+    }
     try {
-      const resp = await fetch(url, { signal: linkSignal, headers: { Accept: 'text/event-stream' } })
-      if (!resp.ok || !resp.body) throw new Error(`sse ${resp.status}`)
-      const reader = (resp.body as ReadableStream<Uint8Array>).getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-      let curEvent = ''
-      let curData = ''
-      let curId = ''
-      const flush = (): void => {
-        if (curData !== '' || curEvent !== '') {
-          emitParsed(curEvent, curData, curId)
-          curEvent = ''
-          curData = ''
-          curId = ''
-        }
+      for await (const value of remote.events(request)) {
+        if (current !== generation || linkSignal.aborted || signal.aborted) break
+        const event = value as { type?: string; revision?: number }
+        if (event.type === 'output' && typeof event.revision === 'number') lastRevision = event.revision
+        emitParsed(String(event.type ?? ''), JSON.stringify(value), '')
       }
-      while (true) {
-        if (linkSignal.aborted || signal.aborted) break
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const parts = buf.split('\n')
-        buf = parts.pop() ?? ''
-        for (const raw of parts) {
-          const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
-          if (line === '') { flush(); continue }
-          if (line.startsWith(':')) continue
-          if (line.startsWith('retry:')) continue
-          if (line.startsWith('id:')) {
-            curId = line.slice(3).trim()
-            if (curId && /^\d+$/.test(curId)) lastRevision = Number(curId)
-            continue
-          }
-          if (line.startsWith('event:')) { curEvent = line.slice(6).trim(); continue }
-          if (line.startsWith('data:')) { curData = line.slice(5).trim(); continue }
-        }
-      }
-      if (!closed && !signal.aborted) retryTimer = setTimeout(() => { void connect() }, 3000)
+      if (!closed && !signal.aborted && current === generation) retryTimer = setTimeout(() => { void connect() }, 3000)
     } catch {
-      if (!closed && !signal.aborted) retryTimer = setTimeout(() => { void connect() }, 3000)
+      if (!closed && !signal.aborted && current === generation) retryTimer = setTimeout(() => { void connect() }, 3000)
     } finally {
       signal.removeEventListener('abort', onOuterAbort)
     }
@@ -206,17 +192,19 @@ function sseOpen(signal: AbortSignal, onEvent: (e: SseEvent) => void): { close()
   return { close: off }
 }
 
+async function readPaneOutputs(paneIds: string[], lines: number): Promise<Array<{ pane_id: string; text?: string; truncated?: boolean }>> {
+  const remote = herdrRemote()
+  if (!remote) return []
+  const body = await remote.agentOutputs({ paneIds: paneIds.join(','), lines, format: 'ansi' }) as { outputs?: Array<{ pane_id: string; text?: string; truncated?: boolean }> }
+  return body.outputs ?? []
+}
+
 export async function fetchPaneOutputs(paneIds: string[], lines = 40): Promise<Map<string, string>> {
   if (paneIds.length === 0) return new Map()
   try {
-    const ids = paneIds.map(id => encodeURIComponent(id)).join(',')
-    const url = `/herdr-agents/output?pane_ids=${ids}&lines=${encodeURIComponent(String(lines))}`
-    const resp = await fetch(url)
-    if (!resp.ok) return new Map()
-    const body = (await resp.json()) as { outputs?: Array<{ pane_id: string; text?: string; truncated?: boolean; error?: string }> }
     const map = new Map<string, string>()
-    for (const o of body.outputs ?? []) {
-      if (o.pane_id && typeof o.text === 'string') map.set(o.pane_id, o.text)
+    for (const output of await readPaneOutputs(paneIds, lines)) {
+      if (output.pane_id && typeof output.text === 'string') map.set(output.pane_id, output.text)
     }
     return map
   } catch {
@@ -230,14 +218,9 @@ export async function fetchPaneOutputsDetailed(
 ): Promise<Map<string, { text: string; truncated: boolean }>> {
   if (paneIds.length === 0) return new Map()
   try {
-    const ids = paneIds.map(id => encodeURIComponent(id)).join(',')
-    const url = `/herdr-agents/output?pane_ids=${ids}&lines=${encodeURIComponent(String(lines))}`
-    const resp = await fetch(url)
-    if (!resp.ok) return new Map()
-    const body = (await resp.json()) as { outputs?: Array<{ pane_id: string; text?: string; truncated?: boolean; error?: string }> }
     const map = new Map<string, { text: string; truncated: boolean }>()
-    for (const o of body.outputs ?? []) {
-      if (o.pane_id && typeof o.text === 'string') map.set(o.pane_id, { text: o.text, truncated: Boolean(o.truncated) })
+    for (const output of await readPaneOutputs(paneIds, lines)) {
+      if (output.pane_id && typeof output.text === 'string') map.set(output.pane_id, { text: output.text, truncated: Boolean(output.truncated) })
     }
     return map
   } catch {
@@ -300,9 +283,10 @@ export function useHerdrStatus(): { snap: HerdrStatusSnapshot | null; error: str
 // ---------------------------------------------------------------------------
 
 async function fetchDashboard(signal: AbortSignal): Promise<HerdrDashboardSnapshot> {
-  const resp = await fetch('/herdr-dashboard', { signal })
-  if (!resp.ok) throw new Error(`herdr-dashboard HTTP ${resp.status}`)
-  return (await resp.json()) as HerdrDashboardSnapshot
+  if (signal.aborted) throw new Error('aborted')
+  const remote = herdrRemote()
+  if (!remote) throw new Error('herdr remote is not mounted')
+  return await remote.dashboard() as HerdrDashboardSnapshot
 }
 
 // 数据派生自 status 轮询 + 进程探测，4s 周期足够；首次立即 tick。
@@ -357,8 +341,10 @@ export function useHerdrStart(): { starting: boolean; startError: string | null;
     setStarting(true)
     setStartError(null)
     try {
-      const resp = await fetch('/herdr-start', { method: 'POST' })
-      const body = await parseStartResponse(resp)
+      const remote = herdrRemote()
+      if (!remote) throw new Error('herdr remote is not mounted')
+      const resp = { ok: true, status: 200, json: async () => await remote.start() }
+      const body = await parseStartResponse(resp as Response)
       if (!body.ok) {
         setStartError(body.error ?? `herdr-start HTTP ${resp.status}`)
         return false
@@ -385,13 +371,10 @@ const inputQueues = new Map<string, Promise<void>>()
 export function sendPaneInput(paneId: string, input: { text?: string; keys?: string[] }): Promise<void> {
   const prev = inputQueues.get(paneId) ?? Promise.resolve()
   const next = prev.then(async () => {
-    const resp = await fetch('/herdr-pane-input', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ pane_id: paneId, ...input }),
-    })
-    const body = await resp.json() as { ok?: boolean; error?: string }
-    if (!body.ok) throw new Error(body.error ?? `herdr-pane-input HTTP ${resp.status}`)
+    const remote = herdrRemote()
+    if (!remote) throw new Error('herdr remote is not mounted')
+    const body = await remote.paneInput({ pane_id: paneId, ...input }) as { ok?: boolean; error?: string }
+    if (!body.ok) throw new Error(body.error ?? 'herdr pane input failed')
   })
   inputQueues.set(paneId, next.catch(() => {}))
   return next
@@ -414,12 +397,10 @@ export async function fetchTerminalBootstrap(
   signal?: AbortSignal,
   source: 'visible' | 'recent_unwrapped' = 'visible',
 ): Promise<TerminalBootstrapResult> {
-  const url = new URL('/herdr-pane-terminal-bootstrap', window.location.origin)
-  url.searchParams.set('pane_id', paneId)
-  if (maxLines !== undefined) url.searchParams.set('lines', String(maxLines))
-  if (source !== 'visible') url.searchParams.set('source', source)
-  const resp = await fetch(url.toString(), { signal })
-  const body = await resp.json() as { ok?: boolean; text?: string; revision?: number; truncated?: boolean; error?: string }
-  if (!body.ok) throw new Error(body.error ?? `terminal-bootstrap HTTP ${resp.status}`)
+  if (signal?.aborted) throw new Error('aborted')
+  const remote = herdrRemote()
+  if (!remote) throw new Error('herdr remote is not mounted')
+  const body = await remote.terminalBootstrap({ pane_id: paneId, lines: maxLines, source }) as { ok?: boolean; text?: string; revision?: number; truncated?: boolean; error?: string }
+  if (!body.ok) throw new Error(body.error ?? 'terminal bootstrap failed')
   return { text: body.text ?? '', revision: body.revision, truncated: body.truncated === true }
 }

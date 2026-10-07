@@ -1,75 +1,100 @@
 {
   "name": "dsh-plugin-herdr",
-  "version": "0.0.1",
+  "version": "0.2.0",
+  "description": "Observe and drive Herdr from DeepSeek Harness: herdr tools, a session preset, and a Web panel.",
   "license": "MIT",
   "type": "module",
-  "main": "lib/index.mjs",
-  "types": "lib/index.d.mts",
+  "icon": "./icon.svg",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "files": [
     "lib",
     "cordis.patch.yml",
+    "icon.svg",
+    "locale",
     "README.md",
-    "LICENSE",
-    "presets"
+    "LICENSE"
   ],
   "exports": {
     ".": {
-      "types": "./lib/index.d.mts",
-      "default": "./lib/index.mjs"
-    },
-    "./client": {
-      "types": "./lib/client.d.cts",
-      "default": "./lib/client.cjs"
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
     },
     "./client-entry": {
-      "types": "./lib/client-entry.d.mts",
-      "default": "./lib/client-entry.mjs"
+      "types": "./lib/client-entry.d.ts",
+      "default": "./lib/client-entry.js"
     },
     "./session-mode": {
-      "types": "./lib/session-mode.d.mts",
-      "default": "./lib/session-mode.mjs"
+      "types": "./lib/session-mode.d.ts",
+      "default": "./lib/session-mode.js"
     },
-    "./package.json": "./package.json"
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./typert": {
+      "default": "./lib/typert.host.js"
+    },
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "engines": {
+    "node": ">=24",
+    "dsh": "0.2.0-rc.2"
   },
   "scripts": {
-    "build": "tsdown && tsdown --config tsdown.web.config.ts",
+    "build": "tsdown && node scripts/gen-typert.mjs && tsdown --config tsdown.web.config.ts",
     "gen:types": "node scripts/gen-types.mjs",
     "gen:types:check": "node scripts/gen-types.mjs --check",
+    "gen:typert": "node scripts/gen-typert.mjs",
     "test": "pnpm build && node --experimental-transform-types --test \"test/unit/*.test.ts\"",
     "test:integration": "pnpm build && node test/integration/run.mjs && node test/integration/extended.mjs && node test/integration/events.mjs && node test/integration/close-rename.mjs && node test/integration/terminal-session.mjs",
     "typecheck": "tsc --noEmit",
-    "quality": "pnpm typecheck && pnpm gen:types:check && pnpm test",
-    "prepare": "pnpm build",
-    "dsh:blank": "node scripts/blank-dsh.mjs",
-    "dsh:blank:reset": "node scripts/blank-dsh.mjs --reset"
+    "quality": "pnpm typecheck && pnpm gen:types:check && pnpm test"
   },
   "dsh": {
+    "manifestVersion": 1,
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
     "client": {
+      "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-runtime"
-      ],
-      "platform": "web"
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-modules"
+      ]
     }
   },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-agent": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-jobs": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "3.18.4"
+  },
   "dependencies": {
-    "@deepseek-ai/cordis": "*",
-    "@deepseek-ai/dsh-agent": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-jobs": "^0.0.1-rc.3",
-    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.6",
-    "@deepseek-ai/schemastery": "*",
     "@xterm/addon-fit": "0.11.0",
-    "@xterm/xterm": "6.0.0"
+    "@xterm/xterm": "6.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-skill": "0.0.1-rc.1",
-    "@types/node": "^26.0.0",
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-agent": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-jobs": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "3.18.4",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",
     "react": "^19.2.8",
     "tsdown": "^0.22.14",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "@deepseek-ai/dsh-typert-registry": "0.2.0-rc.2"
   }
 }

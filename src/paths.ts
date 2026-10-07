@@ -35,6 +35,12 @@ function withinCore(root: string, p: string, sep: string): boolean {
   return p.startsWith(root + sep)
 }
 
+/** win32 的 path.sep 是反斜杠。夹具和 Herdr 常给 /proj/repo，比较前折成 \\。POSIX 不改写。 */
+function foldSep(value: string, sep: string): string {
+  if (sep !== '\\') return value
+  return value.replaceAll('/', '\\')
+}
+
 /**
  * 判断 p 是否位于 root 项目根内（纯函数，可注入）。
  * - p 为 null / undefined / 空串 → false；
@@ -51,8 +57,8 @@ export function isPathWithin(
   const { sep, caseInsensitive, realpath } = { ...DEFAULTS, ...opts }
   const a = realpath(root)
   const b = realpath(p)
-  const rootN = caseInsensitive ? a.toLowerCase() : a
-  const pathN = caseInsensitive ? b.toLowerCase() : b
+  const rootN = foldSep(caseInsensitive ? a.toLowerCase() : a, sep)
+  const pathN = foldSep(caseInsensitive ? b.toLowerCase() : b, sep)
   return withinCore(rootN, pathN, sep)
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Pill, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Pill, StateDot } from './ui.tsx'
 import {
   agentTheme,
   ariaStateLabel,

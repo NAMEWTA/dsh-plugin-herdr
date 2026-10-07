@@ -16,7 +16,6 @@ export function registerNotification(ctx: Context) {
       schema: { type: 'object', additionalProperties: false, properties: { shown: { type: 'boolean', required: true } } },
       render: (_args, value) => [{ type: 'text', text: (value as { shown: boolean }).shown ? 'notification shown' : 'failed' }],
     },
-    presentCall: (args) => ({ card: 'generic', title: `Notify: ${args.title}` } as const),
     async execute(args) {
       try {
         requireNonEmpty(args.title, 'title')

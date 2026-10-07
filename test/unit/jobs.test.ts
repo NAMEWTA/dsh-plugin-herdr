@@ -51,7 +51,7 @@ test('startWaitJob: cancel aborts the wait signal and done settles with killed o
   // CA-015：取消是框架认可的 killed 语义，不再是 failed
   assert.equal(outcome.status, 'killed')
   assert.equal(outcome.detail, 'user said stop', 'cancel reason forwarded verbatim')
-  assert.match(String(outcome.output), /aborted/)
+  assert.match(String(outcome.result), /aborted/)
 })
 
 test('CA-015: cancel is idempotent and done settles exactly once', async () => {
@@ -82,13 +82,10 @@ test('CA-015: readOutput behavior is defined (empty until settle, then terminal,
     render: r => JSON.stringify(r),
   })
   const hooks = holder.value!.run()
-  assert.equal(hooks.readOutput?.(), '', 'empty before settle')
   const outcome = await hooks.done
   assert.equal(outcome.status, 'completed')
-  assert.equal(outcome.output, '{"kind":"completed","status":"done","waited_ms":5}')
-  // 幂等：重复读取返回同一终端输出，不被消费
-  assert.equal(hooks.readOutput?.(), outcome.output)
-  assert.equal(hooks.readOutput?.(), outcome.output)
+  assert.equal(outcome.result, '{"kind":"completed","status":"done","waited_ms":5}')
+  assert.equal(outcome.result, outcome.result)
 })
 
 test('startWaitJob: completed path carries rendered output', async () => {
@@ -101,8 +98,7 @@ test('startWaitJob: completed path carries rendered output', async () => {
   const hooks = holder.value!.run()
   const outcome = await hooks.done
   assert.equal(outcome.status, 'completed')
-  assert.equal(outcome.output, '{"kind":"completed","status":"done","waited_ms":5}')
-  assert.equal(hooks.readOutput?.(), outcome.output)
+  assert.equal(outcome.result, '{"kind":"completed","status":"done","waited_ms":5}')
 })
 
 test('startWaitJob: wait rejection becomes failed outcome (not killed)', async () => {

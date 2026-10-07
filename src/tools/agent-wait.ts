@@ -90,7 +90,6 @@ export function registerAgentWait(ctx: Context, opts: AgentWaitToolOptions) {
       },
       render: (_args, value) => [{ type: 'text', text: renderWaitResult(value as WaitAgentResult) }],
     },
-    presentCall: (args) => ({ card: 'generic', title: `Wait for ${args.target}`, rawInput: args.until } as const),
     async execute(args, exec) {
       try {
         requireNonEmpty(args.target, 'target')
@@ -105,7 +104,7 @@ export function registerAgentWait(ctx: Context, opts: AgentWaitToolOptions) {
         }
         if (args.run_in_background && opts.allowBackground) {
           const jobId = startWaitJob<WaitAgentResult>(ctx, {
-            owner: exec.agent,
+            owner: exec.agent?.id,
             label: `herdr wait ${request.target} until ${request.until.join('/')}`,
             wait: signal => ctx.herdr.waitAgent(request, signal),
             render: renderWaitResult,

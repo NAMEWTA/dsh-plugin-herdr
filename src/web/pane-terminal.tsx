@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Pill, StateDot } from './ui.tsx'
 import { agentTheme, dotState, shouldPushTerminalResize, type AgentAccent } from '../client-logic.ts'
 import {
   fetchTerminalBootstrap,

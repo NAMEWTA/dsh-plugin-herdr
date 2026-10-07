@@ -84,16 +84,18 @@ test('T02: realpath 归一——链接指向项目内 → true、指向项目外
     // 后续一律用规范路径 rootN / outsideRootN 作基准，realpath 稳定、断裂回退也落在根内
     const realDir = path.join(rootN, 'real')
     fs.mkdirSync(realDir)
+    // Windows 上 directory symlink 需要提升权限；junction 不需要，realpath 同样会解析。
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir'
     const inLink = path.join(rootN, 'inLink')
-    fs.symlinkSync(realDir, inLink, 'dir')
+    fs.symlinkSync(realDir, inLink, linkType)
 
     // 指向项目外的链接
     const outLink = path.join(rootN, 'outLink')
-    fs.symlinkSync(outsideRootN, outLink, 'dir')
+    fs.symlinkSync(outsideRootN, outLink, linkType)
 
     // 断裂链接（目标不存在）
     const broken = path.join(rootN, 'broken')
-    fs.symlinkSync(path.join(rootN, 'does-not-exist'), broken, 'dir')
+    fs.symlinkSync(path.join(rootN, 'does-not-exist'), broken, linkType)
 
     // 直接目录：项目内 true / 项目外 false
     assert.equal(isPathWithinProject(rootN, realDir), true)
@@ -124,7 +126,7 @@ test('T02: win32 分支——caseInsensitive + 反斜杠分隔符', () => {
   assert.equal(isPathWithin('C:\\Proj', 'c:\\proj\\src', { ...win, caseInsensitive: false }), false)
 })
 
-test('T02: 默认包装 isPathWithinProject 在非 win32（本机 macOS）下大小写敏感', () => {
-  // /tmp 与 /TMP 不同；两处 realpath 均失败回退原值
-  assert.equal(isPathWithin('/a/b', '/A/B', { realpath: id }), false)
+test('T02: 默认 isPathWithin 大小写跟随平台（win32 不敏感）', () => {
+  // realpath 失败回退原值；win32 默认折叠大小写，其余平台区分
+  assert.equal(isPathWithin('/a/b', '/A/B', { realpath: id }), process.platform === 'win32')
 })

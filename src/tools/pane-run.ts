@@ -69,22 +69,6 @@ export function registerPaneRun(ctx: Context, opts: PaneRunToolOptions) {
       },
       render: (args, value) => [{ type: 'text', text: renderRunResult(args as { command: string }, value as RunCommandResult) }],
     },
-    // UI 呈现（DESIGN.md §13）：terminal 卡片
-    presentCall(args) {
-      return {
-        card: 'terminal',
-        title: args.command,
-        description: args.pane_id ? `reusing pane ${args.pane_id}` : 'reuse bound pane or new split',
-        cwd: args.cwd,
-      }
-    },
-    presentResult(args, result) {
-      const text = result.content
-        .map((b: { type: string; text?: string }) => (b.type === 'text' ? b.text ?? '' : ''))
-        .join('')
-      // 无 presentationMeta 时 exitCode 不可得（结果期事实需持久化 meta），仅呈现输出
-      return { card: 'terminal', output: text } as const
-    },
     async execute(args, exec) {
       try {
         requireNonEmpty(args.command, 'command')
@@ -122,7 +106,7 @@ export function registerPaneRun(ctx: Context, opts: PaneRunToolOptions) {
         }
         if (args.run_in_background && opts.allowBackground) {
           const jobId = startWaitJob<RunCommandResult>(ctx, {
-            owner: exec.agent,
+            owner: exec.agent?.id,
             label: `herdr run: ${args.command}`,
             wait: signal => ctx.herdr.runCommand(request, signal),
             render: result => renderRunResult(args as { command: string }, result),

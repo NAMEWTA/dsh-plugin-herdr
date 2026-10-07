@@ -279,16 +279,21 @@ lines.push('  data: HerdrSubscriptionEventData')
 lines.push('}')
 
 const content = lines.join('\n') + '\n'
+const normalize = (s) => s.replace(/\r\n/g, '\n')
+
+function readCurrent() {
+  try {
+    return readFileSync(OUT, 'utf8')
+  } catch {
+    return ''
+  }
+}
 
 // ---------- 落盘 / 校验 ----------
+// Windows checkout 可能是 CRLF。内容相同则视为无漂移，并保留已有换行，避免 --check / 幂等测试误报。
 if (process.argv.includes('--check')) {
-  let current
-  try {
-    current = readFileSync(OUT, 'utf8')
-  } catch {
-    current = ''
-  }
-  if (current === content) {
+  const current = readCurrent()
+  if (normalize(current) === content) {
     console.log('gen-types: src/client/types.ts is up to date (no drift)')
     process.exit(0)
   }
@@ -296,5 +301,11 @@ if (process.argv.includes('--check')) {
   process.exit(1)
 }
 
-writeFileSync(OUT, content)
-console.log('wrote', OUT, '| methods:', Object.keys(methodsDefs).length, '| result branches:', Object.keys(resultBranches).length, '| shared types:', named.size)
+const current = readCurrent()
+if (current && normalize(current) === content) {
+  console.log('gen-types: src/client/types.ts already matches')
+} else {
+  const useCrlf = current.includes('\r\n')
+  writeFileSync(OUT, useCrlf ? content.replace(/\n/g, '\r\n') : content)
+  console.log('wrote', OUT, '| methods:', Object.keys(methodsDefs).length, '| result branches:', Object.keys(resultBranches).length, '| shared types:', named.size)
+}

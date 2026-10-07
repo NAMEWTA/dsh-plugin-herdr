@@ -28,7 +28,6 @@ export function registerPaneRead(ctx: Context) {
         return [{ type: 'text', text: [`[${v.pane_id}]`, v.text || '(no output)'].join('\n') }]
       },
     },
-    presentCall: (args) => ({ card: 'generic', title: `Read pane ${args.pane_id}`, kind: 'read' } as const),
     async execute(args) {
       try {
         requireNonEmpty(args.pane_id, 'pane_id')

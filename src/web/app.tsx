@@ -8,7 +8,9 @@ import { startModeTracking, type SessionListLike } from './mode.ts'
 import { startSessionListBranding } from './session-list-branding.ts'
 import { startTabController } from './tab-controller.ts'
 import { startHeroBranding, setHerdrLang } from './hero-branding.ts'
-import { SidebarButtonHost } from './global-dashboard.tsx'
+import { HERDR_LOCALE_NS, registerHerdrLocale, setHerdrLocaleTranslate } from './i18n.ts'
+import { HerdrDashboardPanel, HerdrPanelIcon } from './global-dashboard.tsx'
+import { setHerdrRemote, type HerdrRemote } from './remote.ts'
 
 // 宽松类型桥：slots / sessions / locale
 interface SlotsApi {
@@ -16,16 +18,19 @@ interface SlotsApi {
   register(opts: Record<string, unknown>, Component: unknown): unknown
 }
 
-/** locale 服务的最小形状（LocaleFace 子集：getSnapshot + subscribe）。 */
+/** locale 服务的最小形状（LocaleFace 子集：getSnapshot + subscribe + register）。 */
 interface LocaleFaceLike {
   getSnapshot(): { active?: string }
   subscribe(fn: () => void): () => void
+  register(namespace: string, dictionaries: { zh: Record<string, string>; en: Record<string, string> }): () => void
+  bind(namespace: string): (key: string, params?: Record<string, string | number>) => string
 }
 
 export interface ClientCtx {
   slots: SlotsApi
   inject(name: string | string[], callback: (scope: unknown) => unknown): unknown
   effect(fn: () => unknown): unknown
+  remote?: { herdr?: HerdrRemote }
 }
 
 /** sessions 服务的最小形状（list 读面 + open 会话切换写面）。 */
@@ -35,6 +40,11 @@ interface SessionsApiLike {
 }
 
 export function apply(ctx: ClientCtx) {
+  if (ctx.remote?.herdr) setHerdrRemote(ctx.remote.herdr)
+  ctx.inject(['remote'], scope => {
+    const remote = (scope as { remote?: { herdr?: HerdrRemote } }).remote?.herdr
+    if (remote) setHerdrRemote(remote)
+  })
   // 模式跟踪：当前会话 agentPreset === 'herdr' → herdr 模式（Tab/面板/胶囊门控的事实源）
   let stopModeTracking: (() => void) | null = null
   let stopSessionListBranding: (() => void) | null = null
@@ -58,9 +68,16 @@ export function apply(ctx: ClientCtx) {
   ctx.inject(['locale'], (scope: unknown) => {
     const locale = (scope as { locale?: LocaleFaceLike }).locale
     if (!locale) return
+    const stopLocale = registerHerdrLocale(locale)
+    setHerdrLocaleTranslate(locale.bind(HERDR_LOCALE_NS))
     const apply = () => setHerdrLang(locale.getSnapshot().active ?? 'zh')
     apply()
-    stopLangTracking = locale.subscribe(apply)
+    const stopSubscription = locale.subscribe(apply)
+    stopLangTracking = () => {
+      stopSubscription()
+      stopLocale()
+      setHerdrLocaleTranslate(null)
+    }
   })
   ctx.effect(() => () => {
     stopModeTracking?.()
@@ -84,20 +101,28 @@ export function apply(ctx: ClientCtx) {
       HerdrView,
     ),
   )
-  // 全局 Dashboard 入口（design: dashboard-global v3 —— 插件-only）：宿主组件注册到
-  // 既有 shell.overlay，自身无可见 DOM（返回 null），副作用为 ① 把按钮 marker 注入
-  // sidebar 文档流（New Session 与 regionArea 之间）；② open 时渲染右侧工作区 surface。
-  // 宿主未声明（极端老版本）时 inject 不执行 → 无按钮，优雅降级。按钮不常驻发请求。
-  ctx.slots.inject('shell.overlay', () =>
+  // Dashboard 入口走宿主 sidebar.panellist。点击由宿主切到同 key 的 main 面板，
+  // 插件不再查找或改写 sidebar DOM。宿主没有该 slot 时 inject 不执行。
+  ctx.slots.inject('sidebar.panellist', () =>
     ctx.slots.register(
       {
-        name: 'shell.overlay',
+        name: 'sidebar.panellist',
         id: 'herdr-dashboard',
-        order: 10,
+        order: 20,
+        label: () => 'Herdr',
       },
-      SidebarButtonHost,
+      HerdrPanelIcon,
     ),
   )
+  ctx.slots.inject('main', function* () {
+    yield ctx.slots.register(
+      {
+        name: 'main',
+        key: 'herdr-dashboard',
+      },
+      HerdrDashboardPanel,
+    )
+  })
   // 会话页 header 状态胶囊
   ctx.slots.inject('conversation.session.header.actions', () =>
     ctx.slots.register(
@@ -122,4 +147,4 @@ export function apply(ctx: ClientCtx) {
   )
 }
 
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'remote']

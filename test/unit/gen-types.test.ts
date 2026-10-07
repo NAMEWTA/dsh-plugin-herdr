@@ -62,7 +62,7 @@ test('CA-004: generated types cover requests, results, errors and events', async
 test('CA-004: HerdrEventData is a discriminated union on type', async () => {
   const { readFileSync } = await import('node:fs')
   const types = readFileSync(TYPES, 'utf8')
-  const m = types.match(/export type HerdrEventData = ([\s\S]*?)\n\nexport interface HerdrEvent/)
+  const m = types.match(/export type HerdrEventData = ([\s\S]*?)\r?\n\r?\nexport interface HerdrEvent/)
   assert.ok(m, 'HerdrEventData union should exist')
   assert.match(m[1], /type: "workspace_created"/)
   assert.match(m[1], /type: "pane_agent_status_changed"/)

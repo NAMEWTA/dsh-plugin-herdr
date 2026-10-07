@@ -12,6 +12,10 @@ test('resolveSocketPath: explicit > env > default', () => {
 
 test('resolveSocketPath: session-specific default path', () => {
   const p = resolveSocketPath({ socketPath: undefined, session: 'work' }, {})
+  if (process.platform === 'win32') {
+    assert.equal(p, undefined)
+    return
+  }
   assert.ok(p && p.includes('sessions') && p.includes('work') && p.endsWith('herdr.sock'), String(p))
 })
 

@@ -22,7 +22,6 @@ export function registerPaneSplit(ctx: Context) {
       },
       render: (_args, value) => [{ type: 'text', text: `new pane ${(value as { pane_id: string }).pane_id}` }],
     },
-    presentCall: (args) => ({ card: 'generic', title: `Split pane ${args.direction}`, rawInput: args.pane_id ?? 'focused' } as const),
     async execute(args) {
       try {
         if (args.ratio != null) requireRatio(args.ratio, 'ratio')

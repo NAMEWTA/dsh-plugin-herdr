@@ -20,17 +20,15 @@ test('button copy: marker label/aria come from global.title (bilingual)', () => 
   assert.ok(I18N_KEYS['global.title'].en.length > 0)
 })
 
-test('marker contract: sidebar button lives in document flow, never position:fixed', () => {
-  // v3 核心契约：按钮是 regionArea 前的流内 marker，不允许回退成 fixed 悬浮按钮。
-  assert.match(stylesSource, /\.herdr-sb-marker\s*\{[^}]*flex: none/, 'marker 为流内块（flex item）')
-  assert.match(stylesSource, /\.herdr-sb-marker-button\s*\{[^}]*width: 100%/, '按钮随 marker 宽度布局')
-  assert.doesNotMatch(stylesSource, /\.herdr-sb-marker[^{]*\{[^}]*position: fixed/, 'marker 不得 fixed')
-})
-
-test('rail contract: marker rail geometry is a 36px icon (56px rail alignment)', () => {
-  assert.match(stylesSource, /\.herdr-sb-marker\[data-rail\]/, 'rail 形态选择器')
-  assert.match(stylesSource, /\.herdr-sb-marker\[data-rail\] \.herdr-sb-marker-button\s*\{[^}]*width: 36px/, 'rail 按钮 36px')
-  assert.match(stylesSource, /\.herdr-sb-marker\[data-rail\] \.herdr-sb-marker-label\s*\{[^}]*display: none/, 'rail 隐藏文字')
+test('dashboard entry is a sidebar.panellist registration, not a DOM marker', () => {
+  const app = readFileSync(join(root, 'src', 'web', 'app.tsx'), 'utf8')
+  assert.match(app, /name: 'sidebar\.panellist'/)
+  assert.match(app, /id: 'herdr-dashboard'/)
+  assert.match(app, /name: 'main'/)
+  assert.match(app, /key: 'herdr-dashboard'/)
+  assert.doesNotMatch(app, /startSidebarMarkerController/)
+  assert.match(stylesSource, /\.herdr-dash-panel\s*\{[^}]*background: var\(--dsw-alias-bg-base\)/)
+  assert.match(stylesSource, /\.herdr-panel-icon/)
 })
 
 test('surface contract: full-height opaque work-area page with its own scroll', () => {
@@ -45,8 +43,8 @@ test('v4 contracts: stacked bar colors, done=tertiary split, state dots and agen
   // 颜色映射用 DSH token（data-state 选择器），无硬编码色值。
   assert.match(stylesSource, /\.herdr-dash-bar-seg\[data-state='working'\]\s*\{[^}]*var\(--dsw-alias-state-business-primary\)/, 'working 段 business token')
   assert.match(stylesSource, /\.herdr-dash-bar-seg\[data-state='done'\]\s*\{[^}]*var\(--dsw-alias-label-tertiary\)/, 'done 段中性灰（与 idle 绿区分）')
-  assert.match(stylesSource, /\.herdr-sb-marker-dot\[data-state='running'\]/, 'marker 运行状态点')
-  assert.match(stylesSource, /\.herdr-sb-marker-dot\[data-state='not-installed'\]/, 'marker 未安装状态点')
+  assert.match(stylesSource, /\.herdr-panel-icon \.herdr-state-dot\[data-state='running'\]/, '面板图标运行状态点')
+  assert.match(stylesSource, /\.herdr-panel-icon \.herdr-state-dot\[data-state='not-installed'\]/, '面板图标未安装状态点')
   assert.match(stylesSource, /\.herdr-dash-agent-list/, 'agent 名称列表样式')
 })
 

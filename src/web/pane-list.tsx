@@ -1,7 +1,7 @@
 // 会话页右侧 pane 状态列表面板（shell.overlay）+ 新建会话（hero）浮层看板 + Herdr logo。
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { Pill, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Pill, StateDot } from './ui.tsx'
 import {
   agentTheme,
   ariaStateLabel,

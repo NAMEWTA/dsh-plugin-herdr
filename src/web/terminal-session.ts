@@ -13,6 +13,7 @@
 
 import type { BrowserTerminalCommand, BrowserTerminalEvent, TerminalSessionStartRequest } from '../terminal-session/types.ts'
 import { subscribeHerdrEvents } from './store.ts'
+import { getHerdrRemote } from './remote.ts'
 
 export interface TerminalSize {
   cols: number
@@ -275,19 +276,20 @@ export class BrowserTerminalSessionStore {
 }
 
 /** 真实 transport：fetch POST /start + 共享 /herdr-events 单流收帧。 */
-export function createFetchTransport(base: string = ''): TerminalSessionTransport {
-  const json = async (path: string, body: unknown): Promise<Record<string, unknown>> => {
-    const r = await fetch(`${base}${path}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const b = (await r.json()) as { ok?: boolean; error?: string; [k: string]: unknown }
-    if (!b.ok) throw new Error((b.error as string) ?? `HTTP ${r.status}`)
-    return b
+export function createFetchTransport(_base: string = ''): TerminalSessionTransport {
+  const call = async (method: 'terminalStart' | 'terminalCommand' | 'terminalRelease', body: unknown): Promise<Record<string, unknown>> => {
+    let remote: ReturnType<typeof getHerdrRemote>
+    try {
+      remote = getHerdrRemote()
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('herdr remote is not mounted')
+    }
+    const result = await remote[method](body) as { ok?: boolean; error?: string; [key: string]: unknown }
+    if (!result.ok) throw new Error(result.error ?? 'herdr terminal request failed')
+    return result
   }
   return {
-    start: (req) => json('/herdr-terminal-session/start', req).then(b => ({ sessionId: b.session_id as string, generation: b.generation as number })),
+    start: (req) => call('terminalStart', req).then(b => ({ sessionId: b.session_id as string, generation: b.generation as number })),
     // 复用 /herdr-events 共享单流收帧：浏览器对单域名的并发连接数有限（HTTP/1.1 约 6 条），
     // 逐 session 各开一条 SSE 会在多卡片场景耗尽配额、饿死状态轮询与 bootstrap。
     // generation/after_seq 续传由服务端在单流连接建立时回放（ready + 最新 full 基线）替代。
@@ -305,8 +307,8 @@ export function createFetchTransport(base: string = ''): TerminalSessionTranspor
         },
       })
     },
-    sendCommand: (sessionId, cmd) => json('/herdr-terminal-session/command', { session_id: sessionId, command: cmd }).then(() => {}),
-    release: (sessionId) => json('/herdr-terminal-session/release', { session_id: sessionId }).then(() => {}),
+    sendCommand: (sessionId, cmd) => call('terminalCommand', { session_id: sessionId, command: cmd }).then(() => {}),
+    release: (sessionId) => call('terminalRelease', { session_id: sessionId }).then(() => {}),
   }
 }
 
