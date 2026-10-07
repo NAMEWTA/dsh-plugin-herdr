@@ -6,29 +6,11 @@ import { setupStateReporting } from './events/state-report.ts'
 import { HerdrStatusTracker, startHerdrServer } from './status.ts'
 import { HerdrDashboardTracker } from './dashboard.ts'
 import { registerHerdrSkill } from './skill.ts'
-import { registerSnapshot } from './tools/snapshot.ts'
-import { registerAgentList } from './tools/agent-list.ts'
-import { registerPaneRun } from './tools/pane-run.ts'
-import { registerAgentWait } from './tools/agent-wait.ts'
-import { registerWorkspaceCreate } from './tools/workspace-create.ts'
-import { registerPaneSplit } from './tools/pane-split.ts'
-import { registerPaneSendKeys } from './tools/pane-send-keys.ts'
-import { registerPaneRead } from './tools/pane-read.ts'
-import { registerPaneLayout } from './tools/pane-layout.ts'
-import { registerLayoutApply } from './tools/layout-apply.ts'
-import { registerAgentPrompt } from './tools/agent-prompt.ts'
-import { registerAgentStart } from './tools/agent-start.ts'
-import { registerAgentExplain } from './tools/agent-explain.ts'
-import { registerAgentSendKeys } from './tools/agent-send-keys.ts'
-import { registerNotification } from './tools/notification.ts'
-import { registerWorkspaceClose } from './tools/workspace-close.ts'
-import { registerPaneClose } from './tools/pane-close.ts'
-import { registerWorkspaceRename } from './tools/workspace-rename.ts'
-import { registerPaneRename } from './tools/pane-rename.ts'
 import { resolveTerminalSessionConfig } from './config.ts'
 import { probeTerminalSession, type TerminalSessionCapability } from './terminal-session/capability.ts'
 import { resolveSessionConnection } from './terminal-session/process.ts'
 import { TerminalSessionManager } from './terminal-session/manager.ts'
+import { registerHerdrTools } from './tools/registry.ts'
 import { HerdrPanelService } from './panel/remote.ts'
 
 // cordis 通过模块导出的 Config 校验插件配置并填充默认值
@@ -44,31 +26,7 @@ export const inject = ['tools', 'herdr', 'jobs']
  * cordis 4 要求访问服务的 fiber 显式 inject（见 index.ts 注释）。
  */
 export function apply(ctx: Context, config: ConfigType) {
-  // M1 MVP 工具
-  registerSnapshot(ctx)
-  registerAgentList(ctx)
-  registerPaneRun(ctx, { allowBackground: config.allowBackground })
-  registerAgentWait(ctx, { allowBackground: config.allowBackground })
-
-  // M2 扩展工具
-  registerWorkspaceCreate(ctx)
-  registerPaneSplit(ctx)
-  registerPaneSendKeys(ctx)
-  registerPaneRead(ctx)
-  registerPaneLayout(ctx)
-  // layout.apply 为 socket 协议原生方法（全量迁移后恒注册）
-  registerLayoutApply(ctx)
-  registerAgentPrompt(ctx)
-  registerAgentStart(ctx)
-  registerAgentExplain(ctx)
-  registerAgentSendKeys(ctx)
-  registerNotification(ctx)
-
-  // v2 关闭/重命名工具（FB-01 / FB-04）
-  registerWorkspaceClose(ctx)
-  registerPaneClose(ctx)
-  registerWorkspaceRename(ctx)
-  registerPaneRename(ctx)
+  registerHerdrTools(ctx, { allowBackground: config.allowBackground })
 
   // 面板数据源：跟踪器留在 Host，Web 通过 HerdrPanelService 的 Remote 读取。
   const tracker = new HerdrStatusTracker(ctx, ctx.herdr, {
