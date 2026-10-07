@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { Context } from '@deepseek-ai/cordis'
 import { apply } from '../../lib/index.js'
-import { assertPreflight, ensureWorkspace } from './preflight.mjs'
+import { assertPreflight, ensureWorkspace, EXPECTED_PROTOCOL } from './preflight.mjs'
 
 // CA-009：前置条件（herdr CLI + lib 构建 + server running）；不满足 → 明确 SKIP
 assertPreflight()
@@ -49,7 +49,7 @@ try {
   await check('snapshot returns workspaces', () => {
     assert.ok(Array.isArray(snap.workspaces), 'workspaces should be an array')
     assert.ok(snap.workspaces.length >= 1, `expected >=1 workspace, got ${snap.workspaces.length}`)
-    assert.ok(snap.protocol === 19 || snap.protocol === 20, `expected protocol 19 or 20, got ${snap.protocol}`)
+    assert.equal(snap.protocol, EXPECTED_PROTOCOL, `expected protocol ${EXPECTED_PROTOCOL} (fixture), got ${snap.protocol}`)
   })
 
   // 2) pane run：echo 输出可见（§14.2 第 2 项）

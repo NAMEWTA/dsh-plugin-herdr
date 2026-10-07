@@ -2,7 +2,7 @@
 // 所有 test/integration/*.mjs 在开头调用；条件不满足时打印明确 SKIP 原因并退出 0，
 // 使 CI 的 optional integration job 在无 herdr 环境也能干净跳过而非误报失败。
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -54,3 +54,6 @@ export async function ensureWorkspace(herdr) {
     try { execFileSync('herdr', ['workspace', 'close', w.workspace_id], { encoding: 'utf8' }) } catch { /* ignore */ }
   }
 }
+
+/** 插件适配的 herdr 协议版本：以 fixture（gen-types 输入）为准，与 src/core/protocol.ts 的 HERDR_PROTOCOL 一致。 */
+export const EXPECTED_PROTOCOL = JSON.parse(readFileSync(join(root, 'test', 'fixtures', 'herdr-api.schema.json'), 'utf8')).protocol

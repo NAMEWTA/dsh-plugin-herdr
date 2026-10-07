@@ -20,11 +20,11 @@ test('comparePaneId: same pane equals', () => {
 // ---------------------------------------------------------------------------
 
 test('serverInfoFromPing: ping result maps to running info with socket/session', () => {
-  const info = serverInfoFromPing({ version: '0.8.0', protocol: 19 }, '/x/herdr.sock', 'work', 'running')
+  const info = serverInfoFromPing({ version: '0.9.0', protocol: 22 }, '/x/herdr.sock', 'work', 'running')
   assert.equal(info.running, true)
   assert.equal(info.status, 'running')
-  assert.equal(info.version, '0.8.0')
-  assert.equal(info.protocol, 19)
+  assert.equal(info.version, '0.9.0')
+  assert.equal(info.protocol, 22)
   assert.equal(info.socket, '/x/herdr.sock')
   assert.equal(info.session, 'work')
 })
@@ -37,7 +37,7 @@ test('serverInfoFromPing: null ping maps to not_running', () => {
 })
 
 test('startHerdrServer: already reachable returns immediately without spawn', async () => {
-  const probe: PingProbeFn = async () => ({ version: '0.8.0', protocol: 19 })
+  const probe: PingProbeFn = async () => ({ version: '0.9.0', protocol: 22 })
   let spawned = false
   const spawn: SpawnFn = () => {
     spawned = true
@@ -52,7 +52,7 @@ test('startHerdrServer: already reachable returns immediately without spawn', as
 test('startHerdrServer: spawns and polls until ping succeeds', async () => {
   let reachable = false
   let spawned = 0
-  const probe: PingProbeFn = async () => (reachable ? { version: '0.8.0', protocol: 19 } : null)
+  const probe: PingProbeFn = async () => (reachable ? { version: '0.9.0', protocol: 22 } : null)
   const spawn: SpawnFn = () => {
     spawned += 1
     return { unref() {}, on() { return undefined } }
@@ -62,7 +62,7 @@ test('startHerdrServer: spawns and polls until ping succeeds', async () => {
   setTimeout(() => { reachable = true }, 650)
   const info = await p
   assert.equal(info.running, true)
-  assert.equal(info.version, '0.8.0')
+  assert.equal(info.version, '0.9.0')
   assert.equal(info.socket, '/x/herdr.sock')
   assert.equal(spawned, 1, 'spawned exactly once')
 })
@@ -104,7 +104,7 @@ import { HerdrStatusTracker } from '../../src/host/status.ts'
 import type { HerdrClient } from '../../src/host/herdr/service.ts'
 
 const EMPTY_SNAP = {
-  version: '0.8.0', protocol: 19,
+  version: '0.9.0', protocol: 22,
   workspaces: [], tabs: [], panes: [], layouts: [], agents: [],
   focused_pane_id: null, focused_tab_id: null, focused_workspace_id: null,
 }
@@ -135,7 +135,7 @@ const makeTracker = (client: HerdrClient, opts: {
 } = {}) =>
   new HerdrStatusTracker(new Context(), client, {
     // 默认注入 mock ping，避免依赖宿主机真实 herdr（CI runner 上没有 herdr）
-    pingFn: async () => ({ version: '0.8.0', protocol: 19 }),
+    pingFn: async () => ({ version: '0.9.0', protocol: 22 }),
     ...opts,
   })
 
@@ -200,7 +200,7 @@ test('CA-012: healthy cycles report not stale', async () => {
 // codex review P2：失败后成功周期必须清空 last_error
 test('CR: a successful cycle clears last_error from a previous failure', async () => {
   const { client, setSnapshotError } = makeTrackerClient({ snapshotError: true })
-  const probe: PingProbeFn = async () => ({ version: '0.8.0', protocol: 19 })
+  const probe: PingProbeFn = async () => ({ version: '0.9.0', protocol: 22 })
   const tracker = makeTracker(client, { pollIntervalMs: 60_000, staleThresholdMs: 5000, pingFn: probe })
   tracker.start()
   await sleepMs(150)
@@ -308,7 +308,7 @@ test('T05: filterTopology empty projectRoot keeps everything (no filtering)', ()
 
 test('T05: snapshot scope defaults to filtered, scope=all returns full', async () => {
   const snap = {
-    version: '0.8.0', protocol: 19,
+    version: '0.9.0', protocol: 22,
     workspaces: [{ workspace_id: 'w1' }, { workspace_id: 'w2' }],
     tabs: [{ tab_id: 'w1:t1', workspace_id: 'w1' }, { tab_id: 'w2:t1', workspace_id: 'w2' }],
     panes: [
@@ -337,7 +337,7 @@ test('T05: snapshot scope defaults to filtered, scope=all returns full', async (
 
 test('T05: pollTopology maps pane label from snapshot PaneInfo.label', async () => {
   const snap = {
-    version: '0.8.0', protocol: 19,
+    version: '0.9.0', protocol: 22,
     workspaces: [{ workspace_id: 'w1' }],
     tabs: [{ tab_id: 'w1:t1', workspace_id: 'w1' }],
     panes: [

@@ -144,7 +144,7 @@ function setupSocketForwarding(ctx: Context, client: SocketHerdrClient, opts: Ev
   // 每个 pane 也至多重订阅一次，保证重放循环必然收敛。
   let resubscribedPanes = new Set<string>()
 
-  // CA-008：订阅事件按实测 envelope { event, data } 解析（live herdr 0.8.0 / protocol 19）。
+  // CA-008：订阅事件按实测 envelope { event, data } 解析（live herdr 0.9.0 / protocol 22）。
   // data 为判别联合（data.type，HerdrEventData）；专精订阅事件（output_matched 等）
   // 无 data.type，以 envelope.event（HerdrSubscriptionEvent）判别。
   const dispatch = (raw: unknown) => {

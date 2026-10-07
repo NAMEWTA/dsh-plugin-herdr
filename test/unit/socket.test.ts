@@ -52,7 +52,7 @@ const replyErrorAndClose = (conn: NetSocket, req: Req, code: string, message: st
 const makeClient = (path: string) =>
   new SocketHerdrClient(new Context(), { socketPath: path, timeoutMs: 5000 })
 
-const SNAPSHOT = { type: 'snapshot', snapshot: { version: '0.8.0', protocol: 19, agents: [], panes: [], tabs: [], workspaces: [], layouts: [], focused_pane_id: null, focused_tab_id: null, focused_workspace_id: null } }
+const SNAPSHOT = { type: 'snapshot', snapshot: { version: '0.9.0', protocol: 22, agents: [], panes: [], tabs: [], workspaces: [], layouts: [], focused_pane_id: null, focused_tab_id: null, focused_workspace_id: null } }
 
 test('socket: one-shot request-response (connection closes per request)', async () => {
   let connections = 0
@@ -64,8 +64,8 @@ test('socket: one-shot request-response (connection closes per request)', async 
     const client = makeClient(path)
     const a = await client.snapshot()
     const b = await client.snapshot()
-    assert.equal(a.version, '0.8.0')
-    assert.equal(b.version, '0.8.0')
+    assert.equal(a.version, '0.9.0')
+    assert.equal(b.version, '0.9.0')
     assert.equal(connections, 2, 'each request should use a fresh connection')
     client.close()
   } finally {
@@ -86,7 +86,7 @@ test('socket: concurrent one-shot calls both succeed', async () => {
     const [agents, snap] = await Promise.all([client.listAgents(), client.snapshot()])
     assert.equal(agents.length, 1)
     assert.equal(agents[0].pane_id, 'w1:p1')
-    assert.equal(snap.version, '0.8.0')
+    assert.equal(snap.version, '0.9.0')
     client.close()
   } finally {
     server.close(); rmSync(dir, { recursive: true, force: true })
@@ -186,13 +186,13 @@ test('socket: waitAgent maps timeout serverCode to timeout result', async () => 
 
 test('socket: ping returns version/protocol from pong', async () => {
   const { path, server, dir } = await startFakeServer((conn, req, close) => {
-    if (req.method === 'ping') replyAndClose(conn, req, { type: 'pong', version: '0.8.0', protocol: 19 })
+    if (req.method === 'ping') replyAndClose(conn, req, { type: 'pong', version: '0.9.0', protocol: 22 })
     else replyAndClose(conn, req, {})
   })
   try {
     const client = makeClient(path)
     const pong = await client.ping()
-    assert.deepEqual(pong, { version: '0.8.0', protocol: 19 })
+    assert.deepEqual(pong, { version: '0.9.0', protocol: 22 })
     client.close()
   } finally {
     server.close(); rmSync(dir, { recursive: true, force: true })
@@ -230,7 +230,7 @@ test('socket: idempotent read retries once on HERDR_UNAVAILABLE (connection refu
   try {
     const client = makeClient(path)
     const snap = await client.snapshot()
-    assert.equal(snap.version, '0.8.0')
+    assert.equal(snap.version, '0.9.0')
     assert.equal(attempts, 2, 'exactly one retry after the refused connection')
     client.close()
   } finally {
@@ -240,12 +240,12 @@ test('socket: idempotent read retries once on HERDR_UNAVAILABLE (connection refu
 
 test('socketPing: standalone probe returns version/protocol or null', async () => {
   const { path, server, dir } = await startFakeServer((conn, req, close) => {
-    if (req.method === 'ping') replyAndClose(conn, req, { type: 'pong', version: '0.8.0', protocol: 19 })
+    if (req.method === 'ping') replyAndClose(conn, req, { type: 'pong', version: '0.9.0', protocol: 22 })
     else replyAndClose(conn, req, {})
   })
   try {
     const ok = await socketPing(path)
-    assert.deepEqual(ok, { version: '0.8.0', protocol: 19 })
+    assert.deepEqual(ok, { version: '0.9.0', protocol: 22 })
   } finally {
     server.close(); rmSync(dir, { recursive: true, force: true })
   }

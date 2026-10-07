@@ -75,7 +75,7 @@ const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms))
 /**
  * Socket 传输适配器（DESIGN.md §7.2；全量迁移后为唯一传输，CLI 传输已移除）。
  *
- * 实测协议行为（herdr 0.8.0 / protocol 19）：
+ * 实测协议行为（herdr 0.9.0 / protocol 22）：
  * - **每次请求一个连接**：服务器回复后立即关闭（长连接不存在）；
  * - 仅 events.subscribe 在响应后保持连接并推送订阅事件；
  * - JSONL over Unix domain socket；错误在 error envelope（serverCode 透传）。

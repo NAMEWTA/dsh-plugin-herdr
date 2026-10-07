@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { Context } from '@deepseek-ai/cordis'
 import { apply } from '../../lib/index.js'
-import { assertPreflight, ensureWorkspace } from './preflight.mjs'
+import { assertPreflight, ensureWorkspace, EXPECTED_PROTOCOL } from './preflight.mjs'
 
 // CA-009：前置条件（herdr CLI + lib 构建 + server running）；不满足 → 明确 SKIP
 assertPreflight()
@@ -129,7 +129,7 @@ const closePane = (id) => {
   await check('socket transport loads and snapshots', async () => {
     const snap = await ctx.herdr.snapshot()
     assert.ok(Array.isArray(snap.workspaces))
-    assert.ok(snap.protocol === 19 || snap.protocol === 20, `expected protocol 19 or 20, got ${snap.protocol}`)
+    assert.equal(snap.protocol, EXPECTED_PROTOCOL, `expected protocol ${EXPECTED_PROTOCOL} (fixture), got ${snap.protocol}`)
   })
 
   await check('socket agent list', async () => {

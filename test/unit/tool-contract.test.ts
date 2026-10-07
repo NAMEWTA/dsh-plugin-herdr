@@ -29,8 +29,8 @@ import { registerPaneRename } from '../../src/host/tools/pane-rename.ts'
 function makeHerdr() {
   return {
     snapshot: async () => ({
-      version: '0.8.0',
-      protocol: 19,
+      version: '0.9.0',
+      protocol: 22,
       workspaces: [{ workspace_id: 'w1', label: 'demo', pane_count: 1 }],
       agents: [{ pane_id: 'w1:p1', workspace_id: 'w1', agent: 'claude', status: 'done', message: 'ok' }],
       panes: [{ pane_id: 'w1:p1', workspace_id: 'w1' }],
