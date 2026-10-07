@@ -1,11 +1,11 @@
 import { createConnection, type Socket } from 'node:net'
 import type { Context } from '@deepseek-ai/cordis'
-import { HerdrClient } from './index.ts'
-import { HerdrError } from './error.ts'
-import { MAX_CLI_OUTPUT_BYTES, truncateUtf8Bytes } from './output.ts'
-import { truncateAnsiTail } from '../client-logic.ts'
-import { pollPaneUntilStable } from './poll.ts'
-import type { HerdrResultMap } from './types.ts'
+import { HerdrClient } from './service.ts'
+import { HerdrError } from '../../core/errors.ts'
+import { MAX_OUTPUT_BYTES, truncateUtf8Bytes } from '../../core/output.ts'
+import { truncateAnsiTail } from '../../client-logic.ts'
+import { pollPaneUntilStable } from '../../core/poll.ts'
+import type { HerdrResultMap } from '../../core/protocol.ts'
 import type {
   AgentExplainRequest,
   AgentFilter,
@@ -30,7 +30,7 @@ import type {
   WaitAgentRequest,
   WaitAgentResult,
   WorkspaceCreateRequest,
-} from './index.ts'
+} from './service.ts'
 
 export interface SocketAdapterOptions {
   /** 已解析的 socket 路径（resolveSocketPath 输出；POSIX）。 */
@@ -55,8 +55,8 @@ function capReadText(read: { text?: string; truncated?: boolean; revision?: numb
   let truncated = read?.truncated === true
   const revision = read?.revision
   // CA-014：按 UTF-8 字节截断（非 ASCII 中文/emoji 不得虚高）
-  if (Buffer.byteLength(text) > MAX_CLI_OUTPUT_BYTES) {
-    text = truncateUtf8Bytes(text, MAX_CLI_OUTPUT_BYTES)
+  if (Buffer.byteLength(text) > MAX_OUTPUT_BYTES) {
+    text = truncateUtf8Bytes(text, MAX_OUTPUT_BYTES)
     truncated = true
   }
   // ANSI 安全收尾：字节截断可能在 ESC/CSI/OSC 中间断开，清理残片
@@ -354,7 +354,7 @@ export class SocketHerdrClient extends HerdrClient {
     }
   }
 
-  async agentStart(req: AgentStartRequest): Promise<import('./types.js').AgentInfo> {
+  async agentStart(req: AgentStartRequest): Promise<import('../../core/protocol.js').AgentInfo> {
     const { result } = await this.callOnce('agent.start', {
       name: req.name,
       kind: req.kind,

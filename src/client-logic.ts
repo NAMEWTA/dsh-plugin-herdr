@@ -665,9 +665,9 @@ export function agentTheme(agentName: string | undefined): AgentAccent {
 // ANSI SGR 解析器（design: pane-log-terminal-design §3）。
 // 委托到 src/terminal-ansi.ts 独立模块（纯函数，不依赖 React/DOM）。
 // ---------------------------------------------------------------------------
-export type { AnsiColor, AnsiColorKind, AnsiStyle, AnsiToken, AnsiLine } from './terminal-ansi.ts'
-export type { TerminalScreen, TerminalCell, TerminalCursor } from './terminal-ansi.ts'
-export { parseAnsiOutput, ansiPlainText, stripAnsi, compactAnsiLines, trimAnsiSnapshotPadding, rebaseTerminalFrame, truncateAnsiTail, replayTerminalSnapshot } from './terminal-ansi.ts'
+export type { AnsiColor, AnsiColorKind, AnsiStyle, AnsiToken, AnsiLine } from './core/ansi.ts'
+export type { TerminalScreen, TerminalCell, TerminalCursor } from './core/ansi.ts'
+export { parseAnsiOutput, ansiPlainText, stripAnsi, compactAnsiLines, trimAnsiSnapshotPadding, rebaseTerminalFrame, truncateAnsiTail, replayTerminalSnapshot } from './core/ansi.ts'
 
 // ---------------------------------------------------------------------------
 // 交互式终端输入映射与滚动状态（design: pane-interactive-terminal §3.3/§3.5）

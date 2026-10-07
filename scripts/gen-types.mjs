@@ -1,5 +1,5 @@
 // scripts/gen-types.mjs
-// 从 herdr api schema --json 生成 src/client/types.ts。
+// 从 herdr api schema --json 生成 src/core/protocol.ts。
 // 覆盖：请求参数（M0 子集）+ 响应结果分支 + 错误体 + 事件/订阅事件。
 // 用法：
 //   node scripts/gen-types.mjs           用 fixture 生成并写回
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(root, 'src/client/types.ts')
+const OUT = join(root, 'src/core/protocol.ts')
 
 // ---------- 输入 ----------
 let schema, sourceNote
@@ -294,16 +294,16 @@ function readCurrent() {
 if (process.argv.includes('--check')) {
   const current = readCurrent()
   if (normalize(current) === content) {
-    console.log('gen-types: src/client/types.ts is up to date (no drift)')
+    console.log('gen-types: src/core/protocol.ts is up to date (no drift)')
     process.exit(0)
   }
-  console.error('gen-types: DRIFT — src/client/types.ts is stale (fixture changed?). Run: node scripts/gen-types.mjs')
+  console.error('gen-types: DRIFT — src/core/protocol.ts is stale (fixture changed?). Run: node scripts/gen-types.mjs')
   process.exit(1)
 }
 
 const current = readCurrent()
 if (current && normalize(current) === content) {
-  console.log('gen-types: src/client/types.ts already matches')
+  console.log('gen-types: src/core/protocol.ts already matches')
 } else {
   const useCrlf = current.includes('\r\n')
   writeFileSync(OUT, useCrlf ? content.replace(/\n/g, '\r\n') : content)

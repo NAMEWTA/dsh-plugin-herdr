@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
-import type { PaneReportState } from './client/index.ts'
+import type { PaneReportState } from './host/herdr/service.ts'
 import {
   displayLabel,
   getBindingRegistry,

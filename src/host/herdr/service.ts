@@ -7,7 +7,7 @@ import type {
   SessionSnapshot,
   TabInfo,
   WorkspaceInfo,
-} from './types.js'
+} from '../../core/protocol.js'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -15,7 +15,7 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-export type { AgentInfo, AgentStatus, PaneAgentState, SplitDirection, ReadSource } from './types.js'
+export type { AgentInfo, AgentStatus, PaneAgentState, SplitDirection, ReadSource } from '../../core/protocol.js'
 
 // ---------------------------------------------------------------------------
 // 领域类型（字段名对齐 Herdr 协议 snake_case，便于对照 herdr api schema）

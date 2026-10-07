@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { PaneReportState, ReportMetadataRequest } from '../client/index.ts'
+import type { PaneReportState, ReportMetadataRequest } from '../host/herdr/service.ts'
 import { createLogger, createRateLimiter, errText } from '../log.ts'
 // 加载 dsh-agent 对 Cordis Events 的声明合并（agent/request、agent/turn-stopping）
 import type {} from '@deepseek-ai/dsh-agent'

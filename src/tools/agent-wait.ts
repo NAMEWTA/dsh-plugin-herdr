@@ -1,6 +1,6 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Context } from '@deepseek-ai/cordis'
-import type { AgentStatus, WaitAgentResult } from '../client/index.ts'
+import type { AgentStatus, WaitAgentResult } from '../host/herdr/service.ts'
 import { startWaitJob } from '../jobs.ts'
 import { requireNonEmpty, toToolError } from './shared.ts'
 

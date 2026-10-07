@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { SocketHerdrClient } from './client/socket.ts'
+import { SocketHerdrClient } from './host/herdr/socket.ts'
 import { resolveSocketPath, type Config } from './config.ts'
 import { registerHerdrPreset } from './preset.ts'
 import { createLogger } from './log.ts'

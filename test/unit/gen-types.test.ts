@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GEN = join(root, 'scripts', 'gen-types.mjs')
-const TYPES = join(root, 'src', 'client', 'types.ts')
+const TYPES = join(root, 'src', 'core', 'protocol.ts')
 
 function runGen(check: boolean): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise(resolve => {

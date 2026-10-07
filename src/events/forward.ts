@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { HerdrClient } from '../client/index.ts'
-import type { SocketHerdrClient } from '../client/socket.ts'
-import type { HerdrEvent, HerdrSubscriptionEvent } from '../client/types.js'
+import type { HerdrClient } from '../host/herdr/service.ts'
+import type { SocketHerdrClient } from '../host/herdr/socket.ts'
+import type { HerdrEvent, HerdrSubscriptionEvent } from '../core/protocol.js'
 import { createLogger, createRateLimiter, errText } from '../log.ts'
 
 declare module '@deepseek-ai/cordis' {

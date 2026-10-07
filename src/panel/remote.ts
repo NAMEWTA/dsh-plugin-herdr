@@ -5,7 +5,7 @@
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { Context } from '@deepseek-ai/cordis'
 import { getBindingRegistry, getBoundPaneIds, getBoundWorkspaceIds, sessionIdFromTokens } from '../binding-registry.ts'
-import { truncateAnsiTail } from '../terminal-ansi.ts'
+import { truncateAnsiTail } from '../core/ansi.ts'
 import { OUTPUT_CAP, type HerdrStatusTracker } from '../status.ts'
 import type { HerdrDashboardTracker } from '../dashboard.ts'
 import type { TerminalSessionManager } from '../terminal-session/manager.ts'

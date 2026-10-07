@@ -1,4 +1,4 @@
-import { HerdrError } from '../client/error.ts'
+import { HerdrError } from '../core/errors.ts'
 
 export const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms))
 

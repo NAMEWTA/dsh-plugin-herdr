@@ -17,7 +17,7 @@ import {
   type TerminalBootstrapResult,
 } from './store.ts'
 import { terminalSessionStore, type TerminalStoreSignal } from './terminal-session.ts'
-import { rebaseTerminalFrame, trimAnsiSnapshotPadding } from '../terminal-ansi.ts'
+import { rebaseTerminalFrame, trimAnsiSnapshotPadding } from '../core/ansi.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import { resolveTerminalFontFamily } from './terminal-font.ts'
 

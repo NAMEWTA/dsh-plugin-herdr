@@ -78,7 +78,7 @@ test('agent-start: retries agent_pane_busy until the fresh pane shell is ready',
     agentStart: async (req: Record<string, unknown>) => {
       if (req.pane_id === 'w1:p9' && !(globalThis as { __piRetried?: boolean }).__piRetried) {
         ;(globalThis as { __piRetried?: boolean }).__piRetried = true
-        const { HerdrError } = await import('../../src/client/error.ts')
+        const { HerdrError } = await import('../../src/core/errors.ts')
         throw new HerdrError('HERDR_ERROR', 'agent_pane_busy: target pane not available', 'agent_pane_busy')
       }
       return { pane_id: 'w1:p9', agent: 'pi', agent_status: 'idle' }
@@ -165,7 +165,7 @@ test('agent-start: non-busy errors still fail immediately', async () => {
   const { defs } = makeHarness({
     paneSplit: async () => ({ pane_id: 'w1:p9' }),
     agentStart: async () => {
-      const { HerdrError } = await import('../../src/client/error.ts')
+      const { HerdrError } = await import('../../src/core/errors.ts')
       throw new HerdrError('HERDR_ERROR', 'agent_not_found: no such kind', 'agent_not_found')
     },
   })

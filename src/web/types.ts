@@ -1,5 +1,5 @@
 // 领域类型（与服务端 src/status.ts 一致）。Web 面板各组件共享这些类型；
-// 与传输层 src/client/types.ts（协议类型）互不相关。
+// 与传输层 src/core/protocol.ts（协议类型）互不相关。
 
 export interface HerdrAgentStatus {
   pane_id: string

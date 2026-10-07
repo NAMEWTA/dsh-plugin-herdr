@@ -1,8 +1,8 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Context } from '@deepseek-ai/cordis'
-import type { AgentInfo, AgentStartRequest } from '../client/index.ts'
+import type { AgentInfo, AgentStartRequest } from '../host/herdr/service.ts'
 import { getBindingRegistry } from '../binding-registry.ts'
-import { HerdrError } from '../client/error.ts'
+import { HerdrError } from '../core/errors.ts'
 import { requireNonEmpty, toToolError } from './shared.ts'
 
 /**

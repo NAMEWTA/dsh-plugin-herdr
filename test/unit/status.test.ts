@@ -101,7 +101,7 @@ test('startHerdrServer: timeout returns not running', async () => {
 
 import { Context } from '@deepseek-ai/cordis'
 import { HerdrStatusTracker } from '../../src/status.ts'
-import type { HerdrClient } from '../../src/client/index.ts'
+import type { HerdrClient } from '../../src/host/herdr/service.ts'
 
 const EMPTY_SNAP = {
   version: '0.8.0', protocol: 19,

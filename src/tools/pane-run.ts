@@ -1,6 +1,6 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Context } from '@deepseek-ai/cordis'
-import type { RunCommandResult } from '../client/index.ts'
+import type { RunCommandResult } from '../host/herdr/service.ts'
 import { getBindingRegistry } from '../binding-registry.ts'
 import { startWaitJob } from '../jobs.ts'
 import { requireNonEmpty, requireRatio, toToolError } from './shared.ts'

@@ -2,7 +2,7 @@
  * 输出上限工具（CA-002 / CA-014）：单条响应的固定累积上限；超过即截断并报告 truncated。
  * 与传输无关（CLI 传输已移除，socket 传输沿用同一上限语义）。
  */
-export const MAX_CLI_OUTPUT_BYTES = 1024 * 1024
+export const MAX_OUTPUT_BYTES = 1024 * 1024
 
 /**
  * CR P2：按 UTF-8 字节预算截断字符串，保证结果不超过 maxBytes。

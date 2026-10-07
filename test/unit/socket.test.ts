@@ -6,8 +6,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { SocketHerdrClient, socketPing } from '../../src/client/socket.ts'
-import { HerdrError } from '../../src/client/error.ts'
+import { SocketHerdrClient, socketPing } from '../../src/host/herdr/socket.ts'
+import { HerdrError } from '../../src/core/errors.ts'
 
 interface Req { id: string; method: string; params: unknown }
 
