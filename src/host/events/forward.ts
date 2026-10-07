@@ -98,7 +98,7 @@ function eventResourceId(data: Record<string, unknown>): string {
  */
 export function setupEventForwarding(ctx: Context, opts: EventForwardOptions): () => void {
   if (!opts.enabled) {
-    // Phase3: 已默认 true，false 仅跳过 herdr/agent-state 转发；Tracker 脏集的 raw 订阅独立于此开关（index.ts 直连 ctx.herdr.onEvent）
+    // 已默认 true，false 仅跳过 herdr/agent-state 转发；Tracker 脏集的 raw 订阅独立于此开关（events/index.ts 直连 ctx.herdr.onEvent）
     createLogger(ctx, 'forward').debug('event forwarding disabled by config (tracker dirty path remains active)')
     return () => {}
   }

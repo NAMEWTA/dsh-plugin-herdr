@@ -5,7 +5,7 @@
  * - 按 sessionId 管理 CLI 子进程（observe/control 均支持；首版路由只暴露 observe）；
  * - 解析 stdout NDJSON → 校验 frame → generation 隔离 → 广播给浏览器订阅方；
  * - replay buffer 支持断线续传；cursor 不满足时重建 generation，新 generation 首帧必 full；
- * - controller-only 的 input/resize/release（Phase 2 由路由门控）；
+ * - controller-only 的 input/resize/release（由路由门控）；
  * - 限额（per-pane / 全局 controller / 全局进程数）；
  * - 浏览器断开宽限期回收；插件 dispose 释放全部并终止子进程。
  *
@@ -57,7 +57,7 @@ type Subscriber = (ev: BrowserTerminalEvent) => void
 /** 全局帧监听器：/herdr-events 单流复用（web 端所有卡片共享一条 SSE，替代 per-session SSE）。 */
 export type GlobalFrameListener = (sessionId: string, paneId: string, ev: BrowserTerminalEvent) => void
 
-/** manager 诊断上报形状（Phase 4 指标/诊断面板数据源）。 */
+/** manager 诊断上报形状（指标/诊断数据源）。 */
 export interface TerminalSessionReport {
   activeProcesses: number
   observers: number
@@ -125,7 +125,7 @@ export class TerminalSessionManager {
     return n
   }
 
-  /** 诊断/指标数据源（Phase 4 诊断面板）。 */
+  /** 诊断/指标数据源。 */
   report(): {
     activeProcesses: number
     observers: number

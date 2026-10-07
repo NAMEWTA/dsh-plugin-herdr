@@ -14,7 +14,7 @@ export type BrowserTerminalEvent =
   | { type: 'closed'; sessionId: string; reason?: string }
   | { type: 'error'; sessionId: string; code: string; message: string; retryable: boolean }
 
-/** 浏览器 → Node 命令（Phase 1 仅 observe；input/resize/control 为 controller-only）。 */
+/** 浏览器 → Node 命令（input/resize/control 为 controller-only）。 */
 export type BrowserTerminalCommand =
   | { type: 'input'; bytes: string }
   | { type: 'resize'; cols: number; rows: number }

@@ -99,7 +99,7 @@ export interface HerdrStatusSnapshot {
   last_error: string | null
   /** CA-012：数据是否可能过期（距最近一次成功轮询超过 3×pollIntervalMs，或从未成功）。 */
   stale: boolean
-  /** Phase3-2：单次 runCycle 耗时（ms，供诊断；0 = 尚未完成首轮）。 */
+  /** 单次 runCycle 耗时（ms，供诊断；0 = 尚未完成首轮）。 */
   poll_latency_ms?: number
 }
 
@@ -449,7 +449,7 @@ export class HerdrStatusTracker {
     this.abort = new AbortController()
     const signal = this.abort.signal
     const tick = () => this.runCycle(signal)
-    // Phase1: 订阅 herdr 事件驱动脏集
+    // 订阅 herdr 事件驱动脏集
     try {
       const offA = this.ctx.on('herdr/agent-state', (info: { pane_id: string; agent: string; status: string; message?: string }) => {
         this.onAgentState(info)

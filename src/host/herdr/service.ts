@@ -85,7 +85,7 @@ export type RunCommandResult =
       truncated: boolean
       timed_out?: boolean
     }
-  | { kind: 'background'; jobId: string } // M2 启用后台化后使用
+  | { kind: 'background'; jobId: string } // 后台化（allowBackground）时使用
 
 export interface WaitAgentRequest {
   target: string
@@ -99,7 +99,7 @@ export type WaitAgentResult =
   | { kind: 'timeout'; pane_id?: string; agent?: string; status?: AgentStatus; waited_ms: number }
   | { kind: 'not_found'; target: string }
 
-// ---- 扩展方法请求类型（M2-05/06） ----
+// ---- 扩展方法请求类型 ----
 
 export interface WorkspaceCreateRequest {
   cwd?: string
@@ -259,7 +259,7 @@ export abstract class HerdrClient extends Service {
   /** 等待 pane 的 agent 达到目标状态之一。 */
   abstract waitAgent(req: WaitAgentRequest, signal: AbortSignal): Promise<WaitAgentResult>
 
-  // ---- 扩展方法（M2-05/06） ----
+  // ---- 扩展方法 ----
 
   abstract workspaceCreate(req: WorkspaceCreateRequest): Promise<{ workspace_id: string; pane_id?: string }>
   abstract paneSplit(req: PaneSplitRequest): Promise<{ pane_id: string }>

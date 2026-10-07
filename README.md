@@ -12,6 +12,11 @@ Herdr control-plane plugin for [DeepSeek Harness (DSH)](https://github.com/deeps
 - **Session-scoped UI** — Herdr tab and side panel show only the current session's workspace; hidden outside Herdr mode
 - **Herdr mode** — create a session in Herdr mode to get a dedicated workspace that lives and dies with the session
 
+## Requirements
+
+- DeepSeek Harness **0.2.1-alpha.1** (`npm i -g @deepseek-ai/dsh@0.2.1-alpha.1`); older DSH versions are not supported
+- Node.js >= 24, a running Herdr server
+
 ## Install
 
 Prerequisites: a DSH profile (e.g. `web`) and a running Herdr server. The plugin talks to the local Herdr socket; the panel can start the server from `PATH` if needed.
@@ -43,7 +48,7 @@ Restart the profile to unload tools, panel, and Herdr mode. The preset copy at `
 ```sh
 pnpm install
 pnpm build        # tsdown (node entries + web client bundle)
-pnpm quality      # typecheck + gen-types drift check + unit tests
+pnpm quality      # build + typecheck + gen-types drift check + unit tests
 pnpm test         # unit tests (node --test)
 pnpm test:integration  # against a live herdr server; SKIPs when unavailable
 pnpm gen:types    # regenerate protocol types from the herdr schema fixture

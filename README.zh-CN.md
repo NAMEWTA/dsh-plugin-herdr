@@ -12,6 +12,11 @@
 - **会话级 UI** — Herdr Tab 与侧边面板仅展示当前会话的 workspace；非 Herdr 模式下自动隐藏
 - **Herdr 模式** — 以 Herdr 模式创建会话，自动获得与会话同生命周期的专属 workspace
 
+## 环境要求
+
+- DeepSeek Harness **0.2.1-alpha.1**（`npm i -g @deepseek-ai/dsh@0.2.1-alpha.1`），不支持更早的 DSH 版本
+- Node.js >= 24，以及运行中的 Herdr server
+
 ## 安装
 
 前置条件：一个 DSH profile（如 `web`）和运行中的 Herdr server。插件通过本机 Herdr socket 通信；面板可按需从 `PATH` 拉起 server。
@@ -43,7 +48,7 @@ dsh plugin --profile web remove @namewta/dsh-plugin-herdr
 ```sh
 pnpm install
 pnpm build        # tsdown（node 入口 + web client bundle）
-pnpm quality      # typecheck + gen-types 漂移检查 + 单测
+pnpm quality      # 构建 + typecheck + gen-types 漂移检查 + 单测
 pnpm test         # 单测（node --test）
 pnpm test:integration  # 对接真实 herdr server；不可用时 SKIP
 pnpm gen:types    # 从 herdr schema fixture 重新生成协议类型
