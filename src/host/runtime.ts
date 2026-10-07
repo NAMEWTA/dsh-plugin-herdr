@@ -1,15 +1,11 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { Config, type Config as ConfigType, resolveSession, resolveSocketPath } from './config.ts'
 import { createLogger } from './log.ts'
-import { setupEventForwarding } from './events/forward.ts'
-import { setupStateReporting } from './events/state-report.ts'
 import { HerdrStatusTracker, startHerdrServer } from './status.ts'
 import { HerdrDashboardTracker } from './dashboard.ts'
 import { registerHerdrSkill } from './skill.ts'
-import { resolveTerminalSessionConfig } from './config.ts'
-import { probeTerminalSession, type TerminalSessionCapability } from './terminal-session/capability.ts'
-import { resolveSessionConnection } from './terminal-session/process.ts'
-import { TerminalSessionManager } from './terminal-session/manager.ts'
+import { setupHerdrEvents } from './events/index.ts'
+import { createTerminalRuntime } from './terminal-session/runtime.ts'
 import { registerHerdrTools } from './tools/registry.ts'
 import { HerdrPanelService } from './panel/remote.ts'
 
@@ -39,50 +35,12 @@ export function apply(ctx: Context, config: ConfigType) {
   const dashboardTracker = new HerdrDashboardTracker(ctx, {
     readStatus: () => tracker.snapshot('all'),
   })
-  const offAgentState = ctx.on('herdr/agent-state', (info: { pane_id: string; agent: string; status: string; message?: string }) =>
-    tracker.onAgentState(info))
-  const offResourceChanged = ctx.on('herdr/resource-changed', (change: { type: string; action: string; id: string }) =>
-    tracker.onResourceChanged(change))
-  // root ctx 的 get 走注册表宽松路径（fiber store 只含 inject 服务）
-  const terminalSessionCfg = resolveTerminalSessionConfig(config)
-  let terminalManager: TerminalSessionManager | null = null
-  let terminalCapability: TerminalSessionCapability | null = null
-  let terminalCapabilityAt = 0
-  let terminalCapabilityInflight: Promise<TerminalSessionCapability> | null = null
-  const TERMINAL_PROBE_FAILURE_TTL_MS = 30_000
-  const ensureTerminalAvailable = async (): Promise<boolean> => {
-    if (terminalCapability?.available) return true
-    if (terminalCapability && Date.now() - terminalCapabilityAt < TERMINAL_PROBE_FAILURE_TTL_MS) return terminalCapability.available
-    if (!terminalCapabilityInflight) {
-      terminalCapabilityInflight = probeTerminalSession({ binPath: terminalSessionCfg.binPath })
-        .then(cap => {
-          terminalCapability = cap
-          terminalCapabilityAt = Date.now()
-          terminalCapabilityInflight = null
-          return cap
-        }, err => {
-          terminalCapabilityInflight = null
-          throw err
-        })
-    }
-    return (await terminalCapabilityInflight).available
-  }
-  if (terminalSessionCfg.enabled) {
-    const conn = resolveSessionConnection(config)
-    if (conn.socketPath) {
-      terminalManager = new TerminalSessionManager({
-        config: terminalSessionCfg,
-        ...(terminalSessionCfg.binPath ? { binPath: terminalSessionCfg.binPath } : {}),
-        socketPath: conn.socketPath,
-        ...(conn.session ? { session: conn.session } : {}),
-      })
-    }
-  }
+  const terminal = createTerminalRuntime(config)
   const panel = new HerdrPanelService(ctx, {
     tracker,
     dashboard: dashboardTracker,
-    terminal: () => terminalManager,
-    ensureTerminal: ensureTerminalAvailable,
+    terminal: () => terminal.manager(),
+    ensureTerminal: () => terminal.ensureAvailable(),
     startServer: async () => {
       const socketPath = resolveSocketPath(config)
       if (!socketPath) return { ok: false, error: 'herdr socket path unresolvable (POSIX only; Windows is not supported)' }
@@ -100,41 +58,18 @@ export function apply(ctx: Context, config: ConfigType) {
   void panel
   tracker.start()
   dashboardTracker.start()
-  // Phase3: raw 订阅独立于 events.enabled（Phase1-1 织入），不受 setupEventForwarding 开关影响；脏集路径始终活跃
-  const herdrRawSub = (ctx as unknown as { herdr?: { onEvent?: (h: (e: unknown) => void) => () => void } }).herdr?.onEvent
-  let offRaw: (() => void) | null = null
-  if (typeof herdrRawSub === 'function') {
-    try {
-      offRaw = herdrRawSub((e: unknown) => {
-        try { tracker.onHerdrEvent(e as never) } catch {}
-      })
-    } catch {}
-  }
-
   // 会话 skill：启用插件即加载 Herdr 官方 SKILL.md
   const stopSkill = registerHerdrSkill(ctx)
 
-  const stopForwarding = setupEventForwarding(ctx, {
-    enabled: config.events.enabled,
-    maxReconnectMs: config.events.maxReconnectMs,
-  })
-  const stopReporting = setupStateReporting(ctx, {
-    reportState: config.reportState,
-    source: 'dsh:herdr-plugin',
-  })
+  const stopEvents = setupHerdrEvents(ctx, config, tracker)
 
   ctx.effect(() => {
     return () => {
-      offRaw?.()
+      stopEvents()
       tracker.stop()
       dashboardTracker.stop()
-      offAgentState()
-      offResourceChanged()
-      terminalManager?.dispose()
-      terminalManager = null
+      terminal.dispose()
       stopSkill()
-      stopForwarding()
-      stopReporting()
     }
   })
 
