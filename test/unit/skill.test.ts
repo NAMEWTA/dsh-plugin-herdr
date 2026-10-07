@@ -35,8 +35,13 @@ test('registerHerdrSkill registers herdr skill with embedded content', async () 
   assert.equal(registered.length, 1, 'cleanup should not re-register')
 })
 
-test('skill content matches the official v0.8.0 file', () => {
+test('skill content matches the official herdr 0.9.0 file (herdr --skill)', () => {
   assert.ok(HERDR_SKILL_MD.includes('HERDR_ENV'), 'skill should mention HERDR_ENV guard')
   assert.ok(HERDR_SKILL_MD.includes('herdr --help'), 'skill should teach CLI discovery')
-  assert.ok(HERDR_SKILL_MD.includes('## What Herdr is') === false, 'v0.8.0 skill differs from agent guide')
+  assert.ok(HERDR_SKILL_MD.includes('## What Herdr is') === false, 'skill differs from agent guide')
+  // 0.9.0 新增内容：machine 配置、agent_blocked / agent_not_ready、workspace close --group
+  assert.ok(HERDR_SKILL_MD.includes('herdr machine list'), '0.9.0 documents machine profiles')
+  assert.ok(HERDR_SKILL_MD.includes('agent_blocked'), '0.9.0 documents agent_blocked')
+  assert.ok(HERDR_SKILL_MD.includes('agent_not_ready'), '0.9.0 documents agent_not_ready')
+  assert.ok(HERDR_SKILL_MD.includes('workspace close --group'), '0.9.0 documents grouped workspace close')
 })
