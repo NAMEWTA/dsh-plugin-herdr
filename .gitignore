@@ -25,4 +25,4 @@ TASKS.md
 
 .playwright-mcp
 .playwright-cli
-.agents
+.agentstest/render/.render-*.mjs

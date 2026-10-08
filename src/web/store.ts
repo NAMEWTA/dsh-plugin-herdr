@@ -323,7 +323,7 @@ export function useHerdrDashboard(): { snap: HerdrDashboardSnapshot | null; erro
 // ---------------------------------------------------------------------------
 
 export function useGlobalDashboardOpen(): boolean {
-  return useSyncExternalStore(globalDashboardStore.subscribe, globalDashboardStore.getOpen)
+  return useSyncExternalStore(globalDashboardStore.subscribe, globalDashboardStore.getOpen, globalDashboardStore.getOpen)
 }
 
 export function getGlobalDashboardOpen(): boolean {
