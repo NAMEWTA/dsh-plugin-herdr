@@ -14,21 +14,11 @@
 
 // 样式注入副作用：模块加载时执行一次（STYLE_ID 去重），与原 client.tsx 时序一致。
 import './web/styles.ts'
-import { TYPERT_REMOTE } from './web/typert-remote.ts'
-import { setHerdrRemote } from './web/remote.ts'
+import { mountHerdrRemote, type RemoteMountCtx } from './web/remote-mount.ts'
 
-interface RemoteCtx {
-  remote?: { herdr?: Parameters<typeof setHerdrRemote>[0]; $mount(contribution: unknown): Promise<() => Promise<void>> }
-  effect(register: () => (() => void) | void): unknown
-}
-
-export async function apply(ctx: RemoteCtx) {
+export async function apply(ctx: RemoteMountCtx) {
   const { apply: registerSlots } = await import('./web/app.tsx')
-  if (ctx.remote?.$mount) {
-    const dispose = await ctx.remote.$mount(TYPERT_REMOTE)
-    if (ctx.remote.herdr) setHerdrRemote(ctx.remote.herdr)
-    ctx.effect(() => () => { void dispose() })
-  }
+  await mountHerdrRemote(ctx)
   registerSlots(ctx as never)
 }
 

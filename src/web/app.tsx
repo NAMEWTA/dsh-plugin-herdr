@@ -10,7 +10,6 @@ import { startTabController } from './tab-controller.ts'
 import { startHeroBranding, setHerdrLang } from './hero-branding.ts'
 import { HERDR_LOCALE_NS, registerHerdrLocale, setHerdrLocaleTranslate } from './i18n.ts'
 import { HerdrDashboardPanel, HerdrPanelIcon } from './global-dashboard.tsx'
-import { setHerdrRemote, type HerdrRemote } from './remote.ts'
 
 // 宽松类型桥：slots / sessions / locale
 interface SlotsApi {
@@ -30,7 +29,6 @@ export interface ClientCtx {
   slots: SlotsApi
   inject(name: string | string[], callback: (scope: unknown) => unknown): unknown
   effect(fn: () => unknown): unknown
-  remote?: { herdr?: HerdrRemote }
 }
 
 /** sessions 服务的最小形状（list 读面 + open 会话切换写面）。 */
@@ -40,11 +38,6 @@ interface SessionsApiLike {
 }
 
 export function apply(ctx: ClientCtx) {
-  if (ctx.remote?.herdr) setHerdrRemote(ctx.remote.herdr)
-  ctx.inject(['remote'], scope => {
-    const remote = (scope as { remote?: { herdr?: HerdrRemote } }).remote?.herdr
-    if (remote) setHerdrRemote(remote)
-  })
   // 模式跟踪：当前会话 agentPreset === 'herdr' → herdr 模式（Tab/面板/胶囊门控的事实源）
   let stopModeTracking: (() => void) | null = null
   let stopSessionListBranding: (() => void) | null = null
