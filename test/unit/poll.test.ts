@@ -1,7 +1,7 @@
 // CA-011：pollPaneUntilStable 完成语义（completed / timed_out / aborted 三分）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pollPaneUntilStable } from '../../src/client/poll.ts'
+import { pollPaneUntilStable } from '../../src/core/poll.ts'
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 

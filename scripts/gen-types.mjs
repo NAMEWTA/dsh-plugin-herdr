@@ -1,5 +1,5 @@
 // scripts/gen-types.mjs
-// 从 herdr api schema --json 生成 src/client/types.ts。
+// 从 herdr api schema --json 生成 src/core/protocol.ts。
 // 覆盖：请求参数（M0 子集）+ 响应结果分支 + 错误体 + 事件/订阅事件。
 // 用法：
 //   node scripts/gen-types.mjs           用 fixture 生成并写回
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(root, 'src/client/types.ts')
+const OUT = join(root, 'src/core/protocol.ts')
 
 // ---------- 输入 ----------
 let schema, sourceNote
@@ -36,7 +36,7 @@ const METHODS = [
 // ---------- 方法 → 响应分支映射（CA-004） ----------
 // ResponseResult 是带 type const 的 oneOf（57 个分支），schema 未编码 method→result 映射，
 // 这里维护策展映射并在生成时校验分支存在（不存在即 fixture 漂移，直接报错）。
-// 已按真实 herdr 0.8.0 / protocol 19 实测校准（docs/env-findings 与本地 socket 探针）：
+// 已按真实 herdr 0.9.0 / protocol 22 实测校准（docs/env-findings 与本地 socket 探针）：
 //   agent.wait → agent_info（CLI 与 raw socket 均返回 agent_info，而非 wait_matched）
 //   pane.split → pane_info；pane.read → pane_read；agent.prompt → agent_prompted；
 //   workspace.create → workspace_created；layout.export → layout_export；
@@ -213,6 +213,9 @@ lines.push(' * Subset (M0): ' + METHODS.join(', '))
 lines.push(' * Sections: params / result branches / error / event / subscription event')
 lines.push(' */')
 lines.push('')
+lines.push('/** 生成所依据的 herdr 协议版本（插件只适配这一版）。 */')
+lines.push('export const HERDR_PROTOCOL = ' + schema.protocol)
+lines.push('')
 lines.push('// ---------- 共享类型（按引用收集） ----------')
 for (const [name, def] of named) {
   lines.push(renderNamed(name, def))
@@ -294,16 +297,16 @@ function readCurrent() {
 if (process.argv.includes('--check')) {
   const current = readCurrent()
   if (normalize(current) === content) {
-    console.log('gen-types: src/client/types.ts is up to date (no drift)')
+    console.log('gen-types: src/core/protocol.ts is up to date (no drift)')
     process.exit(0)
   }
-  console.error('gen-types: DRIFT — src/client/types.ts is stale (fixture changed?). Run: node scripts/gen-types.mjs')
+  console.error('gen-types: DRIFT — src/core/protocol.ts is stale (fixture changed?). Run: node scripts/gen-types.mjs')
   process.exit(1)
 }
 
 const current = readCurrent()
 if (current && normalize(current) === content) {
-  console.log('gen-types: src/client/types.ts already matches')
+  console.log('gen-types: src/core/protocol.ts already matches')
 } else {
   const useCrlf = current.includes('\r\n')
   writeFileSync(OUT, useCrlf ? content.replace(/\n/g, '\r\n') : content)

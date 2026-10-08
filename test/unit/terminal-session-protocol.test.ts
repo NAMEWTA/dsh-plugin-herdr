@@ -1,8 +1,8 @@
 // TerminalSession 协议层纯逻辑（design: pane-terminal-session-state-machine §11.1）
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { NDJSONParser, parseFrame, isClosedEvent } from '../../src/terminal-session/protocol.ts'
-import { TerminalSessionError } from '../../src/terminal-session/errors.ts'
+import { NDJSONParser, parseFrame, isClosedEvent } from '../../src/host/terminal-session/protocol.ts'
+import { TerminalSessionError } from '../../src/host/terminal-session/errors.ts'
 
 const LIMITS = { maxDecodedFrameBytes: 1_048_576 }
 

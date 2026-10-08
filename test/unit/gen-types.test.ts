@@ -2,12 +2,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GEN = join(root, 'scripts', 'gen-types.mjs')
-const TYPES = join(root, 'src', 'client', 'types.ts')
+const TYPES = join(root, 'src', 'core', 'protocol.ts')
 
 function runGen(check: boolean): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise(resolve => {
@@ -67,4 +68,11 @@ test('CA-004: HerdrEventData is a discriminated union on type', async () => {
   assert.match(m[1], /type: "workspace_created"/)
   assert.match(m[1], /type: "pane_agent_status_changed"/)
   assert.match(m[1], /type: "pane_exited"/)
+})
+
+test('HERDR_PROTOCOL matches the fixture protocol (herdr 0.9.0 / protocol 22)', async () => {
+  const { HERDR_PROTOCOL } = await import('../../src/core/protocol.ts')
+  const fixture = JSON.parse(readFileSync(join(root, 'test', 'fixtures', 'herdr-api.schema.json'), 'utf8')) as { protocol: number }
+  assert.equal(HERDR_PROTOCOL, fixture.protocol)
+  assert.equal(HERDR_PROTOCOL, 22)
 })

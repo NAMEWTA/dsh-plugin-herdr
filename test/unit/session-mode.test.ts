@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
-import * as sessionMode from '../../src/session-mode.ts'
-import { getBindingRegistry } from '../../src/binding-registry.ts'
+import * as sessionMode from '../../src/host/session-mode.ts'
+import { getBindingRegistry } from '../../src/host/binding-registry.ts'
 
 // 注：测试直接调用 apply（与 state-report 测试一致）。真实 dsh 环境由 loader
 // 挂载组合（standing scope），事件经 scope 载体过滤后到达监听器。

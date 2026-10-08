@@ -3,8 +3,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { Context } from '@deepseek-ai/cordis'
-import { apply } from '../../lib/index.mjs'
-import { apply as applyClient } from '../../lib/client-entry.mjs'
+import { apply } from '../../lib/index.js'
 import { assertPreflight, ensureWorkspace } from './preflight.mjs'
 
 const CONFIG = {
@@ -28,9 +27,7 @@ let lastEventAt = Date.now()
 ctx.on('herdr/resource-changed', e => { resourceEvents.push(e); lastEventAt = Date.now() })
 ctx.on('herdr/agent-state', e => agentEvents.push(e))
 ctx.on('herdr/channel', s => channelStates.push(s))
-
-const cf = await ctx.plugin({ name: 'c', apply: applyClient, inject: [] }, CONFIG)
-const f = await ctx.plugin({ name: 'h', apply, inject: ['tools', 'herdr', 'jobs'] }, CONFIG)
+const f = await ctx.plugin({ name: 'h', apply, inject: [] }, CONFIG)
 
 let failures = 0
 // CA-009：check 必须 async 并 await fn —— 此前同步 check 吞不掉 async 回调的
@@ -92,7 +89,6 @@ try {
 } finally {
   closeWorkspace()
   await f.dispose()
-  await cf.dispose()
   console.log(failures === 0 ? 'ALL EVENT CHECKS PASSED' : failures + ' CHECK(S) FAILED')
   process.exit(failures === 0 ? 0 : 1)
 }

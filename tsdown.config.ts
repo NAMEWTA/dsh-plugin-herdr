@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/client-entry.ts', 'src/session-mode.ts'],
+  entry: { index: 'src/host/index.ts', 'session-mode': 'src/host/session-mode.ts' },
   outDir: 'lib',
   format: ['esm'],
   dts: true,

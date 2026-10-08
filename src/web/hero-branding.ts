@@ -7,31 +7,33 @@
 // 定位锚点：svg[viewBox="0 0 23.16 17.04"]（FishLogo 的固定 viewBox，跨主题不变）。
 // React 重渲染会重写 className 抹掉标记 → attribute 观察重新打标（rAF 防抖，闪窗 ~1 帧可接受）。
 
+// 文案单一来源：locale/*.json 的 brand.* 键（与面板文案同一字典）。
+import en from '../../locale/en.json' with { type: 'json' }
+import zh from '../../locale/zh.json' with { type: 'json' }
+
 /** 品牌化全文（headline 容器 aria-label；与 styles.ts 的 CSS content 同源，勿直接改文案）。 */
-export const HERDR_HERO_TEXT = 'Herdr 助你探索未至之境'
+export const HERDR_HERO_TEXT = zh['brand.heroText']
 /** 品牌特效段（styles.ts ::before content 引用）。 */
-export const HERDR_HERO_TEXT_BRAND = 'Herdr 助你'
+export const HERDR_HERO_TEXT_BRAND = zh['brand.heroBrand']
 /** 原样式段（styles.ts ::after content 引用）。 */
-export const HERDR_HERO_TEXT_PLAIN = '探索未至之境'
+export const HERDR_HERO_TEXT_PLAIN = zh['brand.heroPlain']
 
 /** 英文文案（styles.ts ::before/::after content 引用；对应「Herdr 助你探索未知之境」）。 */
-export const HERDR_HERO_TEXT_EN = 'Herdr helps you explore the unknown'
+export const HERDR_HERO_TEXT_EN = en['brand.heroText']
 /** 英文品牌特效段。 */
-export const HERDR_HERO_TEXT_BRAND_EN = 'Herdr helps you'
+export const HERDR_HERO_TEXT_BRAND_EN = en['brand.heroBrand']
 /** 英文原样式段（前缀空格：两段由独立伪元素渲染，拼接需显式空格；中文无此问题）。 */
-export const HERDR_HERO_TEXT_PLAIN_EN = ' explore the unknown'
+export const HERDR_HERO_TEXT_PLAIN_EN = en['brand.heroPlain']
 
 /** herdr preset 显示名（preset.yml 的 name 是单字符串、DSH 无自定义 preset i18n；
  *  hero 页 preset 芯片在英文界面由本模块 DOM 替换为英文，其余 surface 保持原样）。 */
-export const HERDR_PRESET_NAME_ZH = 'Herdr 模式'
-export const HERDR_PRESET_NAME_EN = 'Herdr mode'
+export const HERDR_PRESET_NAME_ZH = zh['brand.presetName']
+export const HERDR_PRESET_NAME_EN = en['brand.presetName']
 
 /** herdr preset 介绍（description；同 name 的单字符串限制，全局文本替换补偿，
  *  覆盖 hero 页 preset 菜单与设置页的 description 展示）。 */
-export const HERDR_PRESET_DESC_ZH =
-  '会话绑定 Herdr——本对话视为运行在 Herdr 中的 Agent，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作 workspace / pane / agent。'
-export const HERDR_PRESET_DESC_EN =
-  'Binds the session to Herdr: the conversation runs as an Agent inside Herdr, its status shows live in the Herdr sidebar, and herdr tools operate workspace / pane / agent.'
+export const HERDR_PRESET_DESC_ZH = zh['brand.presetDesc']
+export const HERDR_PRESET_DESC_EN = en['brand.presetDesc']
 
 /** 品牌紫 token（styles.ts CSS 变量引用；取值 = herdr.dev 官网 site.css 的 --spot 实测，design §4.1）。 */
 export const HERDR_BRAND_LIGHT = '#8839ef' // herdr.dev paper 模式

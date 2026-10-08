@@ -6,7 +6,7 @@ import {
   dotState,
   paneDisplayName,
   paneDisplayState,
-} from '../client-logic.ts'
+} from './logic.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import { clampNavWidth, getNavWidth, setNavWidth, DEFAULT_NAV_WIDTH } from './layout-mode.ts'
 import type { HerdrAgentStatus, HerdrPaneView } from './types.ts'

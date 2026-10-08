@@ -3,7 +3,7 @@
 // 可变状态以闭包 + 访问器函数封装：ES 模块的 import 绑定不可重新赋值，
 // 故跨模块读写必须经函数（行为与拆分前同模块内的 let 直写一致）。
 
-import { derivePaneNavState, type PaneNavState } from '../client-logic.ts'
+import { derivePaneNavState, type PaneNavState } from './logic.ts'
 
 /** 待定位的 pane（Herdr 视图挂载时消费；面板点击 → 切 tab 的时序兜底）。 */
 let pendingFocusPane: string | null = null

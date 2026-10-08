@@ -8,7 +8,7 @@ import {
   HERDR_PRESET_NAME_EN,
   HERDR_PRESET_NAME_ZH,
   registerHerdrPreset,
-} from '../../src/preset.ts'
+} from '../../src/host/preset.ts'
 
 test('registerHerdrPreset registers the herdr preset and removes it on dispose', async () => {
   const ctx = new Context()
@@ -28,7 +28,7 @@ test('registerHerdrPreset registers the herdr preset and removes it on dispose',
   assert.equal(registered[0].description, HERDR_PRESET_DESCRIPTION_ZH)
   assert.ok(HERDR_PRESET_NAME_EN.length > 0)
   assert.ok(HERDR_PRESET_DESCRIPTION_EN.length > 0)
-  assert.ok(registered[0].plugins.some(plugin => plugin.name === 'dsh-plugin-herdr/session-mode'))
+  assert.ok(registered[0].plugins.some(plugin => plugin.name === '@namewta/dsh-plugin-herdr/session-mode'))
   const persona = registered[0].plugins.find(plugin => plugin.name === '@deepseek-ai/dsh-persona')
   assert.equal(typeof persona?.config?.prefix, 'string')
   assert.ok(String(persona?.config?.prefix).length > 0)

@@ -1,10 +1,10 @@
-// 项目目录过滤路径匹配（src/paths.ts）单测。
+// 项目目录过滤路径匹配（src/core/paths.ts）单测。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import os from 'node:os'
 import path from 'node:path'
 import fs from 'node:fs'
-import { isPathWithin, isPathWithinProject } from '../../src/paths.ts'
+import { isPathWithin, isPathWithinProject } from '../../src/core/paths.ts'
 
 // 纯逻辑分支：注入恒等 realpath，跳过文件系统，只测字符串/前缀/大小写语义。
 const id = (x: string) => x

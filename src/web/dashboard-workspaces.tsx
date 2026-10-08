@@ -6,7 +6,7 @@ import {
   normalizeDashboardKind,
   paneDisplayState,
   paneKeyboardHandlers,
-} from '../client-logic.ts'
+} from './logic.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import { StatusChips, STATUS_LABEL_KEYS } from './dashboard-summary.tsx'
 import { HerdrLogo } from './pane-list.tsx'

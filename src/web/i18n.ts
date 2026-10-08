@@ -74,164 +74,18 @@ export function setHerdrLocaleTranslate(next: LocaleTranslate | null): void {
   localeTranslate = next
 }
 
-/** 文案字典：key → { zh, en }。权威副本在 locale/*.json，这里保留给无 locale 服务的回退。 */
-export const I18N_KEYS = {
-  'pane.drag': { zh: '拖拽排序', en: 'Drag to reorder' },
-  'pane.rename': { zh: '重命名', en: 'Rename' },
-  'pane.close': { zh: '关闭窗格', en: 'Close pane' },
-  'pane.collapse': { zh: '收起', en: 'Collapse' },
-  'pane.expand': { zh: '展开', en: 'Expand' },
-  'pane.noOutput': { zh: '（无输出）', en: '(no output)' },
-  'pane.copy': { zh: '复制', en: 'Copy' },
-  'pane.closeConfirm': { zh: '关闭窗格 {id}？其内进程将终止', en: 'Close pane {id}? Its process will be terminated' },
-  'dialog.confirm': { zh: '确定', en: 'OK' },
-  'dialog.cancel': { zh: '取消', en: 'Cancel' },
-  'dialog.processing': { zh: '处理中…', en: 'Processing…' },
-  'panel.collapseToLogo': { zh: '折叠为标志', en: 'Collapse to logo' },
-  'panel.noPane': { zh: '本会话暂无窗格', en: 'No pane for this session' },
-  'panel.fetchingPane': { zh: '正在获取本会话窗格…', en: 'Fetching this session\'s pane…' },
-  'panel.selfTag': { zh: '本对话', en: 'This conversation' },
-  'panel.selfTitle': { zh: '{id}（本对话）· 点击在 Herdr 中定位', en: '{id} (this conversation) · Click to locate in Herdr' },
-  'panel.paneTitle': { zh: '{id} · 点击在 Herdr 中定位', en: '{id} · Click to locate in Herdr' },
-  'panel.plainTerminal': { zh: '纯终端', en: 'Plain terminal' },
-  'view.running': { zh: 'herdr 运行中', en: 'herdr running' },
-  'view.stopped': { zh: 'herdr 未启动', en: 'herdr not started' },
-  'view.starting': { zh: '启动中…', en: 'Starting…' },
-  'view.start': { zh: '启动', en: 'Start' },
-  'view.refresh': { zh: '刷新', en: 'Refresh' },
-  'view.dropHint': { zh: '拖拽仅支持同一工作区内排序', en: 'Dragging only reorders within the same workspace' },
-  'view.renameWorkspace': { zh: '重命名工作区', en: 'Rename workspace' },
-  'view.close': { zh: '关闭', en: 'Close' },
-  'view.closeWorkspace': { zh: '关闭工作区', en: 'Close workspace' },
-  'view.closeWorkspaceConfirm': { zh: '关闭工作区 {id} 及其 {count} 个窗格？', en: 'Close workspace {id} and its {count} panes?' },
-  'view.statusError': { zh: 'herdr 状态：{error}', en: 'herdr status: {error}' },
-  'view.tabId': { zh: '标签页 {id}', en: 'tab {id}' },
-  'view.listMeta': { zh: '{workspaces} 个工作区 · {panes} 个窗格', en: '{workspaces} workspaces · {panes} panes' },
-  'banner.checking': { zh: '检查 herdr 服务…', en: 'Checking herdr service…' },
-  'banner.unavailable': { zh: 'herdr 服务状态不可用', en: 'herdr service unavailable' },
-  'banner.running': { zh: 'herdr 服务运行中', en: 'herdr service running' },
-  'banner.stopped': { zh: 'herdr 服务未启动', en: 'herdr server is not started' },
-  'banner.start': { zh: '启动 herdr', en: 'Start herdr' },
-  'banner.startFailed': { zh: '启动失败：{error}', en: 'Failed to start: {error}' },
-  // ── Dashboard（design: dashboard §5.4；zh+en 双语同增） ──────────────
-  'dashboard.overview': { zh: '本机概览', en: 'Local overview' },
-  'dashboard.server': { zh: 'Herdr 服务', en: 'Herdr server' },
-  'dashboard.socket': { zh: 'Socket 连接', en: 'Socket connection' },
-  'dashboard.socketStatus': { zh: 'Socket 状态', en: 'Socket status' },
-  'dashboard.connected': { zh: '已连接', en: 'Connected' },
-  'dashboard.disconnected': { zh: '未连接', en: 'Disconnected' },
-  'dashboard.stale': { zh: '数据可能已过期', en: 'Data may be stale' },
-  'dashboard.versionProtocol': { zh: '版本 · 协议', en: 'Version · protocol' },
-  'dashboard.socketPath': { zh: 'Socket 路径', en: 'Socket path' },
-  'dashboard.lastSuccess': { zh: '最近成功', en: 'Last success' },
-  'dashboard.lastError': { zh: '最近错误', en: 'Last error' },
-  'dashboard.fetchError': { zh: '获取 Dashboard 失败', en: 'Failed to fetch dashboard' },
-  'dashboard.host': { zh: '主机', en: 'Host' },
-  'dashboard.hostname': { zh: '主机名', en: 'Hostname' },
-  'dashboard.os': { zh: '操作系统', en: 'Operating system' },
-  'dashboard.platform': { zh: '平台', en: 'Platform' },
-  'dashboard.arch': { zh: '架构', en: 'Architecture' },
-  'dashboard.agents': { zh: '代理', en: 'Agents' },
-  'dashboard.agentsTotal': { zh: '总数', en: 'Total' },
-  'dashboard.workspaces': { zh: '工作区', en: 'Workspaces' },
-  'dashboard.tabs': { zh: '标签页', en: 'Tabs' },
-  'dashboard.panes': { zh: '窗格', en: 'Panes' },
-  'dashboard.working': { zh: '工作中', en: 'Working' },
-  'dashboard.idle': { zh: '空闲', en: 'Idle' },
-  'dashboard.blocked': { zh: '等待处理', en: 'Blocked' },
-  'dashboard.done': { zh: '已完成', en: 'Done' },
-  'dashboard.unknown': { zh: '未知', en: 'Unknown' },
-  'dashboard.lastUpdated': { zh: '最近更新：{time}', en: 'Last updated: {time}' },
-  'dashboard.refresh': { zh: '刷新 Dashboard', en: 'Refresh dashboard' },
-  'dashboard.noData': { zh: '暂无数据', en: 'No data' },
-  'dashboard.checking': { zh: '检查中…', en: 'Checking…' },
-  'dashboard.empty': { zh: '本机暂无工作区', en: 'No workspaces on this machine' },
-  'dashboard.pid': { zh: 'PID', en: 'PID' },
-  'dashboard.cpu': { zh: 'CPU', en: 'CPU' },
-  'dashboard.memory': { zh: '内存', en: 'Memory' },
-  'dashboard.uptime': { zh: '运行时长', en: 'Uptime' },
-  'dashboard.sampledHint': { zh: '采样于 {time}', en: 'sampled at {time}' },
-  'dashboard.reason': { zh: '原因', en: 'Reason' },
-  'dashboard.unavailable': { zh: '不可用', en: 'Unavailable' },
-  'dashboard.bestEffort': { zh: '尽力采集', en: 'Best effort' },
-  // ── Dashboard 重设计（design: dashboard-redesign —— 服务与环境合并卡 + KPI 条） ──
-  'dashboard.env': { zh: '服务与环境', en: 'Server & environment' },
-  'dashboard.details': { zh: '详情', en: 'Details' },
-  // ── 全局 Dashboard 入口与面板（design: dashboard-global §5.2/§7） ──────
-  'global.title': { zh: 'Herdr 仪表盘', en: 'Herdr Dashboard' },
-  'global.close': { zh: '关闭', en: 'Close' },
-  // ── v4：marker 三态状态点 / Treemap / 代理 列表 ──────────────────
-  'global.stateRunning': { zh: '运行中', en: 'Running' },
-  'global.stateStopped': { zh: '已停止', en: 'Stopped' },
-  'global.stateNotInstalled': { zh: '未安装', en: 'Not installed' },
-  'global.stateChecking': { zh: '检查中', en: 'Checking' },
-  'dashboard.showAllAgents': { zh: '显示全部', en: 'Show all' },
-  'dashboard.collapseAgents': { zh: '收起', en: 'Collapse' },
-  'dashboard.agentUnnamed': { zh: '未命名代理', en: 'Unnamed agent' },
-  'dashboard.treemapEmpty': { zh: '该工作区暂无代理', en: 'No agents in this workspace' },
-  // ── Treemap 块点击跳转（pane → 对应会话 Herdr Tab） ──────────────────
-  'dashboard.paneMultiple': { zh: '该分类下有 {count} 个窗格，无法定位具体窗格', en: '{count} panes in this group, cannot locate a specific pane' },
-  // ── 五态展示模型（design: herdr-tab-redesign §4.3） ──────────────────
-  'status.working': { zh: '工作中', en: 'Working' },
-  'status.blocked': { zh: '等待处理', en: 'Blocked' },
-  'status.idle': { zh: '空闲', en: 'Idle' },
-  'status.done': { zh: '已完成', en: 'Done' },
-  'status.unknown': { zh: '未知', en: 'Unknown' },
-  // ── 统计格式 ──────────────────────────────────────────────────────
-  'view.stats': { zh: '{ws} 个工作区 · {panes} 个窗格 · {agents} 个代理', en: '{ws} workspaces · {panes} panes · {agents} agents' },
-  'view.wsMeta': { zh: '{count} 个窗格 · {agents} 个代理', en: '{count} panes · {agents} agents' },
-  // ── 安装提示 ─────────────────────────────────────────────────────
-  'view.installTitle': { zh: 'herdr 服务未就绪', en: 'herdr server is not reachable' },
-  'view.installBody': { zh: '面板通过 socket 与 herdr 无头服务通信。请先启动服务（或使用横幅中的启动按钮），然后刷新。安装 herdr：', en: 'The panel talks to the herdr headless server over its socket. Start it (or use the start button in the banner), then refresh. Install herdr: ' },
-  // ── 工作指示器 ────────────────────────────────────────────────────
-  'pane.workingIndicator': { zh: '代理正在工作中', en: 'agent working' },
-  'pane.terminalOutput': { zh: '终端输出', en: 'Terminal output' },
-  'pane.outputTruncated': { zh: '输出已截断', en: 'Output truncated' },
-  'pane.maximize': { zh: '最大化终端', en: 'Maximize terminal' },
-  'pane.restore': { zh: '退出最大化', en: 'Exit maximized terminal' },
-  'pane.terminalInput': { zh: '终端输入', en: 'Terminal input' },
-  'pane.terminalInputFailed': { zh: '输入发送失败', en: 'Failed to send terminal input' },
-  'pane.terminalScrollPending': { zh: '有新输出，回到底部', en: 'New output, jump to bottom' },
-  'pane.terminalCopySelection': { zh: '复制选区', en: 'Copy selection' },
-  'pane.terminalKeyUnsupported': { zh: '此按键未被终端协议确认', en: 'This key is not confirmed by the terminal protocol' },
-  'pane.terminalSyncing': { zh: '正在同步终端', en: 'Syncing terminal' },
-  'pane.terminalReady': { zh: '终端已同步', en: 'Terminal ready' },
-  'pane.terminalReconnect': { zh: '终端连接已断开，正在重连', en: 'Terminal disconnected, reconnecting' },
-  'pane.syncErrorShort': { zh: '同步异常', en: 'Sync error' },
-  'pane.terminalResync': { zh: '终端历史需要重新同步', en: 'Terminal history needs resync' },
-  'pane.terminalHistoryIncomplete': { zh: '终端历史不完整', en: 'Terminal history incomplete' },
-  'pane.terminalRetry': { zh: '重试同步', en: 'Retry sync' },
-  'pane.terminalControlledByOther': { zh: '终端正由另一个客户端控制', en: 'Terminal is controlled by another client' },
-  // ── Header 三段式（控制为默认状态；仅剩快照/冲突提示） ──────────────────
-  'pane.modeControlling': { zh: '控制中', en: 'Controlling' },
-  'pane.modeSnapshot': { zh: '快照', en: 'Snapshot' },
-  'pane.controlledBy': { zh: '由 {agent} 控制', en: 'Controlled by {agent}' },
-  'pane.requestTakeover': { zh: '申请接管', en: 'Request takeover' },
-  'pane.confirmTakeover': { zh: '确认接管', en: 'Confirm takeover' },
-  'pane.confirmTakeoverHint': { zh: '确认后将踢出对方', en: 'This will disconnect the current controller' },
-  // ── 展开/收起日志按钮 ────────────────────────────────────────────
-  'pane.expandLog': { zh: '展开日志', en: 'Expand log' },
-  'pane.collapseLog': { zh: '收起日志', en: 'Collapse log' },
-  'dashboard.checkoutBase': { zh: '检出目录', en: 'Checkout' },
-  // ── v5：workspace 卡片关闭 / pane 列表跳转（design: dashboard-close-jump） ──
-  'dashboard.closeWorkspace': { zh: '关闭工作区', en: 'Close workspace' },
-  'dashboard.closeWorkspaceTitle': { zh: '关闭工作区 {id}', en: 'Close workspace {id}' },
-  'dashboard.closePaneTitle': { zh: '关闭窗格 {id}', en: 'Close pane {id}' },
-  'dashboard.expandPanes': { zh: '展开窗格', en: 'Expand panes' },
-  'dashboard.collapsePanes': { zh: '收起窗格', en: 'Collapse panes' },
-  'dashboard.paneJumpTitle': { zh: '{id} · 点击跳转到所属会话', en: '{id} · Click to jump to its session' },
-  'dashboard.paneSelfTitle': { zh: '{id}（本对话）· 在 Herdr 中定位', en: '{id} (this conversation) · Locate in Herdr' },
-  'panel.viewerTitle': { zh: '{id} · 只读预览', en: '{id} · Read-only preview' },
-  'panel.viewerClose': { zh: '返回列表', en: 'Back to list' },
-  'panel.viewerSelfDisabled': { zh: '本对话窗格不可预览', en: 'This conversation pane cannot be previewed' },
-  'panel.viewerClosed': { zh: '窗格已关闭', en: 'Pane closed' },
-  // ── Herdr Tab 双布局（design: herdr-tab-dual-layout） ───────────────
-  'view.layoutWindow': { zh: '窗口模式', en: 'Window' },
-  'view.layoutList': { zh: '列表模式', en: 'List' },
-  'view.layoutHint': { zh: '切换布局', en: 'Switch layout' },
-} as const
+type PanelDictionary = Omit<typeof zh, 'meta'>
+export type I18nKey = keyof PanelDictionary
 
-export type I18nKey = keyof typeof I18N_KEYS
+/**
+ * 文案字典：key → { zh, en }。唯一来源是 locale/*.json（同一份也注册给 locale 服务）；
+ * 这里只是派生视图，供无 locale 服务时回退与测试使用。
+ */
+export const I18N_KEYS = Object.fromEntries(
+  (Object.keys(zh) as Array<keyof typeof zh>)
+    .filter((key): key is I18nKey => key !== 'meta')
+    .map(key => [key, { zh: zh[key], en: (en as unknown as PanelDictionary)[key] }]),
+) as Record<I18nKey, { zh: string; en: string }>
 
 /** 取当前语言文案（模板参数 {x} 用 params 替换；缺失 key 回退 zh，再缺失返回 key 本身）。 */
 export function t(key: I18nKey, params?: Record<string, string | number>): string {

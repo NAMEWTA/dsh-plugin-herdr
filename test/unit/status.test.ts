@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { comparePaneId, filterTopology, serverInfoFromPing, startHerdrServer, type PingProbeFn, type SpawnFn } from '../../src/status.ts'
+import { comparePaneId, filterTopology, serverInfoFromPing, startHerdrServer, type PingProbeFn, type SpawnFn } from '../../src/host/status.ts'
 
 test('comparePaneId: natural order (p2 < p10)', () => {
   const ids = ['w8:p10', 'w8:p2', 'w8:p1', 'w9:p1', 'w8:p11']
@@ -20,11 +20,11 @@ test('comparePaneId: same pane equals', () => {
 // ---------------------------------------------------------------------------
 
 test('serverInfoFromPing: ping result maps to running info with socket/session', () => {
-  const info = serverInfoFromPing({ version: '0.8.0', protocol: 19 }, '/x/herdr.sock', 'work', 'running')
+  const info = serverInfoFromPing({ version: '0.9.0', protocol: 22 }, '/x/herdr.sock', 'work', 'running')
   assert.equal(info.running, true)
   assert.equal(info.status, 'running')
-  assert.equal(info.version, '0.8.0')
-  assert.equal(info.protocol, 19)
+  assert.equal(info.version, '0.9.0')
+  assert.equal(info.protocol, 22)
   assert.equal(info.socket, '/x/herdr.sock')
   assert.equal(info.session, 'work')
 })
@@ -37,7 +37,7 @@ test('serverInfoFromPing: null ping maps to not_running', () => {
 })
 
 test('startHerdrServer: already reachable returns immediately without spawn', async () => {
-  const probe: PingProbeFn = async () => ({ version: '0.8.0', protocol: 19 })
+  const probe: PingProbeFn = async () => ({ version: '0.9.0', protocol: 22 })
   let spawned = false
   const spawn: SpawnFn = () => {
     spawned = true
@@ -52,7 +52,7 @@ test('startHerdrServer: already reachable returns immediately without spawn', as
 test('startHerdrServer: spawns and polls until ping succeeds', async () => {
   let reachable = false
   let spawned = 0
-  const probe: PingProbeFn = async () => (reachable ? { version: '0.8.0', protocol: 19 } : null)
+  const probe: PingProbeFn = async () => (reachable ? { version: '0.9.0', protocol: 22 } : null)
   const spawn: SpawnFn = () => {
     spawned += 1
     return { unref() {}, on() { return undefined } }
@@ -62,7 +62,7 @@ test('startHerdrServer: spawns and polls until ping succeeds', async () => {
   setTimeout(() => { reachable = true }, 650)
   const info = await p
   assert.equal(info.running, true)
-  assert.equal(info.version, '0.8.0')
+  assert.equal(info.version, '0.9.0')
   assert.equal(info.socket, '/x/herdr.sock')
   assert.equal(spawned, 1, 'spawned exactly once')
 })
@@ -100,11 +100,11 @@ test('startHerdrServer: timeout returns not running', async () => {
 // ---------------------------------------------------------------------------
 
 import { Context } from '@deepseek-ai/cordis'
-import { HerdrStatusTracker } from '../../src/status.ts'
-import type { HerdrClient } from '../../src/client/index.ts'
+import { HerdrStatusTracker } from '../../src/host/status.ts'
+import type { HerdrClient } from '../../src/host/herdr/service.ts'
 
 const EMPTY_SNAP = {
-  version: '0.8.0', protocol: 19,
+  version: '0.9.0', protocol: 22,
   workspaces: [], tabs: [], panes: [], layouts: [], agents: [],
   focused_pane_id: null, focused_tab_id: null, focused_workspace_id: null,
 }
@@ -135,7 +135,7 @@ const makeTracker = (client: HerdrClient, opts: {
 } = {}) =>
   new HerdrStatusTracker(new Context(), client, {
     // 默认注入 mock ping，避免依赖宿主机真实 herdr（CI runner 上没有 herdr）
-    pingFn: async () => ({ version: '0.8.0', protocol: 19 }),
+    pingFn: async () => ({ version: '0.9.0', protocol: 22 }),
     ...opts,
   })
 
@@ -200,7 +200,7 @@ test('CA-012: healthy cycles report not stale', async () => {
 // codex review P2：失败后成功周期必须清空 last_error
 test('CR: a successful cycle clears last_error from a previous failure', async () => {
   const { client, setSnapshotError } = makeTrackerClient({ snapshotError: true })
-  const probe: PingProbeFn = async () => ({ version: '0.8.0', protocol: 19 })
+  const probe: PingProbeFn = async () => ({ version: '0.9.0', protocol: 22 })
   const tracker = makeTracker(client, { pollIntervalMs: 60_000, staleThresholdMs: 5000, pingFn: probe })
   tracker.start()
   await sleepMs(150)
@@ -221,7 +221,7 @@ test('CR: a successful cycle clears last_error from a previous failure', async (
 // 失败回退原值，前缀边界比较在原始字符串上仍然成立（跨平台确定性）。
 // ---------------------------------------------------------------------------
 
-import type { HerdrTopology } from '../../src/status.ts'
+import type { HerdrTopology } from '../../src/host/status.ts'
 
 const PROJ = '/proj/repo'
 const ROOT = PROJ + '/root'
@@ -308,7 +308,7 @@ test('T05: filterTopology empty projectRoot keeps everything (no filtering)', ()
 
 test('T05: snapshot scope defaults to filtered, scope=all returns full', async () => {
   const snap = {
-    version: '0.8.0', protocol: 19,
+    version: '0.9.0', protocol: 22,
     workspaces: [{ workspace_id: 'w1' }, { workspace_id: 'w2' }],
     tabs: [{ tab_id: 'w1:t1', workspace_id: 'w1' }, { tab_id: 'w2:t1', workspace_id: 'w2' }],
     panes: [
@@ -337,7 +337,7 @@ test('T05: snapshot scope defaults to filtered, scope=all returns full', async (
 
 test('T05: pollTopology maps pane label from snapshot PaneInfo.label', async () => {
   const snap = {
-    version: '0.8.0', protocol: 19,
+    version: '0.9.0', protocol: 22,
     workspaces: [{ workspace_id: 'w1' }],
     tabs: [{ tab_id: 'w1:t1', workspace_id: 'w1' }],
     panes: [
@@ -365,7 +365,7 @@ test('T05: pollTopology maps pane label from snapshot PaneInfo.label', async () 
 
 test('ANSI contract: status.ts uses truncateAnsiTail for OUTPUT_CAP', async () => {
   // 验证 truncateAnsiTail 在 OUTPUT_CAP 边界正确清理不完整 escape
-  const { truncateAnsiTail } = await import('../../src/client-logic.ts')
+  const { truncateAnsiTail } = await import('../../src/web/logic.ts')
   const pad = 'x'.repeat(8000 - 10)
   const tail = '\u001b[31mincomplete'
   const big = pad + tail
@@ -389,7 +389,7 @@ test('ANSI contract: truncateAnsiTail cleans incomplete escape at OUTPUT_CAP bou
   const tail = '\u001b[31mincomplete' // 不完整 SGR
   const big = pad + tail
   // 模拟 status.ts 的 truncateAnsiTail 调用
-  const { truncateAnsiTail } = await import('../../src/client-logic.ts')
+  const { truncateAnsiTail } = await import('../../src/web/logic.ts')
   const result = truncateAnsiTail(big, 8000)
   assert.ok(!result.includes('\u001b'), 'incomplete escape must be discarded')
   assert.ok(result.length <= 8000, 'result must not exceed cap')
@@ -397,7 +397,7 @@ test('ANSI contract: truncateAnsiTail cleans incomplete escape at OUTPUT_CAP bou
 
 test('ANSI contract: status.ts pollOutputs uses format:ansi (source code verification)', () => {
   // 验证 status.ts 源码中 pollOutputs 调用包含 format:'ansi' 和 truncateAnsiTail
-  const statusSource = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'status.ts'), 'utf8')
+  const statusSource = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'host', 'status.ts'), 'utf8')
   assert.ok(statusSource.includes("format: 'ansi'"), 'status.ts must pass format:ansi to paneRead')
   assert.ok(statusSource.includes('truncateAnsiTail'), 'status.ts must use truncateAnsiTail')
   assert.ok(statusSource.includes('outputTruncated'), 'status.ts must set outputTruncated')

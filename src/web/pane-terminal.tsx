@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { Button, Pill, StateDot } from './ui.tsx'
-import { agentTheme, dotState, shouldPushTerminalResize, type AgentAccent } from '../client-logic.ts'
+import { agentTheme, dotState, shouldPushTerminalResize, type AgentAccent } from './logic.ts'
 import {
   fetchTerminalBootstrap,
   sendPaneInput,
@@ -17,7 +17,7 @@ import {
   type TerminalBootstrapResult,
 } from './store.ts'
 import { terminalSessionStore, type TerminalStoreSignal } from './terminal-session.ts'
-import { rebaseTerminalFrame, trimAnsiSnapshotPadding } from '../terminal-ansi.ts'
+import { rebaseTerminalFrame, trimAnsiSnapshotPadding } from '../core/ansi.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import { resolveTerminalFontFamily } from './terminal-font.ts'
 

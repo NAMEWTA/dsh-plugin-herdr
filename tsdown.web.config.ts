@@ -3,7 +3,7 @@ import { defineConfig } from 'tsdown'
 // Web client bundle. React and Cordis come from the shell module table.
 // The banner registers one lazy factory. The factory body must not import
 // shell client packages; those stay on the host module table.
-const MODULE_LOADER_ID = 'dsh-plugin-herdr'
+const MODULE_LOADER_ID = '@namewta/dsh-plugin-herdr'
 
 export default defineConfig({
   entry: ['src/client.tsx'],

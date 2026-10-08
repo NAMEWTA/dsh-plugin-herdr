@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { BrowserTerminalSessionStore, type EventsHandle, type TerminalSessionTransport, type TerminalStoreSignal } from '../../src/web/terminal-session.ts'
-import type { BrowserTerminalCommand, BrowserTerminalEvent, TerminalSessionStartRequest } from '../../src/terminal-session/types.ts'
+import type { BrowserTerminalCommand, BrowserTerminalEvent, TerminalSessionStartRequest } from '../../src/host/terminal-session/types.ts'
 
 interface Slot {
   sessionId: string

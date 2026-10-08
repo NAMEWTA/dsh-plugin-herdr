@@ -2,7 +2,7 @@
 // ctx.typert accepts TYPERT.face === 'host' plus a documented model and strict codecs.
 import { writeFileSync } from 'node:fs'
 
-const pkg = 'dsh-plugin-herdr'
+const pkg = '@namewta/dsh-plugin-herdr'
 const methods = [
   ['status', 'status(request?: unknown): Promise<unknown>', true, false],
   ['dashboard', 'dashboard(): Promise<unknown>', false, false],
@@ -55,7 +55,7 @@ function invocation(name, _signature, hasArgs, stream) {
         typeSymbol: '${pkg}#${name}:result',
         create: ${name}Result,
       },
-      sourceLocation: { file: 'src/panel/remote.ts', line: 1, column: 1 },
+      sourceLocation: { file: 'src/host/panel/remote.ts', line: 1, column: 1 },
     }`
 }
 

@@ -11,7 +11,7 @@
  * confirmFrame 推进；断线重连用 (generation, cursorSeq) 询问续传。
  */
 
-import type { BrowserTerminalCommand, BrowserTerminalEvent, TerminalSessionStartRequest } from '../terminal-session/types.ts'
+import type { BrowserTerminalCommand, BrowserTerminalEvent, TerminalSessionStartRequest } from '../host/terminal-session/types.ts'
 import { subscribeHerdrEvents } from './store.ts'
 import { getHerdrRemote } from './remote.ts'
 

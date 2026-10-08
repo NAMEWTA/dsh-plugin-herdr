@@ -47,7 +47,7 @@
 # ── 会话模式：绑定 Herdr pane + 状态上报到侧边栏 ───────────────────────────
 
 - id: herdr-session-mode
-  name: 'dsh-plugin-herdr/session-mode'
+  name: '@namewta/dsh-plugin-herdr/session-mode'
   config:
     # 固定绑定 pane（所有会话共用）；留空则每个会话自动在项目目录
     # 创建专属 workspace（root pane 即绑定 pane）。

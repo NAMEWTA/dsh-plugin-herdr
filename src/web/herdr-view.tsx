@@ -10,7 +10,7 @@ import {
   paneDisplayName,
   reorderPanes,
   savePaneOrder,
-} from '../client-logic.ts'
+} from './logic.ts'
 import { t, useHerdrLang } from './i18n.ts'
 import { getPendingFocusPane, setPendingFocusPane } from './navigation.ts'
 import { useSelfPaneId } from './self-pane-store.ts'
@@ -354,7 +354,7 @@ export function HerdrPanesView() {
     const from = ordered.findIndex(p => p.pane_id === dragId)
     const toTarget = ordered.findIndex(p => p.pane_id === targetId)
     if (from < 0 || toTarget < 0) return
-    // 落位后索引 to：考虑"先移除被拖项致目标项左移一位"的位移（见 client-logic.reorderPanes 注释）
+    // 落位后索引 to：考虑"先移除被拖项致目标项左移一位"的位移（见 logic.reorderPanes 注释）
     const to = insertPos === 'before'
       ? (from < toTarget ? toTarget - 1 : toTarget)
       : (from < toTarget ? toTarget : toTarget + 1)

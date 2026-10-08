@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Config, resolveSocketPath, resolveSession, resolveTerminalSessionConfig, type TerminalSessionConfig } from '../../src/config.ts'
+import { Config, resolveSocketPath, resolveSession, resolveTerminalSessionConfig, type TerminalSessionConfig } from '../../src/host/config.ts'
 
 test('resolveSocketPath: explicit > env > default', () => {
   assert.equal(resolveSocketPath({ socketPath: '/s/custom.sock', session: undefined }, {}), '/s/custom.sock')

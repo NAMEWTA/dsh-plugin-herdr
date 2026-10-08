@@ -4,7 +4,7 @@
 // 非 herdr 行移除 logo；幂等（重复 patch 不重复插入，重复调用不重复创建节点），
 // 清理时断开 observer/订阅并取消 rAF。
 
-import { HERDR_PRESET_ID } from '../client-logic.ts'
+import { HERDR_PRESET_ID } from './logic.ts'
 import { HERDR_LOGO_PATH_D } from './logo-path.ts'
 import type { SessionListLike } from './mode.ts'
 

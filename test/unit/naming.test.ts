@@ -7,7 +7,7 @@ import {
   sessionIdFromTokens,
   sessionShortId,
   sessionToken,
-} from '../../src/binding-registry.ts'
+} from '../../src/host/binding-registry.ts'
 
 // MG-55：workspace/pane 命名规范（显示名 = dsh:<项目名>；内部标记 = tokens.dsh_session）
 

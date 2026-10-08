@@ -7,7 +7,7 @@ import {
   HerdrDashboardTracker,
   type HerdrDashboardProcess,
   type HerdrDashboardStatusSource,
-} from '../../src/dashboard.ts'
+} from '../../src/host/dashboard.ts'
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
@@ -20,8 +20,8 @@ function statusSource(over: Partial<HerdrDashboardStatusSource> = {}): HerdrDash
     server: {
       status: 'running',
       running: true,
-      version: '0.8.0',
-      protocol: 19,
+      version: '0.9.0',
+      protocol: 22,
       socket: '/Users/alice/.config/herdr/herdr.sock',
       session: 'work',
       checked_at: 1000,
@@ -106,8 +106,8 @@ test('a clean cycle assembles the full DTO from the status source', async () => 
   assert.equal(snap.stale, false)
   assert.ok(snap.updated_at > 0)
   assert.equal(snap.last_error, null)
-  assert.equal(snap.server.version, '0.8.0')
-  assert.equal(snap.server.protocol, 19)
+  assert.equal(snap.server.version, '0.9.0')
+  assert.equal(snap.server.protocol, 22)
   assert.equal(snap.server.session, 'work')
   // 脱敏：socket 绝对路径只保留 basename（决策 4）
   assert.equal(snap.server.socket, 'herdr.sock')

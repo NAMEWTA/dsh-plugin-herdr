@@ -1,8 +1,8 @@
 // 浮动拖动：面板/折叠按钮可拖动，松手水平吸附到最近的页面边界。
-// （纯数学见 client-logic.ts 的 computeSnapPosition / isDragMovement）
+// （纯数学见 web/logic.ts 的 computeSnapPosition / isDragMovement）
 
 import { useRef } from 'react'
-import { computeSnapPosition, isDragMovement } from '../client-logic.ts'
+import { computeSnapPosition, isDragMovement } from './logic.ts'
 
 export interface DragHandlers {
   onPointerDown: (e: ReactPointerEvent) => void

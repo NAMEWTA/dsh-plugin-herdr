@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { createGlobalDashboardStore, createStatusStore, parseStartResponse } from '../client-logic.ts'
-import type { SseEvent } from '../client-logic.ts'
+import { createGlobalDashboardStore, createStatusStore, parseStartResponse } from './logic.ts'
+import type { SseEvent } from './logic.ts'
 import type { HerdrStatusSnapshot } from './types.ts'
 import type { HerdrDashboardSnapshot } from './dashboard-types.ts'
 import { getHerdrMode, useHerdrMode } from './mode.ts'
@@ -279,7 +279,7 @@ export function useHerdrStatus(): { snap: HerdrStatusSnapshot | null; error: str
 
 // ---------------------------------------------------------------------------
 // Dashboard（design: dashboard §5.2）：独立只读轮询 store（多组件共享单飞请求；
-// 卸载即停并 abort；不重复创建 timer——逻辑见 client-logic.createStatusStore）。
+// 卸载即停并 abort；不重复创建 timer——逻辑见 logic.createStatusStore）。
 // ---------------------------------------------------------------------------
 
 async function fetchDashboard(signal: AbortSignal): Promise<HerdrDashboardSnapshot> {

@@ -3,6 +3,11 @@
     "title": "Herdr",
     "description": "Observe and drive Herdr workspaces, panes, and agents from DeepSeek Harness."
   },
+  "brand.heroText": "Herdr helps you explore the unknown",
+  "brand.heroBrand": "Herdr helps you",
+  "brand.heroPlain": " explore the unknown",
+  "brand.presetName": "Herdr mode",
+  "brand.presetDesc": "Binds the session to Herdr: the conversation runs as an Agent inside Herdr, its status shows live in the Herdr sidebar, and herdr tools operate workspace / pane / agent.",
   "pane.drag": "Drag to reorder",
   "pane.rename": "Rename",
   "pane.close": "Close pane",
