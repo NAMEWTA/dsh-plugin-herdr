@@ -282,7 +282,7 @@ export function useHerdrStatus(): { snap: HerdrStatusSnapshot | null; error: str
 // 卸载即停并 abort；不重复创建 timer——逻辑见 logic.createStatusStore）。
 // ---------------------------------------------------------------------------
 
-async function fetchDashboard(signal: AbortSignal): Promise<HerdrDashboardSnapshot> {
+export async function fetchDashboard(signal: AbortSignal): Promise<HerdrDashboardSnapshot> {
   if (signal.aborted) throw new Error('aborted')
   const remote = herdrRemote()
   if (!remote) throw new Error('herdr remote is not mounted')

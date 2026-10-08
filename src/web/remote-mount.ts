@@ -5,7 +5,7 @@
 // 2. ctx.remote 的命名空间受 cordis inject 保护：直接读 ctx.remote.herdr 会抛
 //    'cannot get property "remote.herdr" without inject'，必须经 ctx.inject(['remote.herdr']) 取得。
 import { TYPERT_REMOTE } from './typert-remote.ts'
-import { setHerdrRemote, type HerdrRemote } from './remote.ts'
+import { setHerdrRemote } from './remote.ts'
 
 export interface RemoteMountCtx {
   remote?: { $mount(contribution: unknown): Promise<() => Promise<void>> }
@@ -14,7 +14,7 @@ export interface RemoteMountCtx {
 }
 
 export interface RemoteMountScope {
-  remote: { herdr: HerdrRemote }
+  remote: { herdr: unknown }
   effect(register: () => (() => void) | void): unknown
 }
 

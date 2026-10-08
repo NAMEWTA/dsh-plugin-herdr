@@ -1,0 +1,124 @@
+{
+  "ok": true,
+  "value": {
+    "agents": [
+      {
+        "pane_id": "w9:p1",
+        "workspace_id": "w9",
+        "agent": "grok",
+        "name": "rvp-impl-ncc",
+        "kind": "grok",
+        "status": "idle",
+        "output": "\r\n  ~\r\n  idle\r\n",
+        "updated_at": 1791424297090
+      },
+      {
+        "pane_id": "wB:p1",
+        "workspace_id": "wB",
+        "agent": "grok",
+        "name": "rvp-impl-ssox",
+        "kind": "grok",
+        "status": "idle",
+        "output": "\r\n  ~\r\n  idle\r\n",
+        "updated_at": 1791424297090
+      }
+    ],
+    "updated_at": 1791424422423,
+    "connected": true,
+    "server": {
+      "status": "running",
+      "running": true,
+      "version": "0.9.0",
+      "protocol": 22,
+      "socket": "/home/user/.config/herdr/herdr.sock",
+      "session": null,
+      "checked_at": 1791424421027,
+      "installation": "installed"
+    },
+    "topology": {
+      "workspaces": [
+        {
+          "workspace_id": "w1",
+          "label": "rvp-smoke",
+          "active_tab_id": "w1:t1"
+        },
+        {
+          "workspace_id": "w9",
+          "label": "WTA-plus",
+          "active_tab_id": "w9:t1"
+        },
+        {
+          "workspace_id": "wB",
+          "label": "WTA-plus",
+          "active_tab_id": "wB:t1"
+        }
+      ],
+      "tabs": [
+        {
+          "tab_id": "w1:t1",
+          "workspace_id": "w1",
+          "label": "1",
+          "pane_count": 1
+        },
+        {
+          "tab_id": "w9:t1",
+          "workspace_id": "w9",
+          "label": "1",
+          "pane_count": 1
+        },
+        {
+          "tab_id": "wB:t1",
+          "workspace_id": "wB",
+          "label": "1",
+          "pane_count": 1
+        }
+      ],
+      "panes": [
+        {
+          "pane_id": "w1:p1",
+          "workspace_id": "w1",
+          "tab_id": "w1:t1",
+          "cwd": "/home/user/project",
+          "foreground_cwd": "/home/user/project",
+          "focused": true,
+          "agent_status": "unknown"
+        },
+        {
+          "pane_id": "w9:p1",
+          "workspace_id": "w9",
+          "tab_id": "w9:t1",
+          "title": "agent task 1 - grok",
+          "terminal_title_stripped": "agent task 1 - grok",
+          "cwd": "/home/user/project",
+          "foreground_cwd": "/home/user/project",
+          "focused": false,
+          "agent_status": "idle"
+        },
+        {
+          "pane_id": "wB:p1",
+          "workspace_id": "wB",
+          "tab_id": "wB:t1",
+          "title": "agent task 2 - grok",
+          "terminal_title_stripped": "agent task 2 - grok",
+          "cwd": "/home/user/project",
+          "foreground_cwd": "/home/user/project",
+          "focused": false,
+          "agent_status": "idle"
+        }
+      ]
+    },
+    "last_error": null,
+    "stale": false,
+    "filter": {
+      "project_root": "/home/user/project",
+      "matched": 0,
+      "total": 3,
+      "hidden_workspaces": [
+        "w1",
+        "w9",
+        "wB"
+      ]
+    },
+    "poll_latency_ms": 0
+  }
+}
