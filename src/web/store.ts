@@ -5,6 +5,7 @@ import type { HerdrStatusSnapshot } from './types.ts'
 import type { HerdrDashboardSnapshot } from './dashboard-types.ts'
 import { getHerdrMode, useHerdrMode } from './mode.ts'
 import { getHerdrRemote, type HerdrRemote } from './remote.ts'
+import { t } from './i18n.ts'
 
 function herdrRemote(): HerdrRemote | null {
   try {
@@ -378,7 +379,7 @@ export function sendPaneInput(paneId: string, input: { text?: string; keys?: str
     const remote = herdrRemote()
     if (!remote) throw new Error('herdr remote is not mounted')
     const body = await remote.paneInput({ pane_id: paneId, ...input }) as { ok?: boolean; error?: string }
-    if (!body.ok) throw new Error(body.error ?? 'herdr pane input failed')
+    if (!body.ok) throw new Error(body.error ?? t('error.inputFailed'))
   })
   inputQueues.set(paneId, next.catch(() => {}))
   return next
@@ -405,6 +406,6 @@ export async function fetchTerminalBootstrap(
   const remote = herdrRemote()
   if (!remote) throw new Error('herdr remote is not mounted')
   const body = await remote.terminalBootstrap({ pane_id: paneId, lines: maxLines, source }) as { ok?: boolean; text?: string; revision?: number; truncated?: boolean; error?: string }
-  if (!body.ok) throw new Error(body.error ?? 'terminal bootstrap failed')
+  if (!body.ok) throw new Error(body.error ?? t('error.terminalBootstrapFailed'))
   return { text: body.text ?? '', revision: body.revision, truncated: body.truncated === true }
 }

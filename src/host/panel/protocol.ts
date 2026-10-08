@@ -38,6 +38,8 @@ export interface PanelStartResult {
 export interface PanelMutationResult {
   ok: boolean
   error?: string
+  /** Structured error code (terminal session errors); the web localizes by code. */
+  code?: string
 }
 
 export interface PanelCloseRequest {

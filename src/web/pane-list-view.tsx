@@ -156,7 +156,7 @@ export function PaneListView({
         className='herdr-list-resizer'
         role='separator'
         aria-orientation='vertical'
-        aria-label='Resize'
+        aria-label={t('view.resize')}
         data-dragging={draggingRef.current || undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

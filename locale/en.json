@@ -147,5 +147,22 @@
   "panel.viewerClosed": "Pane closed",
   "view.layoutWindow": "Window",
   "view.layoutList": "List",
-  "view.layoutHint": "Switch layout"
+  "view.layoutHint": "Switch layout",
+  "banner.agentCount": "{count} agents",
+  "view.resize": "Resize",
+  "error.closeFailed": "Close failed",
+  "error.renameFailed": "Rename failed",
+  "error.inputFailed": "Failed to send input",
+  "error.terminalBootstrapFailed": "Failed to load the terminal snapshot",
+  "error.terminalRequestFailed": "Terminal request failed",
+  "terminal.cooldown": "Terminal session unavailable (cooling down)",
+  "terminal.unavailable": "Terminal session unavailable",
+  "terminal.conflict": "Terminal is controlled by another session",
+  "terminal.notFound": "Terminal session not found or closed",
+  "terminal.forbidden": "Not allowed to control this terminal",
+  "terminal.protocolError": "Terminal protocol error",
+  "terminal.frameGap": "Terminal frames lost, rebuilding",
+  "terminal.backpressure": "Terminal input is backed up, try again shortly",
+  "terminal.exited": "Terminal process exited",
+  "terminal.timeout": "Terminal timed out"
 }

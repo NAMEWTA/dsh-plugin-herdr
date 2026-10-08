@@ -48,7 +48,7 @@ test('hero branding: herdr preset 显示名中英常量（§4.6，preset.yml 无
 test('hero branding: herdr preset 介绍中英常量（description 同受单字符串限制）', () => {
   assert.equal(
     HERDR_PRESET_DESC_ZH,
-    '会话绑定 Herdr——本对话视为运行在 Herdr 中的 Agent，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作 workspace / pane / agent。',
+    '会话绑定 Herdr——本对话视为运行在 Herdr 中的代理，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作工作区、窗格与代理。',
   )
   assert.ok(HERDR_PRESET_DESC_EN.startsWith('Binds the session to Herdr'))
   assert.ok(HERDR_PRESET_DESC_EN.length > 60)

@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 export const HERDR_PRESET_ID = 'herdr'
 export const HERDR_PRESET_NAME_ZH = 'Herdr 模式'
 export const HERDR_PRESET_NAME_EN = 'Herdr mode'
-export const HERDR_PRESET_DESCRIPTION_ZH = '会话绑定 Herdr——本对话视为运行在 Herdr 中的 Agent，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作 workspace / pane / agent。'
+export const HERDR_PRESET_DESCRIPTION_ZH = '会话绑定 Herdr——本对话视为运行在 Herdr 中的代理，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作工作区、窗格与代理。'
 export const HERDR_PRESET_DESCRIPTION_EN = 'Binds the session to Herdr: the conversation runs as an Agent inside Herdr, its status shows live in the Herdr sidebar, and herdr tools operate workspace / pane / agent.'
 /** Registry presets store one name. English surfaces still replace this text in the DOM. */
 export const HERDR_PRESET_NAME = HERDR_PRESET_NAME_ZH

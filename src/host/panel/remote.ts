@@ -60,8 +60,11 @@ function record(value: unknown): Record<string, unknown> {
 }
 
 function failure(error: unknown): PanelMutationResult {
-  return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  const message = error instanceof Error ? error.message : String(error)
+  return isTerminalSessionError(error) ? { ok: false, error: message, code: error.code } : { ok: false, error: message }
 }
+
+const TERMINAL_UNAVAILABLE: PanelMutationResult = { ok: false, error: 'terminal session unavailable', code: 'terminal_session_unavailable' }
 
 export class HerdrPanelService extends TypertRemoteService {
   declare static readonly [Symbol.hasInstance]: (value: unknown) => boolean
@@ -227,9 +230,9 @@ export class HerdrPanelService extends TypertRemoteService {
     const parsed = validateStart(record(request))
     if (parsed.error || !parsed.value) return { ok: false, error: parsed.error ?? 'invalid request' }
     if (!(await this.ownsPane(parsed.value.pane_id))) return { ok: false, error: 'pane not accessible from this session' }
-    if (!(await this.runtime.ensureTerminal())) return { ok: false, error: 'terminal session unavailable' }
+    if (!(await this.runtime.ensureTerminal())) return { ...TERMINAL_UNAVAILABLE }
     const manager = this.runtime.terminal()
-    if (!manager) return { ok: false, error: 'terminal session unavailable' }
+    if (!manager) return { ...TERMINAL_UNAVAILABLE }
     try {
       const started = manager.start(parsed.value)
       return { ok: true, error: undefined, session_id: started.sessionId, generation: started.generation } as PanelMutationResult
@@ -243,7 +246,7 @@ export class HerdrPanelService extends TypertRemoteService {
     const parsed = parseCommand({ session_id: body.session_id, command: body.command })
     if (parsed.error || !parsed.value) return { ok: false, error: parsed.error ?? 'invalid command' }
     const manager = this.runtime.terminal()
-    if (!manager) return { ok: false, error: 'terminal session unavailable' }
+    if (!manager) return { ...TERMINAL_UNAVAILABLE }
     try {
       if (parsed.value.release) await manager.release(parsed.value.sessionId)
       else manager.writeCommand(parsed.value.sessionId, parsed.value.payload)

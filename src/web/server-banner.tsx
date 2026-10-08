@@ -54,7 +54,7 @@ export function HerdrServerBanner({ snap, error, onStarted }: { snap: BannerSnap
         <span className="herdr-server-meta">
           {server.version ? `v${server.version}` : ''}
           {server.session ? ` · ${server.session}` : ''}
-          {snap?.agents?.length ? ` · ${snap.agents.length} agent` : ''}
+          {snap?.agents?.length ? ` · ${t('banner.agentCount', { count: snap.agents.length })}` : ''}
         </span>
       </>
     )
