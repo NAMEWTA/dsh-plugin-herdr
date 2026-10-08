@@ -4,7 +4,9 @@
 // v5：新增 pane 跳转（含跨会话）与关闭（workspace / pane）的可选交互 props。
 
 import { t, useHerdrLang } from './i18n.ts'
+import { useMemo } from 'react'
 import { useHerdrDashboard } from './store.ts'
+import { normalizeDashboardSnapshot } from './logic.ts'
 import { DashboardSummary } from './dashboard-summary.tsx'
 import { DashboardWorkspaces } from './dashboard-workspaces.tsx'
 import type { HerdrDashboardPaneRef } from './dashboard-types.ts'
@@ -34,7 +36,9 @@ export function DashboardContent(props: DashboardContentProps) {
     onClosePane,
   } = props
   void useHerdrLang()
-  const { snap, error } = useHerdrDashboard()
+  const { snap: rawSnap, error } = useHerdrDashboard()
+  // 防御：store 已归一化；此处再归一化一次，保证任何来源的快照都能安全渲染。
+  const snap = useMemo(() => normalizeDashboardSnapshot(rawSnap), [rawSnap])
 
   return (
     <div className="herdr-dash">

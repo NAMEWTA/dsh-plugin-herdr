@@ -138,7 +138,7 @@ export function HerdrPaneList() {
   }, [])
 
   // 自动展开：本对话 pane 状态 working 边沿（非 working → working 且处于折叠）
-  const selfStatus = snap?.agents.find(a => a.pane_id === selfPaneId)?.status
+  const selfStatus = (snap?.agents ?? []).find(a => a.pane_id === selfPaneId)?.status
   useEffect(() => {
     if (shouldAutoExpand(prevStatus.current, selfStatus, collapsed)) {
       setCollapsed(false)
@@ -226,7 +226,7 @@ export function HerdrPaneList() {
     if (!snap?.topology) return
     const inGroups = groups.some(g => g.panes.some(p => p.pane_id === viewingPaneId))
     if (inGroups) return
-    const inTopology = snap.topology.panes.some(p => p.pane_id === viewingPaneId)
+    const inTopology = (snap.topology.panes ?? []).some(p => p.pane_id === viewingPaneId)
     if (!inTopology) setViewingPaneId(null)
   }, [viewingPaneId, groups, snap?.topology])
 
@@ -241,7 +241,7 @@ export function HerdrPaneList() {
 
   const viewingPane = viewingPaneId
     ? (groups.flatMap(g => g.panes).find(p => p.pane_id === viewingPaneId)
-      ?? snap?.topology?.panes.find(p => p.pane_id === viewingPaneId)
+      ?? (snap?.topology?.panes ?? []).find(p => p.pane_id === viewingPaneId)
       ?? null)
     : null
   const viewingAgent = viewingPaneId ? agentByPane.get(viewingPaneId) : undefined

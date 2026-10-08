@@ -16,6 +16,8 @@
  */
 import type { I18nKey } from './i18n.ts'
 import type { HerdrAgentStatus, HerdrPaneView, HerdrTopology } from '../host/status.ts'
+import type { HerdrStatusSnapshot as HerdrStatusSnapshotLike } from './types.ts'
+import type { HerdrDashboardSnapshot as HerdrDashboardSnapshotLike } from './dashboard-types.ts'
 
 // ---------------------------------------------------------------------------
 // 排序 / 分组 / 状态派生（纯函数）
@@ -809,7 +811,7 @@ export function filterGroupsToSession(
   selfPaneId: string | null | undefined,
 ): ReturnType<typeof buildGroups> {
   if (!selfPaneId) return []
-  const pane = topology?.panes.find(p => p.pane_id === selfPaneId)
+  const pane = (topology?.panes ?? []).find(p => p.pane_id === selfPaneId)
   if (!pane) return []
   return buildGroups(topology).filter(g => g.workspace.workspace_id === pane.workspace_id)
 }
@@ -1062,14 +1064,14 @@ export function aggregateDashboardWorkspaces(
  * 全局 agent 收集（v4 需求 4）：合并所有 workspace 的 agent 明细并稳定排序
  * kind → name → pane_id（轮询顺序变化不造成视觉抖动）。
  */
-export function collectDashboardAgents(workspaces: ReadonlyArray<Pick<DashboardWorkspaceAgg, 'agents'>>): DashboardAgentDetail[] {
-  const all = workspaces.flatMap(w => w.agents ?? [])
+export function collectDashboardAgents(workspaces: ReadonlyArray<Pick<DashboardWorkspaceAgg, 'agents'>> | null | undefined): DashboardAgentDetail[] {
+  const all = (workspaces ?? []).flatMap(w => w.agents ?? [])
   return all.sort((a, b) => {
-    const k = a.kind.localeCompare(b.kind)
+    const k = (a.kind ?? '').localeCompare(b.kind ?? '')
     if (k !== 0) return k
     const n = (a.name ?? '').localeCompare(b.name ?? '')
     if (n !== 0) return n
-    return a.pane_id.localeCompare(b.pane_id)
+    return (a.pane_id ?? '').localeCompare(b.pane_id ?? '')
   })
 }
 
@@ -1396,4 +1398,133 @@ export function computeGlobalSurfaceBounds(
 /** 是否把 xterm 尺寸回传真实 PTY：仅控制态（快照模式无 session）。 */
 export function shouldPushTerminalResize(mode: 'controlling' | 'snapshot'): boolean {
   return mode === 'controlling'
+}
+
+// ---------------------------------------------------------------------------
+// Remote 快照归一化（防御层）：Remote 返回值在类型上是 unknown，网关/协议漂移、
+// 首轮未完成或字段缺失时，组件不能因读 undefined.flatMap/filter 而让整个 slot 崩溃。
+// 非对象 → null（调用方显示加载/错误态）；对象 → 补齐数组与嵌套段的结构默认值。
+// ---------------------------------------------------------------------------
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value.filter(item => asRecord(item) !== null) as T[] : []
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function asCounts(value: unknown): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [key, count] of Object.entries(asRecord(value) ?? {})) {
+    if (typeof count === 'number' && Number.isFinite(count)) out[key] = count
+  }
+  return out
+}
+
+/** Status 快照归一化：agents/topology 数组恒为数组；非对象返回 null。 */
+export function normalizeStatusSnapshot(value: unknown): HerdrStatusSnapshotLike | null {
+  const snap = asRecord(value)
+  if (!snap) return null
+  const topology = asRecord(snap.topology)
+  return {
+    ...snap,
+    agents: asArray(snap.agents),
+    updated_at: asNumber(snap.updated_at),
+    connected: snap.connected === true,
+    ...(asRecord(snap.server) ? { server: snap.server } : { server: undefined }),
+    topology: topology
+      ? { ...topology, workspaces: asArray(topology.workspaces), tabs: asArray(topology.tabs), panes: asArray(topology.panes) }
+      : undefined,
+  } as HerdrStatusSnapshotLike
+}
+
+/** Dashboard 快照归一化：summary/server/connection/host/process 段与 workspaces（含 agents/panes）结构完整。 */
+export function normalizeDashboardSnapshot(value: unknown): HerdrDashboardSnapshotLike | null {
+  const snap = asRecord(value)
+  if (!snap) return null
+  const server = asRecord(snap.server) ?? {}
+  const connection = asRecord(snap.connection) ?? {}
+  const collectors = asRecord(connection.collectors) ?? {}
+  const host = asRecord(snap.host) ?? {}
+  const process = asRecord(snap.process) ?? {}
+  const summary = asRecord(snap.summary) ?? {}
+  const workspaces = asArray<Record<string, unknown>>(snap.workspaces)
+    .filter(ws => typeof ws.workspace_id === 'string')
+    .map(ws => {
+      const agents = asArray<Record<string, unknown>>(ws.agents).filter(a => typeof a.pane_id === 'string')
+        .map(a => ({ ...a, kind: typeof a.kind === 'string' ? a.kind : 'unknown', status: typeof a.status === 'string' ? a.status : 'unknown' }))
+      const panes = asArray<Record<string, unknown>>(ws.panes).filter(p => typeof p.pane_id === 'string')
+        .map(p => ({ ...p, label: typeof p.label === 'string' ? p.label : null, kind: typeof p.kind === 'string' ? p.kind : 'unknown', status: typeof p.status === 'string' ? p.status : 'unknown' }))
+      return {
+        ...ws,
+        label: typeof ws.label === 'string' ? ws.label : null,
+        checkout_path_base: typeof ws.checkout_path_base === 'string' ? ws.checkout_path_base : null,
+        tab_count: asNumber(ws.tab_count),
+        pane_count: asNumber(ws.pane_count, panes.length),
+        agent_count: asNumber(ws.agent_count, agents.length),
+        agents_working: asNumber(ws.agents_working),
+        agents_blocked: asNumber(ws.agents_blocked),
+        agents,
+        panes,
+      }
+    })
+  const str = (v: unknown): string | null => (typeof v === 'string' ? v : null)
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  return {
+    updated_at: asNumber(snap.updated_at),
+    stale: snap.stale === true,
+    last_error: str(snap.last_error),
+    server: {
+      status: str(server.status) ?? 'unknown',
+      running: server.running === true,
+      version: str(server.version),
+      protocol: num(server.protocol),
+      socket: str(server.socket),
+      session: str(server.session),
+      checked_at: asNumber(server.checked_at),
+      installation: server.installation === 'installed' || server.installation === 'missing' ? server.installation : 'unknown',
+    },
+    connection: {
+      connected: connection.connected === true,
+      last_success_at: asNumber(connection.last_success_at),
+      collectors: {
+        server: collectors.server === true,
+        topology: collectors.topology === true,
+        agents: collectors.agents === true,
+        host: collectors.host === true,
+        process: collectors.process === true,
+      },
+    },
+    host: {
+      hostname: str(host.hostname) ?? '—',
+      platform: str(host.platform) ?? '—',
+      arch: str(host.arch) ?? '—',
+      os_type: str(host.os_type) ?? '—',
+      os_release: str(host.os_release) ?? '',
+      node_version: str(host.node_version) ?? '—',
+    },
+    process: {
+      available: process.available === true,
+      pid: num(process.pid),
+      started_at: num(process.started_at),
+      cpu_percent: num(process.cpu_percent),
+      rss_bytes: num(process.rss_bytes),
+      source: str(process.source),
+      sampled_at: asNumber(process.sampled_at),
+      error: str(process.error),
+    },
+    summary: {
+      workspaces: asNumber(summary.workspaces, workspaces.length),
+      tabs: asNumber(summary.tabs),
+      panes: asNumber(summary.panes),
+      agents: asNumber(summary.agents),
+      agents_by_status: asCounts(summary.agents_by_status),
+    },
+    workspaces,
+  } as HerdrDashboardSnapshotLike
 }

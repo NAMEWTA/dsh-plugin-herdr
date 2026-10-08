@@ -4,6 +4,7 @@ import {
   focusBeforeRemoval,
   layoutTreemap,
   normalizeDashboardKind,
+  normalizeDashboardSnapshot,
   paneDisplayState,
   paneKeyboardHandlers,
 } from './logic.ts'
@@ -262,8 +263,8 @@ function WorkspaceCard({ ws, selfPaneId, hiddenPaneIds, onPaneClick, onCloseWork
   )
 }
 
-export function DashboardWorkspaces({ snap, selfPaneId, hiddenWorkspaceIds, hiddenPaneIds, onPaneClick, onCloseWorkspace, onClosePane }: {
-  snap: HerdrDashboardSnapshot
+export function DashboardWorkspaces({ snap: input, selfPaneId, hiddenWorkspaceIds, hiddenPaneIds, onPaneClick, onCloseWorkspace, onClosePane }: {
+  snap: HerdrDashboardSnapshot | null | undefined
   selfPaneId?: string | null
   hiddenWorkspaceIds?: ReadonlySet<string>
   hiddenPaneIds?: ReadonlySet<string>
@@ -272,6 +273,8 @@ export function DashboardWorkspaces({ snap, selfPaneId, hiddenWorkspaceIds, hidd
   onClosePane?: (id: string) => void
 }) {
   void useHerdrLang()
+  // 防御：未就绪/缺字段的快照按空 workspace 列表渲染空态，而不是崩溃。
+  const snap = normalizeDashboardSnapshot(input) ?? normalizeDashboardSnapshot({})!
   const visible = hiddenWorkspaceIds
     ? snap.workspaces.filter(ws => !hiddenWorkspaceIds.has(ws.workspace_id))
     : snap.workspaces
