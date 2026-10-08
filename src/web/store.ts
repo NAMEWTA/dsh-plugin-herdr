@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { createGlobalDashboardStore, createStatusStore, parseStartResponse } from './logic.ts'
+import { createGlobalDashboardStore, createStatusStore, normalizeDashboardSnapshot, normalizeStatusSnapshot, parseStartResponse } from './logic.ts'
 import type { SseEvent } from './logic.ts'
 import type { HerdrStatusSnapshot } from './types.ts'
 import type { HerdrDashboardSnapshot } from './dashboard-types.ts'
 import { getHerdrMode, useHerdrMode } from './mode.ts'
 import { getHerdrRemote, type HerdrRemote } from './remote.ts'
+import { t } from './i18n.ts'
 
 function herdrRemote(): HerdrRemote | null {
   try {
@@ -18,7 +19,9 @@ async function fetchStatus(signal: AbortSignal): Promise<HerdrStatusSnapshot> {
   if (signal.aborted) throw new Error('aborted')
   const remote = herdrRemote()
   if (!remote) throw new Error('herdr remote is not mounted')
-  return await remote.status({ scope: 'project' }) as HerdrStatusSnapshot
+  const snap = normalizeStatusSnapshot(await remote.status({ scope: 'project' }))
+  if (!snap) throw new Error('invalid herdr status payload')
+  return snap
 }
 
 export function statusIntervalFor(snap: HerdrStatusSnapshot | null): number {
@@ -46,7 +49,7 @@ function shouldPauseStatus(): boolean {
 export function patchHerdrStatus(snap: HerdrStatusSnapshot, event: SseEvent): HerdrStatusSnapshot {
   switch (event.type) {
     case 'topology': {
-      const topo = event.topology as HerdrStatusSnapshot['topology']
+      const topo = normalizeStatusSnapshot({ topology: event.topology })?.topology
       const filter = event.filter as HerdrStatusSnapshot['filter']
       if (!topo) return snap
       return { ...snap, topology: topo, ...(filter ? { filter } : {}), updated_at: Date.now() }
@@ -282,11 +285,13 @@ export function useHerdrStatus(): { snap: HerdrStatusSnapshot | null; error: str
 // 卸载即停并 abort；不重复创建 timer——逻辑见 logic.createStatusStore）。
 // ---------------------------------------------------------------------------
 
-async function fetchDashboard(signal: AbortSignal): Promise<HerdrDashboardSnapshot> {
+export async function fetchDashboard(signal: AbortSignal): Promise<HerdrDashboardSnapshot> {
   if (signal.aborted) throw new Error('aborted')
   const remote = herdrRemote()
   if (!remote) throw new Error('herdr remote is not mounted')
-  return await remote.dashboard() as HerdrDashboardSnapshot
+  const snap = normalizeDashboardSnapshot(await remote.dashboard())
+  if (!snap) throw new Error('invalid herdr dashboard payload')
+  return snap
 }
 
 // 数据派生自 status 轮询 + 进程探测，4s 周期足够；首次立即 tick。
@@ -319,7 +324,7 @@ export function useHerdrDashboard(): { snap: HerdrDashboardSnapshot | null; erro
 // ---------------------------------------------------------------------------
 
 export function useGlobalDashboardOpen(): boolean {
-  return useSyncExternalStore(globalDashboardStore.subscribe, globalDashboardStore.getOpen)
+  return useSyncExternalStore(globalDashboardStore.subscribe, globalDashboardStore.getOpen, globalDashboardStore.getOpen)
 }
 
 export function getGlobalDashboardOpen(): boolean {
@@ -374,7 +379,7 @@ export function sendPaneInput(paneId: string, input: { text?: string; keys?: str
     const remote = herdrRemote()
     if (!remote) throw new Error('herdr remote is not mounted')
     const body = await remote.paneInput({ pane_id: paneId, ...input }) as { ok?: boolean; error?: string }
-    if (!body.ok) throw new Error(body.error ?? 'herdr pane input failed')
+    if (!body.ok) throw new Error(body.error ?? t('error.inputFailed'))
   })
   inputQueues.set(paneId, next.catch(() => {}))
   return next
@@ -401,6 +406,6 @@ export async function fetchTerminalBootstrap(
   const remote = herdrRemote()
   if (!remote) throw new Error('herdr remote is not mounted')
   const body = await remote.terminalBootstrap({ pane_id: paneId, lines: maxLines, source }) as { ok?: boolean; text?: string; revision?: number; truncated?: boolean; error?: string }
-  if (!body.ok) throw new Error(body.error ?? 'terminal bootstrap failed')
+  if (!body.ok) throw new Error(body.error ?? t('error.terminalBootstrapFailed'))
   return { text: body.text ?? '', revision: body.revision, truncated: body.truncated === true }
 }

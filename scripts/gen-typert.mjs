@@ -97,6 +97,13 @@ ${members}
   },
 }
 
+// Client remote contribution: ctx.remote.$mount() expects { package, descriptors }.
+// The host manifest's invocations are exactly the descriptors (same ids/codecs).
+export const TYPERT_REMOTE = {
+  package: TYPERT.package,
+  descriptors: TYPERT.invocations,
+}
+
 export default TYPERT
 `
 
@@ -134,7 +141,12 @@ export interface TypertManifest {
   invocations: TypertInvocation[]
   model: unknown
 }
+export interface TypertRemoteContribution {
+  package: string
+  descriptors: TypertInvocation[]
+}
 export declare const TYPERT: TypertManifest
+export declare const TYPERT_REMOTE: TypertRemoteContribution
 export default TYPERT
 `
 

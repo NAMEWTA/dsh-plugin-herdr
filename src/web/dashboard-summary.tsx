@@ -8,6 +8,7 @@ import {
   formatDuration,
   formatTime,
   normalizeDashboardKind,
+  normalizeDashboardSnapshot,
   paneDisplayState,
   paneKeyboardHandlers,
   sortedStatusCounts,
@@ -204,12 +205,15 @@ function statusCount(counts: Record<string, number>, state: PaneDisplayState): n
   return n
 }
 
-export function DashboardSummary({ snap, onPaneClick }: {
-  snap: HerdrDashboardSnapshot
+export function DashboardSummary({ snap: input, onPaneClick }: {
+  snap: HerdrDashboardSnapshot | null | undefined
   /** 点击代理行（跳转对应会话 pane）。 */
   onPaneClick?: (target: HerdrDashboardPaneRef) => void
 }) {
   void useHerdrLang()
+  // 防御：快照可能未就绪或字段缺失（Remote 返回 unknown）——归一化后再读，绝不崩 slot。
+  const snap = normalizeDashboardSnapshot(input)
+  if (!snap) return null
   const summary = snap.summary
   const allAgents = collectDashboardAgents(snap.workspaces)
   const working = statusCount(summary.agents_by_status, 'working')

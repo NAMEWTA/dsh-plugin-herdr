@@ -266,7 +266,7 @@ export function HerdrPanesView() {
     setHiddenPaneIds(prev => new Set(prev).add(paneId))
     try {
       const body = await getHerdrRemote().close({ kind: 'pane', id: paneId }) as { ok?: boolean; error?: string }
-      if (!body.ok) throw new Error(body.error ?? 'herdr close failed')
+      if (!body.ok) throw new Error(body.error ?? t('error.closeFailed'))
       refresh()
     } catch (e) {
       // 回滚乐观移除
@@ -283,7 +283,7 @@ export function HerdrPanesView() {
   const doRename = useCallback(async (kind: 'pane' | 'workspace', id: string, label: string | null): Promise<void> => {
     try {
       const body = await getHerdrRemote().rename({ kind, id, label }) as { ok?: boolean; error?: string }
-      if (!body.ok) throw new Error(body.error ?? 'herdr rename failed')
+      if (!body.ok) throw new Error(body.error ?? t('error.renameFailed'))
       // 乐观覆盖可持续展示（服务端持久化后 refresh 收敛；此处保留覆盖避免闪回）
       setLabelOverrides(prev => { const n = new Map(prev); n.set(id, label); return n })
       refresh()

@@ -87,7 +87,7 @@ export function HerdrDashboardPanel(): ReactNode {
     else setHiddenPaneIds(prev => new Set(prev).add(id))
     try {
       const body = await getHerdrRemote().close({ kind, id }) as { ok?: boolean; error?: string }
-      if (!body.ok) throw new Error(body.error ?? 'herdr close failed')
+      if (!body.ok) throw new Error(body.error ?? t('error.closeFailed'))
       refreshDash()
     } catch (e) {
       if (kind === 'workspace') setHiddenWorkspaceIds(prev => { const n = new Set(prev); n.delete(id); return n })

@@ -1,0 +1,131 @@
+{
+  "ok": true,
+  "value": {
+    "updated_at": 1791424373018,
+    "stale": false,
+    "last_error": null,
+    "server": {
+      "status": "running",
+      "running": true,
+      "version": "0.9.0",
+      "protocol": 22,
+      "socket": "herdr.sock",
+      "session": null,
+      "checked_at": 1791424371117,
+      "installation": "installed"
+    },
+    "connection": {
+      "connected": true,
+      "last_success_at": 1791424373018,
+      "collectors": {
+        "server": true,
+        "topology": true,
+        "agents": true,
+        "host": true,
+        "process": true
+      }
+    },
+    "host": {
+      "hostname": "herdr-host",
+      "platform": "linux",
+      "arch": "x64",
+      "os_type": "Linux",
+      "os_release": "6.12.94+",
+      "node_version": "v24.21.0"
+    },
+    "process": {
+      "available": true,
+      "pid": 521378,
+      "started_at": 1791401172000,
+      "cpu_percent": 0.3,
+      "rss_bytes": 15503360,
+      "source": "posix-pgrep-ps",
+      "sampled_at": 1791424361015,
+      "error": null
+    },
+    "summary": {
+      "workspaces": 3,
+      "tabs": 3,
+      "panes": 3,
+      "agents": 2,
+      "agents_by_status": {
+        "idle": 2
+      }
+    },
+    "workspaces": [
+      {
+        "workspace_id": "wB",
+        "label": "WTA-plus",
+        "checkout_path_base": null,
+        "tab_count": 1,
+        "pane_count": 1,
+        "agent_count": 1,
+        "agents_working": 0,
+        "agents_blocked": 0,
+        "agents": [
+          {
+            "pane_id": "wB:p1",
+            "name": "rvp-impl-ssox",
+            "kind": "grok",
+            "status": "idle"
+          }
+        ],
+        "panes": [
+          {
+            "pane_id": "wB:p1",
+            "label": null,
+            "kind": "grok",
+            "name": "rvp-impl-ssox",
+            "status": "idle"
+          }
+        ]
+      },
+      {
+        "workspace_id": "w1",
+        "label": "rvp-smoke",
+        "checkout_path_base": null,
+        "tab_count": 1,
+        "pane_count": 1,
+        "agent_count": 0,
+        "agents_working": 0,
+        "agents_blocked": 0,
+        "agents": [],
+        "panes": [
+          {
+            "pane_id": "w1:p1",
+            "label": null,
+            "kind": "unknown",
+            "status": "unknown"
+          }
+        ]
+      },
+      {
+        "workspace_id": "w9",
+        "label": "WTA-plus",
+        "checkout_path_base": null,
+        "tab_count": 1,
+        "pane_count": 1,
+        "agent_count": 1,
+        "agents_working": 0,
+        "agents_blocked": 0,
+        "agents": [
+          {
+            "pane_id": "w9:p1",
+            "name": "rvp-impl-ncc",
+            "kind": "grok",
+            "status": "idle"
+          }
+        ],
+        "panes": [
+          {
+            "pane_id": "w9:p1",
+            "label": null,
+            "kind": "grok",
+            "name": "rvp-impl-ncc",
+            "status": "idle"
+          }
+        ]
+      }
+    ]
+  }
+}

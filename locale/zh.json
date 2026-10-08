@@ -1,13 +1,13 @@
 {
   "meta": {
     "title": "Herdr",
-    "description": "在 DeepSeek Harness 中观察并驱动 Herdr 的 workspace、pane 与 agent。"
+    "description": "在 DeepSeek Harness 中观察并驱动 Herdr 的工作区、窗格与代理。"
   },
   "brand.heroText": "Herdr 助你探索未至之境",
   "brand.heroBrand": "Herdr 助你",
   "brand.heroPlain": "探索未至之境",
   "brand.presetName": "Herdr 模式",
-  "brand.presetDesc": "会话绑定 Herdr——本对话视为运行在 Herdr 中的 Agent，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作 workspace / pane / agent。",
+  "brand.presetDesc": "会话绑定 Herdr——本对话视为运行在 Herdr 中的代理，状态实时显示在 Herdr 侧边栏，优先使用 herdr 工具操作工作区、窗格与代理。",
   "pane.drag": "拖拽排序",
   "pane.rename": "重命名",
   "pane.close": "关闭窗格",
@@ -56,7 +56,7 @@
   "dashboard.socketPath": "Socket 路径",
   "dashboard.lastSuccess": "最近成功",
   "dashboard.lastError": "最近错误",
-  "dashboard.fetchError": "获取 Dashboard 失败",
+  "dashboard.fetchError": "获取仪表盘数据失败",
   "dashboard.host": "主机",
   "dashboard.hostname": "主机名",
   "dashboard.os": "操作系统",
@@ -73,7 +73,7 @@
   "dashboard.done": "已完成",
   "dashboard.unknown": "未知",
   "dashboard.lastUpdated": "最近更新：{time}",
-  "dashboard.refresh": "刷新 Dashboard",
+  "dashboard.refresh": "刷新仪表盘",
   "dashboard.noData": "暂无数据",
   "dashboard.checking": "检查中…",
   "dashboard.empty": "本机暂无工作区",
@@ -147,5 +147,22 @@
   "panel.viewerClosed": "窗格已关闭",
   "view.layoutWindow": "窗口模式",
   "view.layoutList": "列表模式",
-  "view.layoutHint": "切换布局"
+  "view.layoutHint": "切换布局",
+  "banner.agentCount": "{count} 个代理",
+  "view.resize": "调整大小",
+  "error.closeFailed": "关闭失败",
+  "error.renameFailed": "重命名失败",
+  "error.inputFailed": "发送输入失败",
+  "error.terminalBootstrapFailed": "读取终端快照失败",
+  "error.terminalRequestFailed": "终端请求失败",
+  "terminal.cooldown": "终端会话暂不可用（冷却中）",
+  "terminal.unavailable": "终端会话暂不可用",
+  "terminal.conflict": "终端已被其他会话控制",
+  "terminal.notFound": "终端会话不存在或已关闭",
+  "terminal.forbidden": "无权操作该终端",
+  "terminal.protocolError": "终端协议错误",
+  "terminal.frameGap": "终端画面丢帧，正在重建",
+  "terminal.backpressure": "终端输入过快，请稍后重试",
+  "terminal.exited": "终端进程已退出",
+  "terminal.timeout": "终端响应超时"
 }

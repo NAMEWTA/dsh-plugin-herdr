@@ -14,6 +14,41 @@
 import type { BrowserTerminalCommand, BrowserTerminalEvent, TerminalSessionStartRequest } from '../host/terminal-session/types.ts'
 import { subscribeHerdrEvents } from './store.ts'
 import { getHerdrRemote } from './remote.ts'
+import { t, type I18nKey } from './i18n.ts'
+
+/** terminal session 错误码 → 本地化文案（host 诊断信息不跨语言展示；未知码保留原文）。 */
+const TERMINAL_ERROR_KEYS: Record<string, I18nKey> = {
+  terminal_session_unavailable: 'terminal.unavailable',
+  terminal_session_conflict: 'terminal.conflict',
+  terminal_session_not_found: 'terminal.notFound',
+  terminal_session_forbidden: 'terminal.forbidden',
+  terminal_session_protocol_error: 'terminal.protocolError',
+  terminal_session_frame_gap: 'terminal.frameGap',
+  terminal_session_input_backpressure: 'terminal.backpressure',
+  terminal_session_process_exited: 'terminal.exited',
+  terminal_session_timeout: 'terminal.timeout',
+}
+
+export function localizeTerminalError(code: string | undefined, message: string | undefined): string {
+  const key = code ? TERMINAL_ERROR_KEYS[code] : undefined
+  if (key) return t(key)
+  return message || t('error.terminalRequestFailed')
+}
+
+/** transport 失败：message 已本地化，code 保留供冷却判定。 */
+export class TerminalRequestError extends Error {
+  readonly code: string | undefined
+  constructor(code: string | undefined, message: string | undefined) {
+    super(localizeTerminalError(code, message))
+    this.name = 'TerminalRequestError'
+    this.code = code
+  }
+}
+
+function isUnavailableError(err: unknown, message: string): boolean {
+  if ((err as { code?: unknown } | null)?.code === 'terminal_session_unavailable') return true
+  return /unavailable|不可用|上限/i.test(message)
+}
 
 export interface TerminalSize {
   cols: number
@@ -110,7 +145,7 @@ export class BrowserTerminalSessionStore {
     // 冷却期：capability 探测失败或达到上限后 60s 内不再发起 start，
     // 直接报错让组件回退快照模式（避免多卡片 503 重试风暴）
     if (!takeover && Date.now() < this.unavailableUntil) {
-      this.emit(paneId, { type: 'status', status: 'error', message: 'terminal session 暂不可用（冷却中）' })
+      this.emit(paneId, { type: 'status', status: 'error', message: t('terminal.cooldown') })
       return
     }
     // stale：重置同一对象（不换引用，保持多组件 refcount 语义）再全新连接
@@ -206,7 +241,7 @@ export class BrowserTerminalSessionStore {
       ps.status = 'error'
       ps.message = err instanceof Error ? err.message : String(err)
       // capability 不可用 / 限额 503：进入冷却期，其余 pane 不再重复打满 start
-      if (ps.message.includes('不可用') || ps.message.includes('上限')) {
+      if (isUnavailableError(err, ps.message)) {
         this.unavailableUntil = Date.now() + BrowserTerminalSessionStore.UNAVAILABLE_COOLDOWN_MS
       }
       this.emit(ps.paneId, { type: 'status', status: 'error', message: ps.message })
@@ -236,8 +271,8 @@ export class BrowserTerminalSessionStore {
         break
       case 'conflict':
         ps.status = 'conflict'
-        ps.message = ev.message
-        this.emit(ps.paneId, { type: 'status', status: 'conflict', message: ev.message })
+        ps.message = localizeTerminalError('terminal_session_conflict', ev.message)
+        this.emit(ps.paneId, { type: 'status', status: 'conflict', message: ps.message })
         break
       case 'error':
         // 服务端 session 已回收（agent 任务结束、子进程退出等）：按 closed 处理，
@@ -247,8 +282,8 @@ export class BrowserTerminalSessionStore {
           this.emit(ps.paneId, { type: 'status', status: 'closed' })
         } else {
           ps.status = 'error'
-          ps.message = ev.message
-          this.emit(ps.paneId, { type: 'status', status: 'error', message: ev.message })
+          ps.message = localizeTerminalError(ev.code, ev.message)
+          this.emit(ps.paneId, { type: 'status', status: 'error', message: ps.message })
         }
         break
       case 'closed':
@@ -284,8 +319,8 @@ export function createFetchTransport(_base: string = ''): TerminalSessionTranspo
     } catch (error) {
       throw error instanceof Error ? error : new Error('herdr remote is not mounted')
     }
-    const result = await remote[method](body) as { ok?: boolean; error?: string; [key: string]: unknown }
-    if (!result.ok) throw new Error(result.error ?? 'herdr terminal request failed')
+    const result = await remote[method](body) as { ok?: boolean; error?: string; code?: string; [key: string]: unknown }
+    if (!result.ok) throw new TerminalRequestError(result.code, result.error)
     return result
   }
   return {
