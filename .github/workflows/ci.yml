@@ -36,7 +36,7 @@ jobs:
           path: artifacts/
           retention-days: 30
   dsh-smoke:
-    name: DSH Web ${{ matrix.dsh }}
+    name: DSH Web ${{ matrix.dsh }} (${{ matrix.environment }})
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -44,8 +44,13 @@ jobs:
       fail-fast: false
       matrix:
         dsh: ['0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2']
+        environment: [installed]
+        include:
+          - dsh: 0.2.1-alpha.2
+            environment: missing
     env:
       DSH_SMOKE_VERSION: ${{ matrix.dsh }}
+      HERDR_SMOKE_MISSING: ${{ matrix.environment == 'missing' && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,7 +76,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: dsh-smoke-${{ matrix.dsh }}
+          name: dsh-smoke-${{ matrix.dsh }}-${{ matrix.environment }}
           path: evidence/
           retention-days: 14
   integration:
