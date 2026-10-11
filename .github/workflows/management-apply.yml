@@ -1,10 +1,11 @@
-# Temporary same-branch transfer of the locally tested, human-readable implementation patch.
-# Removed together with the patch by the single commit below. Never writes main or force-pushes.
+# Temporary transfer of a checksum-verified, human-readable implementation patch.
+# Source only: the CI token has no workflows permission. Workflow updates and
+# removal of this helper are performed separately through the authorized connector.
 name: Commit verified management implementation
 on:
   push:
     branches: [feat/herdr-environment-management]
-    paths: [.management-patch/**]
+    paths: [.management-patch/**, .github/workflows/management-apply.yml]
 permissions:
   contents: write
 jobs:
@@ -16,19 +17,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-      - name: Verify and apply the exact implementation
+      - name: Verify and commit only source changes on the feature branch
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/feat/herdr-environment-management
+          test -f .management-patch/0.patch
           cat .management-patch/{0,1,2,3}.patch > "$RUNNER_TEMP/management.patch"
           echo "89fbc99740c3e91255b2a317e80c95342ca0b09f9ad96e0b0c7c99ca9d0c26da  $RUNNER_TEMP/management.patch" | sha256sum --check
           git apply --check --unidiff-zero "$RUNNER_TEMP/management.patch"
           git apply --unidiff-zero "$RUNNER_TEMP/management.patch"
+          git restore --source=HEAD --staged --worktree .github/workflows
           rm -r .management-patch
-          rm .github/workflows/management-apply.yml
           git add --all
           git diff --cached --stat
+          test -z "$(git diff --cached --name-only -- .github/workflows)"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'feat: add host-aware Herdr installation and environment management'
