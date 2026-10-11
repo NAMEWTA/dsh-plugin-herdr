@@ -1,88 +1,114 @@
-# CA-010：CI 质量门。
-# - quality job（PR 必过）：typecheck + gen-types 漂移检查 + 单测；
-# - integration job（optional，continue-on-error）：真实 herdr 集成；
-#   无 herdr/未启动 server 时 test/integration/*.mjs 会打印 SKIPPED 并退出 0（CA-009）。
-# 触发：push 仅限 main；PR 分支只走 pull_request 事件，避免同一提交重复跑两遍。
 name: ci
-
 on:
   push:
     branches: [main]
   pull_request:
-
-# 同一分支/PR 的旧 run 作废，避免排队堆积
+permissions:
+  contents: read
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: true
-
 jobs:
   quality:
-    name: Quality gate (typecheck + gen-types + unit)
+    name: Quality and packed artifact
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          # 不用 cache: pnpm：pnpm 10 的 store 路径与 setup-node 预期不符，
-          # post 步骤报 "Path Validation Error" 导致整个 job 失败（已实测）；依赖很小，不缓存也够快
-      - name: Enable pnpm
-        run: corepack enable
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Generated types drift check
-        run: pnpm gen:types:check
-      - name: Unit tests
-        run: pnpm test
-
-  integration:
-    name: Integration (real herdr, optional)
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm quality
+      - name: Build the distributable and verify its contents
+        run: |
+          mkdir -p artifacts
+          pnpm pack --pack-destination artifacts
+          pnpm check:package artifacts/*.tgz
+          (cd artifacts && sha256sum *.tgz > SHA256SUMS)
+          npm view @deepseek-ai/dsh dist-tags --json > artifacts/dsh-dist-tags.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: herdr-plugin-package
+          path: artifacts/
+          retention-days: 30
+  dsh-smoke:
+    name: DSH Web ${{ matrix.dsh }}
+    needs: quality
     runs-on: ubuntu-latest
-    # 真实 herdr 环境不是每次 PR 都可用：失败不阻塞合并，但输出会暴露问题
-    continue-on-error: true
-    # 兜底：herdr server 是前台常驻进程，step 绝不能无限卡住（PR#1 曾卡 45 分钟被手动取消）
-    timeout-minutes: 10
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh: ['0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2']
+    env:
+      DSH_SMOKE_VERSION: ${{ matrix.dsh }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          # 不用 cache: pnpm：pnpm 10 的 store 路径与 setup-node 预期不符，
-          # post 步骤报 "Path Validation Error" 导致整个 job 失败（已实测）；依赖很小，不缓存也够快
-      - name: Enable pnpm
-        run: corepack enable
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install herdr CLI (best effort)
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: herdr-plugin-package
+          path: artifacts
+      - name: Verify artifact checksum
+        run: cd artifacts && sha256sum --check SHA256SUMS
+      - name: Install the published CLI and a pinned browser runner
+        run: npm install --prefix "$RUNNER_TEMP/dsh-cli" --no-audit --no-fund "@deepseek-ai/dsh@$DSH_SMOKE_VERSION" playwright@1.56.1
+      - name: Install Chromium
+        run: node "$RUNNER_TEMP/dsh-cli/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Install, activate Web dashboard, and uninstall in an isolated home
+        run: node scripts/smoke-dsh.mjs "$RUNNER_TEMP/dsh-cli/node_modules/@deepseek-ai/dsh/lib/bin.js" artifacts/*.tgz "$RUNNER_TEMP/dsh-cli/node_modules/playwright/index.mjs" evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dsh-smoke-${{ matrix.dsh }}
+          path: evidence/
+          retention-days: 14
+  integration:
+    name: Herdr 0.9.0 protocol 22
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - name: Install the pinned Herdr binary
         run: |
-          curl -fsSL https://herdr.dev/install.sh | sh || echo 'herdr install failed (integration will SKIP)'
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Start herdr server in background (best effort)
+          mkdir -p "$RUNNER_TEMP/herdr-bin"
+          curl --fail --location --retry 3 https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-x86_64 -o "$RUNNER_TEMP/herdr-bin/herdr"
+          echo "4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f  $RUNNER_TEMP/herdr-bin/herdr" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/herdr-bin/herdr"
+          echo "$RUNNER_TEMP/herdr-bin" >> "$GITHUB_PATH"
+      - name: Run real tests in an isolated Herdr session (no silent skip)
+        env:
+          HERDR_REQUIRE_INTEGRATION: '1'
         run: |
-          if ! command -v herdr >/dev/null 2>&1; then
-            echo 'herdr CLI missing (integration will SKIP)'
-            exit 0
-          fi
-          herdr server >/tmp/herdr-server.log 2>&1 &
-          echo "herdr server pid: $!"
-          # 轮询最多 60s 等 server 就绪；就绪失败不报错，集成脚本会自行 SKIP（CA-009）
+          export HERDR_SESSION="dsh-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          herdr server >"$RUNNER_TEMP/herdr-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
           for i in $(seq 1 60); do
-            if herdr status server --json 2>/dev/null | grep -q '"running": *true'; then
-              echo "herdr server is running (after ${i}s)"
-              exit 0
-            fi
+            if herdr status server --json | grep -q '"running": *true'; then ready=1; break; fi
             sleep 1
           done
-          echo 'herdr server did not become ready (integration will SKIP)'
-          exit 0
-      - name: Integration tests
-        run: pnpm test:integration
+          test "$ready" = 1
+          pnpm test:integration
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: herdr-integration-log
+          path: ${{ runner.temp }}/herdr-server.log
+          retention-days: 14
