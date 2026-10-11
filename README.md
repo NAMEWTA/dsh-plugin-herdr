@@ -9,7 +9,7 @@ Herdr control-plane plugin for [DeepSeek Harness](https://github.com/deepseek-ai
 
 ## Requirements and supported downloads
 
-Plugin **0.0.2** targets Node **24+** and DSH **0.2.0-rc.2**, **0.2.1-alpha.1**, or
+Plugin **0.0.3** targets Node **24+** and DSH **0.2.0-rc.2**, **0.2.1-alpha.1**, or
 **0.2.1-alpha.2**. DSH's plugin installer also requires **pnpm on PATH**. Run the
 plugin and Herdr on the same Linux/macOS host (Herdr 0.9.0 / protocol 22 baseline).
 Windows named pipes are not supported.
@@ -30,7 +30,7 @@ pnpm --version
 
 ## Install the prebuilt plugin
 
-Download `namewta-dsh-plugin-herdr-0.0.2.tgz` and `SHA256SUMS` from
+Download `namewta-dsh-plugin-herdr-0.0.3.tgz` and `SHA256SUMS` from
 [GitHub Releases](https://github.com/NAMEWTA/dsh-plugin-herdr/releases). A release
 is created only after main's full CI, real Herdr tests and DSH Web installation
 matrix pass. The same package is also available in a successful `ci` run's
@@ -41,7 +41,7 @@ plugin release. Use the versioned tarball for this compatibility update.
 ```sh
 # Run in the directory containing the downloaded package and checksum file
 sha256sum --check SHA256SUMS  # macOS: shasum -a 256 --check SHA256SUMS
-dsh plugin --profile web add /absolute/path/namewta-dsh-plugin-herdr-0.0.2.tgz
+dsh plugin --profile web add /absolute/path/namewta-dsh-plugin-herdr-0.0.3.tgz
 dsh plugin --profile web list
 dsh web
 ```
@@ -55,6 +55,30 @@ the panel can start its binary from `PATH` when available.
 Do not install an unbuilt Git checkout directly: it contains no `lib/` artifacts.
 A GitHub source archive is not the prebuilt plugin tarball.
 
+## Herdr installation and environment settings
+
+Open **Herdr → Installation & settings**, or **Settings → Plugins → Herdr environment**.
+The dashboard opens installation guidance automatically when the executable is missing;
+the session server banner also exposes the same panel.
+
+**Check environment / test connection** inspects the DSH Host, not the browser OS:
+platform/architecture, Herdr executable/version, npm/pnpm availability, the configured
+socket and terminal capability. CLI installation and server connectivity are independent.
+Checks do not install software, start terminal sessions or edit configuration.
+
+Herdr does not document an official npm installer. The panel shows the official
+Linux/macOS installer (and Homebrew on macOS); npm commands are for pnpm and the pinned
+DSH release only. Copy commands to a terminal on the Host, recheck, then explicitly
+start the server when needed. Native Windows gets WSL guidance, not a false support claim.
+
+Active connection settings are read-only: `terminalSession.binPath` / `HERDR_BIN_PATH`,
+`socketPath` / `HERDR_SOCKET_PATH`, and `session` / `HERDR_SESSION`. Change the plugin
+configuration or launch environment and restart DSH to edit them. Checks, server start
+and terminals share executable discovery, including `~/.local/bin`; invalid explicit
+paths never fall back silently. The official installer may select a newer Herdr than
+our 0.9.0/protocol 22 baseline. The panel warns rather than claiming full compatibility.
+It never automatically installs, stops, upgrades or replaces running software.
+
 ## Build from source
 
 ```sh
@@ -64,8 +88,8 @@ npm install --global pnpm@10.28.2
 pnpm install --frozen-lockfile
 pnpm quality
 pnpm pack  # prepack automatically builds Host + Typert + Web
-pnpm check:package ./namewta-dsh-plugin-herdr-0.0.2.tgz
-dsh plugin --profile web add ./namewta-dsh-plugin-herdr-0.0.2.tgz
+pnpm check:package ./namewta-dsh-plugin-herdr-0.0.3.tgz
+dsh plugin --profile web add ./namewta-dsh-plugin-herdr-0.0.3.tgz
 ```
 
 ## Upgrade and uninstall

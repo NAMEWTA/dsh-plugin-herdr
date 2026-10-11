@@ -17,6 +17,7 @@ export interface TerminalRuntime {
   manager(): TerminalSessionManager | null
   /** 能力探测：成功结果永久缓存，失败结果缓存 TTL；并发调用共用一次探测。 */
   ensureAvailable(): Promise<boolean>
+  invalidateProbe(): void
   dispose(): void
 }
 
@@ -26,6 +27,7 @@ export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps 
   const now = deps.now ?? Date.now
   let capability: TerminalSessionCapability | null = null
   let capabilityAt = 0
+  let probeRevision = 0
   let inflight: Promise<TerminalSessionCapability> | null = null
   let manager: TerminalSessionManager | null = null
 
@@ -48,17 +50,26 @@ export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps 
       if (capability?.available) return true
       if (capability && now() - capabilityAt < TERMINAL_PROBE_FAILURE_TTL_MS) return capability.available
       if (!inflight) {
+        const revision = probeRevision
         inflight = probe({ binPath: cfg.binPath }).then(cap => {
-          capability = cap
-          capabilityAt = now()
-          inflight = null
+          if (revision === probeRevision) {
+            capability = cap
+            capabilityAt = now()
+            inflight = null
+          }
           return cap
         }, err => {
-          inflight = null
+          if (revision === probeRevision) inflight = null
           throw err
         })
       }
       return (await inflight).available
+    },
+    invalidateProbe() {
+      probeRevision++
+      capability = null
+      capabilityAt = 0
+      inflight = null
     },
     dispose() {
       manager?.dispose()

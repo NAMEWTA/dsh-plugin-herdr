@@ -1,6 +1,8 @@
 // 客户端插件入口：apply() + 各槽位注册 + sessions 服务注入。
 // 本文件是 Web 面板装配层，不包含组件/数据/样式逻辑本身。
 
+import { HerdrEnvironmentSettings } from './environment/settings.tsx'
+import { t } from './i18n.ts'
 import { HerdrView, HerdrHeaderPill } from './herdr-view.tsx'
 import { setSessionIdReader, setSessionOpener } from './navigation.ts'
 import { HerdrPaneList } from './pane-list.tsx'
@@ -82,6 +84,11 @@ export function apply(ctx: ClientCtx) {
     stopLangTracking?.()
     stopLangTracking = null
   })
+
+  // Native plugin settings and the dashboard reuse one environment management surface.
+  ctx.slots.inject('settings.plugins.tab', () =>
+    ctx.slots.register({ name: 'settings.plugins.tab', id: 'herdr-environment', order: 30, label: () => t('setup.tab') }, HerdrEnvironmentSettings),
+  )
 
   ctx.slots.inject('conversation.view', () =>
     ctx.slots.register(

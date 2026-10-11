@@ -11,9 +11,9 @@ DSH Web is launched by the `@deepseek-ai/dsh` CLI (`dsh web`); the package
 
 | Plugin | Host release | Intent |
 | --- | --- | --- |
-| 0.0.2 | 0.2.0-rc.2 | Default npm download at this checkpoint |
-| 0.0.2 | 0.2.1-alpha.1 | Existing preview installations |
-| 0.0.2 | 0.2.1-alpha.2 | Latest published alpha; development/typecheck baseline |
+| 0.0.3 | 0.2.0-rc.2 | Default npm download at this checkpoint |
+| 0.0.3 | 0.2.1-alpha.1 | Existing preview installations |
+| 0.0.3 | 0.2.1-alpha.2 | Latest published alpha; development/typecheck baseline |
 
 Only these exact prereleases are admitted by `engines.dsh` and the DSH peer
 family. Other versions require a new compatibility run, not an unrestricted
@@ -50,6 +50,17 @@ work remains separate in draft PR #13 and is not included in this release.
 For release acceptance, inspect checks on the exact PR head/merge commit and
 its `dsh-smoke-*` evidence artifacts. Do not treat an old green run or a skipped
 integration job as evidence for a new commit.
+
+## Environment management acceptance
+
+The installation panel uses Host platform/architecture, never browser user-agent detection.
+The DSH matrix exercises both dashboard and native plugin-settings entry points, copy/recheck,
+and the additional alpha.2 missing-install case: missing binary → copy the already verified
+Herdr binary to the configured test path → recheck → explicitly start a uniquely named server.
+No network installer is executed by the Web service or browser test. Active connection
+configuration is inspected, not edited live; applying changed paths requires a host restart.
+Official install guidance: https://herdr.dev/docs/install/ (checked 2026-10-11). No official
+npm-based Herdr installer is claimed. Windows guidance does not add native socket support.
 
 ## Sources
 

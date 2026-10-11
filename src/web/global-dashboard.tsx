@@ -1,11 +1,7 @@
-// 全局面板（design: dashboard-global v4 —— 插件-only：marker 注入 sidebar 文档流 +
-// shell.overlay 右侧工作区完整 surface）。宿主 DSH 零改动。
-// 按钮：原生 DOM marker 插到 New Session 与 regionArea 之间（同一文档流），带三态
-// 状态点（运行中/已停止/未安装/检查中，复用 statusStore 快照——P1-1）；surface：
-// shell.overlay 内从 sidebar 右边界覆盖整个右侧工作区，header 含状态+版本+启动，
-// 复用 DashboardContent；workspace 卡片点击关闭 surface 返回 conversation。
+// Herdr dashboard in the native sidebar/main slots, with shared environment settings.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { HerdrEnvironmentSettings } from './environment/settings.tsx'
 import { Button } from './ui.tsx'
 import { getHerdrRemote } from './remote.ts'
 import {
@@ -48,6 +44,7 @@ function markerStateText(state: MarkerServerState): string {
 /** Dashboard rendered in the main column when sidebar.panellist selects it. */
 export function HerdrDashboardPanel(): ReactNode {
   void useHerdrLang()
+  const [setupOpen, setSetupOpen] = useState<boolean | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const noticeTimer = useRef<number | undefined>(undefined)
   const showNotice = (message: string) => {
@@ -111,6 +108,7 @@ export function HerdrDashboardPanel(): ReactNode {
   const { starting, startError, start } = useHerdrStart()
   const server = dashSnap?.server
   const serverState = deriveMarkerServerState(dashSnap)
+  const showSetup = setupOpen ?? serverState === 'not-installed'
   const disconnected = !dashSnap && error != null
   const handleStart = async () => {
     const ok = await start()
@@ -127,12 +125,12 @@ export function HerdrDashboardPanel(): ReactNode {
           <HerdrLogo className="herdr-gds-logo" />
           {t('global.title')}
         </span>
-        <span className="herdr-gds-state" data-state={disconnected ? 'not-installed' : serverState}>
-          <span className="herdr-state-dot" data-state={disconnected ? 'not-installed' : serverState} aria-hidden />
+        <span className="herdr-gds-state" data-state={disconnected ? 'checking' : serverState}>
+          <span className="herdr-state-dot" data-state={disconnected ? 'checking' : serverState} aria-hidden />
           <span>{disconnected ? t('banner.unavailable') : markerStateText(serverState)}</span>
           {server?.version ? <span className="herdr-gds-version">v{server.version}</span> : null}
         </span>
-        {serverState === 'stopped' || serverState === 'not-installed' || disconnected ? (
+        {serverState === 'stopped' ? (
           <Button variant="primary" size="sm" disabled={starting} onClick={() => void handleStart()}>
             {starting ? t('view.starting') : t('banner.start')}
           </Button>
@@ -147,6 +145,7 @@ export function HerdrDashboardPanel(): ReactNode {
             <Button variant="outline" size="sm" onClick={refreshDash}>{t('dashboard.refresh')}</Button>
           </span>
         ) : null}
+        <Button aria-expanded={showSetup} aria-controls="herdr-setup-region" onClick={() => setSetupOpen(!showSetup)}>{t('setup.title')}</Button>
       </header>
       {notice ? <div className="herdr-gds-notice" role="status">{notice}</div> : null}
       {actionError ? (
@@ -157,6 +156,7 @@ export function HerdrDashboardPanel(): ReactNode {
       ) : null}
       {disconnected ? <div className="herdr-server-error">{t('banner.unavailable')}</div> : null}
       <div className="herdr-gds-body">
+        {showSetup ? <div id="herdr-setup-region"><HerdrEnvironmentSettings /></div> : null}
         <DashboardContent
           onPaneClick={onPaneClick}
           selfPaneId={selfPaneId}

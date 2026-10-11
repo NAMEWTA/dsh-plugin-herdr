@@ -2,7 +2,7 @@
 // Does not read or modify a developer's DSH_HOME and does not invoke an LLM.
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -19,6 +19,12 @@ const evidence = resolve(evidenceArg)
 mkdirSync(evidence, { recursive: true })
 const home = mkdtempSync(join(tmpdir(), 'herdr-dsh-smoke-'))
 const env = { ...process.env, DSH_HOME: home, CI: '1' }
+const missingInstall = process.env.HERDR_SMOKE_MISSING === '1'
+if (missingInstall) {
+  env.HERDR_BIN_PATH = join(home, 'herdr-bin', 'herdr')
+  env.HERDR_SESSION = `herdr-install-check-${process.pid}`
+  delete env.HERDR_SOCKET_PATH
+}
 const packageName = '@namewta/dsh-plugin-herdr'
 const errors = []
 let child, browser, page
@@ -105,6 +111,44 @@ try {
   await sidebarButton.click({ timeout: 30_000 })
   await page.locator('.herdr-dash-panel').waitFor({ state: 'visible', timeout: 30_000 })
   await page.locator('.herdr-dash-kpis').waitFor({ state: 'visible', timeout: 30_000 })
+  if (!missingInstall) await page.waitForFunction(() => document.querySelector('.herdr-gds-version')?.textContent === 'v0.9.0', null, { timeout: 45_000 })
+  const settingsButton = page.getByRole('button', { name: 'Installation & settings', exact: true })
+  if (await settingsButton.getAttribute('aria-expanded') !== 'true') await settingsButton.click()
+  const setup = page.locator('.herdr-setup').first()
+  await setup.locator(`[data-cli-state="${missingInstall ? 'missing' : 'available'}"]`).waitFor({ state: 'visible', timeout: 30_000 })
+  assert.match(await setup.innerText(), /npm install --global pnpm@10.28.2/)
+  assert.doesNotMatch(await setup.innerText(), /npm install --global herdr/)
+  assert.match(await setup.innerText(), /linux \/ x64/)
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await setup.getByRole('button', { name: 'Copy command: Official Herdr installer', exact: true }).click()
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'curl -fsSL https://herdr.dev/install.sh | sh')
+  if (missingInstall) {
+    assert.equal(await setup.getByRole('button', { name: 'Start Herdr server', exact: true }).isDisabled(), true)
+    await page.screenshot({ path: join(evidence, 'herdr-missing.png'), fullPage: true })
+    // Install the already checksum-verified real binary into the configured test location.
+    // Never run a remote install script and never touch the developer's installation.
+    assert.ok(process.env.RUNNER_TEMP)
+    mkdirSync(join(home, 'herdr-bin'), { recursive: true })
+    cpSync(join(process.env.RUNNER_TEMP, 'herdr-bin', 'herdr'), env.HERDR_BIN_PATH)
+    chmodSync(env.HERDR_BIN_PATH, 0o755)
+    await setup.getByRole('button', { name: 'Check environment / test connection', exact: true }).click()
+    await setup.locator('[data-cli-state="available"]').waitFor({ state: 'visible', timeout: 30_000 })
+    await setup.getByRole('button', { name: 'Start Herdr server', exact: true }).click()
+  } else {
+    await setup.getByRole('button', { name: 'Check environment / test connection', exact: true }).click()
+  }
+  await setup.locator('[data-connection="connected"]').waitFor({ state: 'visible', timeout: 45_000 })
+  await page.screenshot({ path: join(evidence, 'herdr-environment.png'), fullPage: true })
+  // The very same feature is reachable through the Host's native settings navigation.
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const settingsDialog = page.getByRole('dialog')
+  await settingsDialog.getByText('Plugins', { exact: true }).click()
+  await settingsDialog.getByRole('tab', { name: 'Herdr environment', exact: true }).click()
+  await settingsDialog.locator('[data-cli-state="available"]').waitFor({ state: 'visible', timeout: 30_000 })
+  await settingsDialog.locator('[data-connection="connected"]').waitFor({ state: 'visible', timeout: 30_000 })
+  await page.screenshot({ path: join(evidence, 'herdr-native-settings.png'), fullPage: true })
+  await page.keyboard.press('Escape')
+  await settingsDialog.waitFor({ state: 'hidden', timeout: 10_000 })
   await page.waitForFunction(() => document.querySelector('.herdr-gds-version')?.textContent === 'v0.9.0', null, { timeout: 45_000 })
   await page.screenshot({ path: join(evidence, 'herdr-dashboard.png'), fullPage: true })
   const dashboard = await page.locator('.herdr-dash-panel').innerText()
@@ -118,7 +162,7 @@ try {
   const removed = command(['plugin', '--profile', 'web', 'list'])
   writeFileSync(join(evidence, 'removed.txt'), removed)
   assert.ok(!removed.includes(packageName), 'plugin still present after removal')
-  writeFileSync(join(evidence, 'result.json'), JSON.stringify({ dsh: version, install: true, web: true, dashboard: true, remove: true, pageErrors: errors.length }, null, 2))
+  writeFileSync(join(evidence, 'result.json'), JSON.stringify({ dsh: version, install: true, web: true, dashboard: true, environmentSettings: true, nativeSettings: true, missingInstallRecovery: missingInstall, remove: true, pageErrors: errors.length }, null, 2))
   console.log('Published DSH CLI: install/list/Web/dashboard/remove smoke passed')
 } catch (error) {
   writeFileSync(join(evidence, 'failure.log'), redactLaunchTokens(error instanceof Error ? error.stack ?? error.message : String(error)))
@@ -134,5 +178,8 @@ try {
   writeFileSync(join(evidence, 'host.log'), redactLaunchTokens(output))
   const diagnostics = join(home, 'profiles', 'web', '.plugin-manager', 'logs')
   if (existsSync(diagnostics)) cpSync(diagnostics, join(evidence, 'plugin-manager-logs'), { recursive: true })
+  if (missingInstall && existsSync(env.HERDR_BIN_PATH)) {
+    try { execFileSync(env.HERDR_BIN_PATH, ['server', 'stop'], { env, cwd: home, timeout: 10_000, stdio: 'ignore' }) } catch { /* only the uniquely named disposable test server */ }
+  }
   rmSync(home, { recursive: true, force: true })
 }

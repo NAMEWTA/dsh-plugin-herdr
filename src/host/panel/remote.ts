@@ -2,6 +2,7 @@
 // The implementation is created beside the existing trackers; this class only
 // owns the wire contract and the checks previously done by HTTP routes.
 
+import type { HerdrEnvironmentReport } from '../../core/environment.ts'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { Context } from '@deepseek-ai/cordis'
 import { getBindingRegistry, getBoundPaneIds, getBoundWorkspaceIds, sessionIdFromTokens } from '../binding-registry.ts'
@@ -33,6 +34,7 @@ import type {
 } from './protocol.ts'
 
 export interface PanelRuntime {
+  environment?: () => Promise<HerdrEnvironmentReport>
   tracker: HerdrStatusTracker
   dashboard: HerdrDashboardTracker
   terminal: () => TerminalSessionManager | null
@@ -75,6 +77,11 @@ export class HerdrPanelService extends TypertRemoteService {
   async status(request?: unknown): Promise<HerdrStatusSnapshot> {
     const scope = record(request).scope === 'all' ? 'all' : 'project'
     return this.runtime.tracker.snapshot(scope)
+  }
+
+  environment(): Promise<HerdrEnvironmentReport> {
+    if (!this.runtime.environment) throw new Error('Herdr environment reader is unavailable')
+    return this.runtime.environment()
   }
 
   async dashboard(): Promise<HerdrDashboardSnapshot> {
@@ -360,7 +367,7 @@ export class HerdrPanelService extends TypertRemoteService {
 // desktop host does not pass that flag. Register the same markers Remote()
 // would attach, so the shipped bundle stays plain JavaScript.
 const PANEL_REMOTE_METHODS = [
-  'status', 'dashboard', 'topology', 'agentOutputs', 'sessionPane', 'paneSession',
+  'environment', 'status', 'dashboard', 'topology', 'agentOutputs', 'sessionPane', 'paneSession',
   'start', 'close', 'rename', 'paneInput', 'terminalBootstrap', 'terminalStart',
   'terminalCommand', 'terminalRelease', 'terminalStats',
 ] as const

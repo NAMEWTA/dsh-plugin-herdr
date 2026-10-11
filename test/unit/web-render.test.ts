@@ -17,6 +17,7 @@ const fixtures = join(root, 'test', 'fixtures', 'remote-p22')
 const load = (name: string) => JSON.parse(readFileSync(join(fixtures, name), 'utf8')) as { ok: true; value: Record<string, unknown> }
 
 type Render = {
+  EnvironmentView: ComponentType<Record<string, unknown>>
   DashboardContent: ComponentType<Record<string, unknown>>
   DashboardSummary: ComponentType<{ snap: unknown }>
   DashboardWorkspaces: ComponentType<{ snap: unknown }>
@@ -140,3 +141,34 @@ test('views render after the status store loads a partial remote payload', async
     ui.setHerdrRemote(null)
   }
 })
+
+for (const lang of ['zh', 'en'] as const) {
+  test(`[${lang}] environment settings render missing/installed/Windows and unsafe versions`, () => {
+    ui.setHerdrLang(lang)
+    const base = {
+      checkedAt: 1,
+      host: { platform: 'linux', arch: 'x64', hostname: 'fixture-host', nodeVersion: 'v24.0.0', wsl: false },
+      supported: true,
+      cli: { state: 'missing', path: null, version: null },
+      packageManagers: { npm: false, pnpm: false },
+      connection: { socketPath: '/tmp/test.sock', session: null, running: false, version: null, protocol: null },
+      terminal: { enabled: true, available: false },
+      verified: { version: '0.9.0', protocol: 22 },
+    }
+    const missing = render(ui.EnvironmentView, { report: base, busy: false, error: null, onCheck() {}, onStart() {}, onCopy() {} })
+    assert.match(missing, /data-cli-state="missing"/)
+    assert.match(missing, /data-command="official"/)
+    assert.match(missing, /npm install --global pnpm@10.28.2/)
+    assert.match(missing, /fixture-host/)
+    assert.match(missing, lang === 'zh' ? /当前连接设置（只读）/ : /Active connection settings/)
+    assert.match(missing, /disabled=""/)
+    const installed = render(ui.EnvironmentView, { report: { ...base, cli: { state: 'available', path: '/usr/bin/herdr', version: '0.9.0' } }, busy: false })
+    assert.doesNotMatch(installed, /disabled=""/)
+    const windows = render(ui.EnvironmentView, { report: { ...base, supported: false, host: { ...base.host, platform: 'win32' } }, busy: false })
+    assert.match(windows, /wsl --install/)
+    assert.doesNotMatch(windows, /data-command="official"/)
+    const mismatch = render(ui.EnvironmentView, { report: { ...base, connection: { ...base.connection, running: true, version: '1.0.0', protocol: 999 } }, busy: false })
+    assert.match(mismatch, /role="alert"/)
+    assert.match(mismatch, /999/)
+  })
+}

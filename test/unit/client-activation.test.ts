@@ -81,7 +81,7 @@ test('built web entry activates under alpha remote/inject semantics', async () =
   await (mod.apply as (c: unknown) => Promise<void>)(ctx)
   assert.ok(mounted.includes('herdr'), 'herdr descriptors mounted')
   assert.ok(injected.includes('remote.herdr'), 'remote.herdr obtained through ctx.inject')
-  for (const name of ['conversation.view', 'sidebar.panellist', 'main', 'conversation.session.header.actions', 'shell.overlay']) {
+  for (const name of ['settings.plugins.tab', 'conversation.view', 'sidebar.panellist', 'main', 'conversation.session.header.actions', 'shell.overlay']) {
     assert.ok(slots.includes(name), `slot ${name} registered`)
   }
 })

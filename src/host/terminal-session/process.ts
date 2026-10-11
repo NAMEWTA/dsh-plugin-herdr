@@ -7,6 +7,7 @@
  * - 子进程 env 使用 allowlist，避免无关敏感环境变量泄漏。
  */
 
+import { findHerdrExecutable } from '../environment/executable.ts'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { resolveSocketPath, resolveSession, type Config } from '../config.ts'
 
@@ -26,7 +27,7 @@ export function resolveHerdrBin(opts: { binPath?: string; env?: NodeJS.ProcessEn
   const env = opts.env ?? process.env
   if (opts.binPath) return opts.binPath
   if (env.HERDR_BIN_PATH) return env.HERDR_BIN_PATH
-  return 'herdr'
+  return findHerdrExecutable({ env }) ?? 'herdr'
 }
 
 /** 从插件 Config 解析出终端会话对应的 socket/session，供 spawn 使用。 */

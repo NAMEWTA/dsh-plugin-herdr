@@ -1,6 +1,5 @@
+import { findHerdrExecutable } from './environment/executable.ts'
 import { spawn } from 'node:child_process'
-import { access, constants } from 'node:fs/promises'
-import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { HerdrClient } from './herdr/service.ts'
 import { HerdrError } from '../core/errors.ts'
@@ -132,12 +131,12 @@ export type PingProbeFn = () => Promise<{ version: string; protocol: number } | 
 // ---------------------------------------------------------------------------
 
 /** spawn 函数形状（测试注入用）。 */
-export type SpawnFn = (cmd: string, args: string[], opts: { detached: boolean; stdio: 'ignore' }) => {
+export type SpawnFn = (cmd: string, args: string[], opts: { detached: boolean; stdio: 'ignore'; env?: NodeJS.ProcessEnv }) => {
   unref(): void
   on(event: 'error', listener: (err: Error) => void): unknown
 }
 
-let starting: Promise<HerdrServerInfo> | null = null
+const starting = new Map<string, Promise<HerdrServerInfo>>()
 
 /** ping 结果 → HerdrServerInfo（socket/session 由调用方解析配置提供）。 */
 export function serverInfoFromPing(
@@ -164,18 +163,8 @@ export function serverInfoFromPing(
  * 子进程）。路径为空/无法判定 → unknown；任一 PATH 目录下可执行 → installed。
  */
 export async function probeHerdrInstallation(binPath = 'herdr', envPath = process.env.PATH): Promise<HerdrInstallation> {
-  if (!envPath) return 'unknown'
-  const dirs = envPath.split(':').filter(Boolean)
-  if (dirs.length === 0) return 'unknown'
-  for (const dir of dirs) {
-    try {
-      await access(join(dir, binPath), constants.X_OK)
-      return 'installed'
-    } catch {
-      // 继续下一个 PATH 目录
-    }
-  }
-  return 'missing'
+  const path = findHerdrExecutable({ binPath: binPath === 'herdr' ? undefined : binPath, env: { ...process.env, PATH: envPath } })
+  return path ? 'installed' : !envPath ? 'unknown' : 'missing'
 }
 
 /**
@@ -188,18 +177,20 @@ export function startHerdrServer(
   socketPath: string,
   opts: { binPath?: string; session?: string | null; timeoutMs?: number; spawnFn?: SpawnFn; probe?: PingProbeFn } = {},
 ): Promise<HerdrServerInfo> {
-  if (starting) return starting
+  const key = JSON.stringify([socketPath, opts.session ?? null, opts.binPath ?? 'herdr'])
+  const pending = starting.get(key)
+  if (pending) return pending
   const binPath = opts.binPath ?? 'herdr'
   const spawnFn = opts.spawnFn ?? ((cmd, args, o) => spawn(cmd, args, o) as ReturnType<SpawnFn>)
   const probe = opts.probe ?? (() => socketPing(socketPath))
   const timeoutMs = opts.timeoutMs ?? 15000
   const session = opts.session ?? null
-  starting = (async () => {
+  const pendingStart = (async () => {
     const before = await probe()
     if (before) return serverInfoFromPing(before, socketPath, session, 'running')
     let child: ReturnType<SpawnFn>
     try {
-      child = spawnFn(binPath, ['server'], { detached: true, stdio: 'ignore' })
+      child = spawnFn(binPath, ['server'], { detached: true, stdio: 'ignore', env: { ...process.env, HERDR_SOCKET_PATH: socketPath, HERDR_SESSION: session ?? '' } })
     } catch (e) {
       throw new Error(`herdr server spawn failed: ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -219,9 +210,10 @@ export function startHerdrServer(
       if (Date.now() >= deadline) return serverInfoFromPing(null, socketPath, session, 'not_running')
     }
   })().finally(() => {
-    starting = null
+    starting.delete(key)
   })
-  return starting
+  starting.set(key, pendingStart)
+  return pendingStart
 }
 
 /** pane_id 自然排序（w8:p2 < w8:p10）：workspace 字典序 + pane 数字序。 */
@@ -337,6 +329,7 @@ export class HerdrStatusTracker {
     private readonly client: HerdrClient,
     opts: {
       pollIntervalMs?: number
+      binPath?: string
       staleThresholdMs?: number
       /** socket 路径（看板 server.socket 展示；缺省 null）。 */
       socketPath?: string | null
@@ -354,6 +347,7 @@ export class HerdrStatusTracker {
     this.staleThresholdMs = opts.staleThresholdMs ?? this.pollIntervalMs * 3
     this.logger = createLogger(ctx, 'status')
     this.rateLimited = createRateLimiter(10_000)
+    this.binPath = opts.binPath
     this.socketPath = opts.socketPath ?? null
     this.session = opts.session ?? null
     this.pingFn = opts.pingFn ?? (async () => {
@@ -372,6 +366,7 @@ export class HerdrStatusTracker {
   }
 
   /** socket 路径（看板 server.socket 展示）。 */
+  private readonly binPath: string | undefined
   private readonly socketPath: string | null
   /** 会话名（看板 server.session 展示）。 */
   private readonly session: string | null
@@ -578,9 +573,9 @@ export class HerdrStatusTracker {
     try {
       const ping = await this.pingFn()
       if (signal.aborted) return
-      // ping 成功 → binary 必然存在（installed）；失败时做 PATH fs.access 探测
-      // （区分 stopped 与 not-installed，不 spawn 子进程）。
-      const installation = ping ? 'installed' as const : await probeHerdrInstallation()
+      // A reachable server does not prove the CLI exists in this Host environment.
+      // Use the same executable resolver as installation checks and process start.
+      const installation = await probeHerdrInstallation(this.binPath)
       this.serverInfo = serverInfoFromPing(ping, this.socketPath, this.session, ping ? 'running' : 'not_running', installation)
     } catch (err) {
       // 探测失败（协议类）→ 降级 unknown 并记录诊断，便于 stale 排查

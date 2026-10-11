@@ -1,6 +1,7 @@
 // 服务状态看板条（会话页 Herdr Tab 顶部 + 新建会话浮层卡片复用）
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { HerdrEnvironmentSettings } from './environment/settings.tsx'
 import { Button, Pill, StateDot } from './ui.tsx'
 import { t, useHerdrLang } from './i18n.ts'
 import { useHerdrStart } from './store.ts'
@@ -15,6 +16,7 @@ export interface BannerSnapLike {
     socket: string | null
     session: string | null
     checked_at: number
+    installation?: string
   } | null
   agents?: unknown[]
 }
@@ -23,6 +25,7 @@ export function HerdrServerBanner({ snap, error, onStarted }: { snap: BannerSnap
   // 语言订阅：切语言时状态文案/按钮跟随
   void useHerdrLang()
   const { starting, startError, start } = useHerdrStart()
+  const [setupOpen, setSetupOpen] = useState(false)
   const server = snap?.server
 
   const handleStart = async () => {
@@ -62,8 +65,8 @@ export function HerdrServerBanner({ snap, error, onStarted }: { snap: BannerSnap
     body = (
       <>
         <span className="herdr-conn-dot bad" />
-        <span className="herdr-server-title">{t('banner.stopped')}</span>
-        <Button variant="primary" size="sm" disabled={starting} onClick={() => void handleStart()}>
+        <span className="herdr-server-title">{t(server?.installation === 'missing' ? 'global.stateNotInstalled' : 'banner.stopped')}</span>
+        <Button variant="primary" size="sm" disabled={starting || server?.installation === 'missing'} onClick={() => void handleStart()}>
           {starting ? t('view.starting') : t('banner.start')}
         </Button>
       </>
@@ -78,7 +81,8 @@ export function HerdrServerBanner({ snap, error, onStarted }: { snap: BannerSnap
 
   return (
     <div>
-      <div className={bannerClass}>{body}</div>
+      <div className={bannerClass}>{body}<Button aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>{t('setup.title')}</Button></div>
+      {setupOpen ? <HerdrEnvironmentSettings /> : null}
       {startError ? <div className="herdr-server-error">{t('banner.startFailed', { error: startError })}</div> : null}
     </div>
   )

@@ -8,6 +8,8 @@ import { setupHerdrEvents } from './events/index.ts'
 import { createTerminalRuntime } from './terminal-session/runtime.ts'
 import { registerHerdrTools } from './tools/registry.ts'
 import { HerdrPanelService } from './panel/remote.ts'
+import { createEnvironmentReader } from './environment/service.ts'
+import { findHerdrExecutable } from './environment/executable.ts'
 
 // cordis 通过模块导出的 Config 校验插件配置并填充默认值
 export { Config } from './config.ts'
@@ -27,6 +29,8 @@ export function apply(ctx: Context, config: ConfigType) {
   // 面板数据源：跟踪器留在 Host，Web 通过 HerdrPanelService 的 Remote 读取。
   const tracker = new HerdrStatusTracker(ctx, ctx.herdr, {
     pollIntervalMs: 2000,
+    projectRoot: config.projectRoot,
+    binPath: config.terminalSession?.binPath,
     socketPath: resolveSocketPath(config) ?? null,
     session: resolveSession(config) ?? null,
   })
@@ -36,15 +40,24 @@ export function apply(ctx: Context, config: ConfigType) {
     readStatus: () => tracker.snapshot('all'),
   })
   const terminal = createTerminalRuntime(config)
+  const readEnvironment = createEnvironmentReader(config)
   const panel = new HerdrPanelService(ctx, {
     tracker,
+    environment: async () => {
+      const report = await readEnvironment()
+      terminal.invalidateProbe()
+      return report
+    },
     dashboard: dashboardTracker,
     terminal: () => terminal.manager(),
     ensureTerminal: () => terminal.ensureAvailable(),
     startServer: async () => {
+      if (!['linux', 'darwin'].includes(process.platform)) return { ok: false, error: 'native platform unsupported; run DSH and Herdr together in WSL' }
       const socketPath = resolveSocketPath(config)
       if (!socketPath) return { ok: false, error: 'herdr socket path unresolvable (POSIX only; Windows is not supported)' }
-      const server = await startHerdrServer(socketPath, { session: resolveSession(config) ?? null })
+      const binPath = findHerdrExecutable({ binPath: config.terminalSession?.binPath })
+      if (!binPath) return { ok: false, error: 'herdr executable not found; open installation settings' }
+      const server = await startHerdrServer(socketPath, { binPath, session: resolveSession(config) ?? null })
       return { ok: server.running, server }
     },
     snapshot: () => ctx.herdr.snapshot(),
