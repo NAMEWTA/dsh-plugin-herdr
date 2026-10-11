@@ -1,0 +1,307 @@
+diff --git a/src/host/status.ts b/src/host/status.ts
+index 522ba3d..4a06781 100644
+--- a/src/host/status.ts
++++ b/src/host/status.ts
+@@ -0,0 +1 @@
++import { findHerdrExecutable } from './environment/executable.ts'
+@@ -2,2 +2,0 @@ import { spawn } from 'node:child_process'
+-import { access, constants } from 'node:fs/promises'
+-import { join } from 'node:path'
+@@ -135 +134 @@ export type PingProbeFn = () => Promise<{ version: string; protocol: number } |
+-export type SpawnFn = (cmd: string, args: string[], opts: { detached: boolean; stdio: 'ignore' }) => {
++export type SpawnFn = (cmd: string, args: string[], opts: { detached: boolean; stdio: 'ignore'; env?: NodeJS.ProcessEnv }) => {
+@@ -140 +139 @@ export type SpawnFn = (cmd: string, args: string[], opts: { detached: boolean; s
+-let starting: Promise<HerdrServerInfo> | null = null
++const starting = new Map<string, Promise<HerdrServerInfo>>()
+@@ -167,12 +166,2 @@ export async function probeHerdrInstallation(binPath = 'herdr', envPath = proces
+-  if (!envPath) return 'unknown'
+-  const dirs = envPath.split(':').filter(Boolean)
+-  if (dirs.length === 0) return 'unknown'
+-  for (const dir of dirs) {
+-    try {
+-      await access(join(dir, binPath), constants.X_OK)
+-      return 'installed'
+-    } catch {
+-      // 继续下一个 PATH 目录
+-    }
+-  }
+-  return 'missing'
++  const path = findHerdrExecutable({ binPath: binPath === 'herdr' ? undefined : binPath, env: { ...process.env, PATH: envPath } })
++  return path ? 'installed' : !envPath ? 'unknown' : 'missing'
+@@ -191 +180,3 @@ export function startHerdrServer(
+-  if (starting) return starting
++  const key = JSON.stringify([socketPath, opts.session ?? null, opts.binPath ?? 'herdr'])
++  const pending = starting.get(key)
++  if (pending) return pending
+@@ -197 +188 @@ export function startHerdrServer(
+-  starting = (async () => {
++  const pendingStart = (async () => {
+@@ -202 +193 @@ export function startHerdrServer(
+-      child = spawnFn(binPath, ['server'], { detached: true, stdio: 'ignore' })
++      child = spawnFn(binPath, ['server'], { detached: true, stdio: 'ignore', env: { ...process.env, HERDR_SOCKET_PATH: socketPath, HERDR_SESSION: session ?? '' } })
+@@ -222 +213 @@ export function startHerdrServer(
+-    starting = null
++    starting.delete(key)
+@@ -224 +215,2 @@ export function startHerdrServer(
+-  return starting
++  starting.set(key, pendingStart)
++  return pendingStart
+@@ -339,0 +332 @@ export class HerdrStatusTracker {
++      binPath?: string
+@@ -356,0 +350 @@ export class HerdrStatusTracker {
++    this.binPath = opts.binPath
+@@ -374,0 +369 @@ export class HerdrStatusTracker {
++  private readonly binPath: string | undefined
+@@ -581,3 +576,3 @@ export class HerdrStatusTracker {
+-      // ping 成功 → binary 必然存在（installed）；失败时做 PATH fs.access 探测
+-      // （区分 stopped 与 not-installed，不 spawn 子进程）。
+-      const installation = ping ? 'installed' as const : await probeHerdrInstallation()
++      // A reachable server does not prove the CLI exists in this Host environment.
++      // Use the same executable resolver as installation checks and process start.
++      const installation = await probeHerdrInstallation(this.binPath)
+diff --git a/src/host/terminal-session/process.ts b/src/host/terminal-session/process.ts
+index 3b6a417..8241263 100644
+--- a/src/host/terminal-session/process.ts
++++ b/src/host/terminal-session/process.ts
+@@ -9,0 +10 @@
++import { findHerdrExecutable } from '../environment/executable.ts'
+@@ -29 +30 @@ export function resolveHerdrBin(opts: { binPath?: string; env?: NodeJS.ProcessEn
+-  return 'herdr'
++  return findHerdrExecutable({ env }) ?? 'herdr'
+diff --git a/src/host/terminal-session/runtime.ts b/src/host/terminal-session/runtime.ts
+index 100957c..6cdcabd 100644
+--- a/src/host/terminal-session/runtime.ts
++++ b/src/host/terminal-session/runtime.ts
+@@ -19,0 +20 @@ export interface TerminalRuntime {
++  invalidateProbe(): void
+@@ -28,0 +30 @@ export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps
++  let probeRevision = 0
+@@ -50,0 +53 @@ export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps
++        const revision = probeRevision
+@@ -52,3 +55,5 @@ export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps
+-          capability = cap
+-          capabilityAt = now()
+-          inflight = null
++          if (revision === probeRevision) {
++            capability = cap
++            capabilityAt = now()
++            inflight = null
++          }
+@@ -57 +62 @@ export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps
+-          inflight = null
++          if (revision === probeRevision) inflight = null
+@@ -62,0 +68,6 @@ export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps
++    invalidateProbe() {
++      probeRevision++
++      capability = null
++      capabilityAt = 0
++      inflight = null
++    },
+diff --git a/src/web/app.tsx b/src/web/app.tsx
+index 67e142c..514a1f5 100644
+--- a/src/web/app.tsx
++++ b/src/web/app.tsx
+@@ -3,0 +4,2 @@
++import { HerdrEnvironmentSettings } from './environment/settings.tsx'
++import { t } from './i18n.ts'
+@@ -85,0 +88,5 @@ export function apply(ctx: ClientCtx) {
++  // Native plugin settings and the dashboard reuse one environment management surface.
++  ctx.slots.inject('settings.plugins.tab', () =>
++    ctx.slots.register({ name: 'settings.plugins.tab', id: 'herdr-environment', order: 30, label: () => t('setup.tab') }, HerdrEnvironmentSettings),
++  )
++
+diff --git a/src/web/environment/settings.tsx b/src/web/environment/settings.tsx
+new file mode 100644
+index 0000000..cb755a0
+--- /dev/null
++++ b/src/web/environment/settings.tsx
+@@ -0,0 +1,125 @@
++import { useCallback, useEffect, useRef, useState } from 'react'
++import { environmentCommands, HERDR_INSTALL_DOCS, NODE_INSTALL_DOCS, type HerdrEnvironmentReport } from '../../core/environment.ts'
++import { getHerdrRemote } from '../remote.ts'
++import { Button } from '../ui.tsx'
++import { t, useHerdrLang } from '../i18n.ts'
++import { statusStore } from '../store.ts'
++
++export interface EnvironmentViewProps {
++  report: HerdrEnvironmentReport | null
++  busy: boolean
++  error: string | null
++  copied?: string | null
++  onCheck: () => void
++  onStart: () => void
++  onCopy: (id: string, command: string) => void
++}
++
++/** Shared by the dashboard and the native settings.plugins.tab surface. */
++export function EnvironmentView({ report, busy, error, copied, onCheck, onStart, onCopy }: EnvironmentViewProps) {
++  void useHerdrLang()
++  const commands = report ? environmentCommands(report.host) : []
++  const canStart = report?.supported && report.cli.state === 'available' && !report.connection.running
++  const unknown = t('setup.unknown')
++  const connection = report?.connection
++  const warning = report && (report.cli.version && report.cli.version !== report.verified.version || connection?.running && connection.version !== report.verified.version)
++  const mismatch = report && connection?.running && connection.protocol !== report.verified.protocol
++  return (
++    <section className="herdr-setup" aria-label={t('setup.title')} aria-busy={busy}>
++      <header className="herdr-setup-head">
++        <div><h2>{t('setup.title')}</h2><p>{t('setup.hostNotice')}</p></div>
++        <Button disabled={busy} onClick={onCheck}>{busy ? t('setup.checking') : t('setup.check')}</Button>
++      </header>
++      {error ? <p className="herdr-setup-warning" role="alert">{error}</p> : null}
++      {!report ? <p role="status">{busy ? t('setup.checking') : t('setup.noReport')}</p> : (
++        <>
++          <dl className="herdr-setup-facts">
++            <div><dt>{t('setup.host')}</dt><dd>{report.host.hostname} · {report.host.platform} / {report.host.arch}{report.host.wsl ? t('setup.wslHost') : ''}</dd></div>
++            <div><dt>{t('setup.runtime')}</dt><dd>{report.host.nodeVersion}</dd></div>
++            <div><dt>{t('setup.cli')}</dt><dd data-cli-state={report.cli.state}>{t(`setup.cli.${report.cli.state}`)}{report.cli.version ? ` · ${report.cli.version}` : ''}</dd></div>
++            <div><dt>{t('setup.npm')}</dt><dd>{report.packageManagers.npm ? t('setup.found') : t('setup.missing')}</dd></div>
++            <div><dt>{t('setup.pnpm')}</dt><dd>{report.packageManagers.pnpm ? t('setup.found') : t('setup.missing')}</dd></div>
++            <div><dt>{t('setup.connection')}</dt><dd data-connection={connection!.running ? 'connected' : 'disconnected'}>{connection!.running ? t('setup.connected', { version: connection!.version ?? unknown, protocol: connection!.protocol ?? unknown }) : t('setup.disconnected')}</dd></div>
++            <div><dt>{t('setup.terminal')}</dt><dd>{!report.terminal.enabled ? t('setup.disabled') : report.terminal.available ? t('setup.found') : t('setup.unavailable')}</dd></div>
++          </dl>
++          {!report.supported ? <p className="herdr-setup-warning" role="alert">{report.host.platform === 'win32' ? t('setup.windows') : t('setup.unsupported')}</p> : null}
++          {mismatch ? <p className="herdr-setup-warning" role="alert">{t('setup.protocolMismatch', { expected: report.verified.protocol })}</p> : null}
++          <p className={warning ? 'herdr-setup-warning' : undefined}>{t('setup.versionWarning', { version: report.verified.version })}</p>
++          <div className="herdr-setup-actions">
++            <Button disabled={busy || !canStart} onClick={onStart}>{t('setup.start')}</Button>
++            <span>{t('setup.noStop')}</span>
++          </div>
++          <h3>{t('setup.install')}</h3>
++          <p>{t('setup.noNpmHerdr')}</p>
++          <p>{t('setup.manualInstall')}</p>
++          {!report.packageManagers.npm && report.supported ? <p className="herdr-setup-warning">{t('setup.npmMissing')} <a href={NODE_INSTALL_DOCS} target="_blank" rel="noreferrer">{t('setup.nodeDocs')}</a></p> : null}
++          <div className="herdr-setup-commands">
++            {commands.map(({ id, command }) => (
++              <article key={id} className="herdr-setup-command" data-command={id}>
++                <header><h4>{t(`setup.command.${id}`)}</h4><Button onClick={() => onCopy(id, command)} aria-label={t('setup.copyNamed', { name: t(`setup.command.${id}`) })}>{copied === id ? t('setup.copied') : t('setup.copy')}</Button></header>
++                <pre tabIndex={0}><code>{command}</code></pre>
++                {id === 'dsh' ? <p>{t('setup.dshWarning')}</p> : null}
++              </article>
++            ))}
++          </div>
++          <p><a href={HERDR_INSTALL_DOCS} target="_blank" rel="noreferrer">{t('setup.officialDocs')}</a></p>
++          <h3>{t('setup.configuration')}</h3>
++          <p>{t('setup.configNotice')}</p>
++          <dl className="herdr-setup-facts">
++            <div><dt>{t('setup.binaryPath')}</dt><dd><code>{report.cli.path ?? t('setup.notFound')}</code></dd></div>
++            <div><dt>{t('setup.socketPath')}</dt><dd><code>{connection!.socketPath ?? unknown}</code></dd></div>
++            <div><dt>{t('setup.session')}</dt><dd>{connection!.session || t('setup.defaultSession')}</dd></div>
++          </dl>
++          <p>{t('setup.pathHelp')}</p>
++          <small>{t('setup.checkedAt', { time: new Date(report.checkedAt).toLocaleTimeString() })}</small>
++        </>
++      )}
++      <span className="herdr-setup-feedback" role="status" aria-live="polite">{copied ? t('setup.copied') : ''}</span>
++    </section>
++  )
++}
++
++export function HerdrEnvironmentSettings() {
++  const [report, setReport] = useState<HerdrEnvironmentReport | null>(null)
++  const [busy, setBusy] = useState(false)
++  const [error, setError] = useState<string | null>(null)
++  const [copied, setCopied] = useState<string | null>(null)
++  const alive = useRef(false)
++  const revision = useRef(0)
++  const check = useCallback(async (start = false) => {
++    const current = ++revision.current
++    setBusy(true)
++    setError(null)
++    try {
++      const remote = getHerdrRemote()
++      if (start) {
++        const result = await remote.start() as { ok?: boolean }
++        if (!result.ok) throw new Error('start failed')
++      }
++      const next = await remote.environment()
++      if (alive.current && current === revision.current) {
++        setReport(next)
++        statusStore.refresh()
++      }
++    } catch {
++      if (alive.current && current === revision.current) setError(t(start ? 'setup.startFailed' : 'setup.checkFailed'))
++    } finally {
++      if (alive.current && current === revision.current) setBusy(false)
++    }
++  }, [])
++  useEffect(() => {
++    alive.current = true
++    void check()
++    return () => { alive.current = false; revision.current++ }
++  }, [check])
++  const copy = async (id: string, command: string) => {
++    try {
++      await navigator.clipboard.writeText(command)
++      if (alive.current) { setCopied(id); setError(null) }
++    } catch {
++      if (alive.current) setError(t('setup.copyFailed'))
++    }
++  }
++  return <EnvironmentView report={report} busy={busy} error={error} copied={copied}
++    onCheck={() => { void check() }} onStart={() => { void check(true) }} onCopy={(id, command) => { void copy(id, command) }} />
++}
+diff --git a/src/web/environment/styles.ts b/src/web/environment/styles.ts
+new file mode 100644
+index 0000000..b2a36d5
+--- /dev/null
++++ b/src/web/environment/styles.ts
+@@ -0,0 +1,28 @@
++// Synchronous module-evaluation injection: DSH claimStyles owns this style on activation.
++if (typeof document !== 'undefined' && !document.getElementById('herdr-environment-styles')) {
++  const style = document.createElement('style')
++  style.id = 'herdr-environment-styles'
++  style.textContent = `
++/* Environment management: native settings and dashboard share the same responsive surface. */
++.herdr-setup { padding: 20px; margin: 12px; border: 1px solid var(--dsw-alias-border-main, #7775); border-radius: 12px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); max-width: 960px; }
++.herdr-setup-head, .herdr-setup-actions, .herdr-setup-command header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
++.herdr-setup h2, .herdr-setup h3, .herdr-setup h4 { margin: 0 0 8px; }
++.herdr-setup h3 { margin-top: 24px; }
++.herdr-setup p, .herdr-setup small, .herdr-setup-actions span { color: var(--dsw-alias-label-secondary); line-height: 1.6; }
++.herdr-setup-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
++.herdr-setup-facts > div { min-width: 0; }
++.herdr-setup dt { color: var(--dsw-alias-label-secondary); font-size: 12px; margin-bottom: 4px; }
++.herdr-setup dd { margin: 0; overflow-wrap: anywhere; }
++.herdr-setup-commands { display: grid; gap: 12px; }
++.herdr-setup-command { border: 1px solid var(--dsw-alias-border-main, #7775); border-radius: 8px; padding: 12px; min-width: 0; }
++.herdr-setup-command pre { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
++.herdr-setup-warning { border-left: 3px solid var(--dsw-alias-state-warning, #b8860b); padding: 8px 12px; }
++.herdr-setup-feedback { display: block; min-height: 1em; font-size: 12px; }
++.herdr-setup a { color: var(--dsw-alias-state-business-primary); text-decoration: underline; }
++.herdr-setup .herdr-button:focus-visible, .herdr-setup pre:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
++@media (max-width: 600px) { .herdr-setup { margin: 8px; padding: 12px; } }
++
++`
++  document.head.appendChild(style)
++}
++export {}
+diff --git a/src/web/global-dashboard.tsx b/src/web/global-dashboard.tsx
+index a988e81..268ae2c 100644
+--- a/src/web/global-dashboard.tsx
++++ b/src/web/global-dashboard.tsx
+@@ -1,6 +1 @@
+-// 全局面板（design: dashboard-global v4 —— 插件-only：marker 注入 sidebar 文档流 +
+-// shell.overlay 右侧工作区完整 surface）。宿主 DSH 零改动。
+-// 按钮：原生 DOM marker 插到 New Session 与 regionArea 之间（同一文档流），带三态
+-// 状态点（运行中/已停止/未安装/检查中，复用 statusStore 快照——P1-1）；surface：
+-// shell.overlay 内从 sidebar 右边界覆盖整个右侧工作区，header 含状态+版本+启动，
+-// 复用 DashboardContent；workspace 卡片点击关闭 surface 返回 conversation。
++// Herdr dashboard in the native sidebar/main slots, with shared environment settings.
+@@ -8,0 +4 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
++import { HerdrEnvironmentSettings } from './environment/settings.tsx'
+@@ -50,0 +47 @@ export function HerdrDashboardPanel(): ReactNode {
++  const [setupOpen, setSetupOpen] = useState<boolean | null>(null)
+@@ -113,0 +111 @@ export function HerdrDashboardPanel(): ReactNode {
++  const showSetup = setupOpen ?? serverState === 'not-installed'
+@@ -130,2 +128,2 @@ export function HerdrDashboardPanel(): ReactNode {
+-        <span className="herdr-gds-state" data-state={disconnected ? 'not-installed' : serverState}>
+-          <span className="herdr-state-dot" data-state={disconnected ? 'not-installed' : serverState} aria-hidden />
++        <span className="herdr-gds-state" data-state={disconnected ? 'checking' : serverState}>
++          <span className="herdr-state-dot" data-state={disconnected ? 'checking' : serverState} aria-hidden />
+@@ -135 +133 @@ export function HerdrDashboardPanel(): ReactNode {
+-        {serverState === 'stopped' || serverState === 'not-installed' || disconnected ? (
++        {serverState === 'stopped' ? (
+@@ -149,0 +148 @@ export function HerdrDashboardPanel(): ReactNode {
++        <Button aria-expanded={showSetup} aria-controls="herdr-setup-region" onClick={() => setSetupOpen(!showSetup)}>{t('setup.title')}</Button>
+@@ -159,0 +159 @@ export function HerdrDashboardPanel(): ReactNode {
++        {showSetup ? <div id="herdr-setup-region"><HerdrEnvironmentSettings /></div> : null}
