@@ -26,8 +26,8 @@ const CLIENT_INJECT = [
 
 const DSH_RANGE = '0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2'
 const PEERS: Record<string, string> = {
-  '@deepseek-ai/cordis': '4.0.5-alpha.1',
-  '@deepseek-ai/schemastery': '3.18.5-alpha.1',
+  '@deepseek-ai/cordis': '4.0.4 || 4.0.5-alpha.1',
+  '@deepseek-ai/schemastery': '3.18.4 || 3.18.5-alpha.1',
   '@deepseek-ai/dsh-agent': DSH_RANGE,
   '@deepseek-ai/dsh-jobs': DSH_RANGE,
   '@deepseek-ai/dsh-skill': DSH_RANGE,

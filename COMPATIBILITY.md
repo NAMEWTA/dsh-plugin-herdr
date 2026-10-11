@@ -17,8 +17,10 @@ DSH Web is launched by the `@deepseek-ai/dsh` CLI (`dsh web`); the package
 
 Only these exact prereleases are admitted by `engines.dsh` and the DSH peer
 family. Other versions require a new compatibility run, not an unrestricted
-`>=` range. Cordis 4.0.5-alpha.1 and Schemastery 3.18.5-alpha.1 stay aligned with
-the upstream release; React remains supplied by the Web shell, not bundled.
+`>=` range. The rc.2 host uses Cordis 4.0.4 and Schemastery 3.18.4; alpha hosts
+use Cordis 4.0.5-alpha.1 and Schemastery 3.18.5-alpha.1. Both vendor pairs are
+admitted explicitly, while the build uses the alpha pair. React stays supplied
+by the Web shell, not bundled.
 
 ## Runtime requirements
 
@@ -53,6 +55,8 @@ integration job as evidence for a new commit.
 
 - https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2
 - https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/README.md
+- https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/vendor/cordis/package.json
+- https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/vendor/schemastery/package.json
 - https://registry.npmjs.org/-/package/@deepseek-ai/dsh/dist-tags
 
 Registry evidence is collected by CI with `npm view @deepseek-ai/dsh dist-tags --json`.
