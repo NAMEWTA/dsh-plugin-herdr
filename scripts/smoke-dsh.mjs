@@ -20,6 +20,7 @@ mkdirSync(evidence, { recursive: true })
 const home = mkdtempSync(join(tmpdir(), 'herdr-dsh-smoke-'))
 const env = { ...process.env, DSH_HOME: home, CI: '1' }
 const packageName = '@namewta/dsh-plugin-herdr'
+const errors = []
 let child, browser, page
 let output = ''
 let fatal
@@ -83,20 +84,23 @@ try {
   }
   assert.ok(ready && launchUrl, 'DSH Web authenticated launch URL did not become ready')
   const launchToken = new URL(launchUrl).searchParams.get('token')
-  if (process.env.GITHUB_ACTIONS === 'true') console.log(`::add-mask::${launchToken}`)
+  if (process.env.GITHUB_ACTIONS === 'true' && launchToken) console.log(`::add-mask::${launchToken}`)
   const { chromium } = await import(pathToFileURL(resolve(playwrightArg)).href)
   browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
   page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
-  const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(launchUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   const icon = page.locator('.herdr-panel-icon').first()
   await icon.waitFor({ state: 'attached', timeout: 60_000 })
-  // All pinned releases show this notice in a fresh profile. It mounts after the
-  // shell: explicitly wait instead of racing isVisible() against its first render.
+  // Both dialogs are part of a real first-run flow, not plugin failures. Wait for
+  // each to mount and dismiss it through its public UI. Never inject credentials
+  // or use force-click to bypass the modal and hide a broken interaction.
   const notice = page.getByRole('dialog', { name: 'Preview Notice', exact: true })
   await notice.getByRole('button', { name: 'Continue', exact: true }).click({ timeout: 30_000 })
   await notice.waitFor({ state: 'hidden', timeout: 10_000 })
+  const credentials = page.getByRole('dialog', { name: 'Add an API key to get started', exact: true })
+  await credentials.getByRole('button', { name: 'Configure later', exact: true }).click({ timeout: 30_000 })
+  await credentials.waitFor({ state: 'hidden', timeout: 10_000 })
   const sidebarButton = icon.locator('xpath=ancestor::*[self::button or @role="button" or @role="tab"][1]')
   await sidebarButton.click({ timeout: 30_000 })
   await page.locator('.herdr-dash-panel').waitFor({ state: 'visible', timeout: 30_000 })
@@ -106,7 +110,6 @@ try {
   const dashboard = await page.locator('.herdr-dash-panel').innerText()
   writeFileSync(join(evidence, 'dashboard.txt'), dashboard)
   assert.match(dashboard, /v0\.9\.0/, 'dashboard must read the actual running Herdr server')
-  writeFileSync(join(evidence, 'page-errors.json'), JSON.stringify(errors, null, 2))
   assert.deepEqual(errors, [], 'unhandled browser exception during activation/dashboard')
   await browser.close()
   browser = null
@@ -117,7 +120,11 @@ try {
   assert.ok(!removed.includes(packageName), 'plugin still present after removal')
   writeFileSync(join(evidence, 'result.json'), JSON.stringify({ dsh: version, install: true, web: true, dashboard: true, remove: true, pageErrors: errors.length }, null, 2))
   console.log('Published DSH CLI: install/list/Web/dashboard/remove smoke passed')
+} catch (error) {
+  writeFileSync(join(evidence, 'failure.log'), redactLaunchTokens(error instanceof Error ? error.stack ?? error.message : String(error)))
+  throw error
 } finally {
+  writeFileSync(join(evidence, 'page-errors.json'), redactLaunchTokens(JSON.stringify(errors, null, 2)))
   if (page && !page.isClosed()) {
     await page.screenshot({ path: join(evidence, 'last-page.png'), fullPage: true }).catch(() => {})
     writeFileSync(join(evidence, 'last-page.html'), redactLaunchTokens(await page.content().catch(() => '')))
