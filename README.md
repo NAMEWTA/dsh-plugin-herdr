@@ -2,58 +2,96 @@
 
 > **English** | [简体中文](README.zh-CN.md)
 
-![home](assets/demo.gif)
+![Herdr panel](assets/home.png)
 
-Herdr control-plane plugin for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness): observe and drive [Herdr](https://herdr.dev) — a terminal workspace manager for AI coding agents — directly from DSH sessions.
+Herdr control-plane plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness):
+19 `herdr_*` tools, a Web dashboard, and a Herdr session preset with a dedicated workspace.
 
-## Features
+## Requirements and supported downloads
 
-- **Control plane** — 19 `herdr_*` tools over Herdr's Unix-domain socket (snapshot, agents, panes, workspaces, layout, notifications)
-- **Session-scoped UI** — Herdr tab and side panel show only the current session's workspace; hidden outside Herdr mode
-- **Herdr mode** — create a session in Herdr mode to get a dedicated workspace that lives and dies with the session
+Plugin **0.0.2** targets Node **24+** and DSH **0.2.0-rc.2**, **0.2.1-alpha.1**, or
+**0.2.1-alpha.2**. DSH's plugin installer also requires **pnpm on PATH**. Run the
+plugin and Herdr on the same Linux/macOS host (Herdr 0.9.0 / protocol 22 baseline).
+Windows named pipes are not supported.
 
-## Requirements
-
-- DeepSeek Harness **0.2.1-alpha.1** (`npm i -g @deepseek-ai/dsh@0.2.1-alpha.1`); older DSH versions are not supported
-- Node.js >= 24, a running Herdr server
-
-## Install
-
-Prerequisites: a DSH profile (e.g. `web`) and a running Herdr server. The plugin talks to the local Herdr socket; the panel can start the server from `PATH` if needed.
+As checked on **2026-10-11**, npm `latest`/`next` resolve to **0.2.0-rc.2**, while
+`alpha` resolves to **0.2.1-alpha.2**. Thus `npx @deepseek-ai/dsh web` does not
+necessarily run the newest GitHub prerelease. See [compatibility](COMPATIBILITY.md).
 
 ```sh
-# local directory
-dsh plugin --profile web add /path/to/dsh-plugin-herdr
-
-# tarball (pnpm pack output)
-pnpm pack
-dsh plugin --profile web add ./namewta-dsh-plugin-herdr-*.tgz
-
-# git
-dsh plugin --profile web add github:NAMEWTA/dsh-plugin-herdr
+npm install --global pnpm@10.28.2
+# Current default-download release, pinned for reproducibility
+npm install --global @deepseek-ai/dsh@0.2.0-rc.2
+# Or explicitly opt in to the latest alpha instead:
+# npm install --global @deepseek-ai/dsh@0.2.1-alpha.2
+dsh --version
+pnpm --version
 ```
 
-Restart the profile after install. Verify with `dsh plugin --profile web list`.
+## Install the prebuilt plugin
 
-## Uninstall
+Download `namewta-dsh-plugin-herdr-0.0.2.tgz` and `SHA256SUMS` from
+[GitHub Releases](https://github.com/NAMEWTA/dsh-plugin-herdr/releases). A release
+is created only after main's full CI, real Herdr tests and DSH Web installation
+matrix pass. The same package is also available in a successful `ci` run's
+`herdr-plugin-package` artifact. **Publishing to npm is separate:** this workflow
+does not publish there, and the registry's `latest` tag may still name an older
+plugin release. Use the versioned tarball for this compatibility update.
+
+```sh
+# Run in the directory containing the downloaded package and checksum file
+sha256sum --check SHA256SUMS  # macOS: shasum -a 256 --check SHA256SUMS
+dsh plugin --profile web add /absolute/path/namewta-dsh-plugin-herdr-0.0.2.tgz
+dsh plugin --profile web list
+dsh web
+```
+
+Restart an already running Web profile after installing or replacing the package.
+The same prebuilt tarball can be selected in DSH's plugin installation UI.
+Open the **Herdr** sidebar entry to view the dashboard. Select **Herdr mode** for
+a conversation's dedicated workspace. Herdr itself must be installed and running;
+the panel can start its binary from `PATH` when available.
+
+Do not install an unbuilt Git checkout directly: it contains no `lib/` artifacts.
+A GitHub source archive is not the prebuilt plugin tarball.
+
+## Build from source
+
+```sh
+git clone https://github.com/NAMEWTA/dsh-plugin-herdr.git
+cd dsh-plugin-herdr
+npm install --global pnpm@10.28.2
+pnpm install --frozen-lockfile
+pnpm quality
+pnpm pack  # prepack automatically builds Host + Typert + Web
+pnpm check:package ./namewta-dsh-plugin-herdr-0.0.2.tgz
+dsh plugin --profile web add ./namewta-dsh-plugin-herdr-0.0.2.tgz
+```
+
+## Upgrade and uninstall
+
+Install the new tarball into the same `web` profile and restart it. A failed
+compatibility check should be resolved by matching a supported DSH release,
+not by forcing peer installation or copying another version's `node_modules`.
 
 ```sh
 dsh plugin --profile web remove @namewta/dsh-plugin-herdr
 ```
 
-Restart the profile to unload tools, panel, and Herdr mode. The preset copy at `$DSH_HOME/.agent-presets/herdr/` is left behind — remove it manually if needed.
+Restart the profile to unload the tools, panel and runtime-registered preset.
+Only older manually copied presets may leave files in `.agent-presets/herdr/`;
+the current plugin does not install a preset directory there.
 
 ## Development
 
-```sh
-pnpm install
-pnpm build        # tsdown (node entries + web client bundle)
-pnpm quality      # build + typecheck + gen-types drift check + unit tests
-pnpm test         # unit tests (node --test)
-pnpm test:integration  # against a live herdr server; SKIPs when unavailable
-pnpm gen:types    # regenerate protocol types from the herdr schema fixture
-```
+`pnpm quality` runs build, typecheck, protocol drift checks, unit and packaging
+regression tests. `pnpm test:integration` needs a live Herdr server and may skip
+locally when unavailable; CI requires it to run. Actual DSH Web installation and
+browser smoke are separate CI matrix checks.
+
+The unresolved broad hardening work is tracked in draft PR #13; this bounded
+compatibility release does not claim to complete it.
 
 ## License
 
-MIT © 2026 NAMEWTA. Contains code originally written by sunny0826 (MIT); see [LICENSE](LICENSE).
+MIT © 2026 NAMEWTA. Includes code originally written by sunny0826; see [LICENSE](LICENSE).

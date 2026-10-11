@@ -1,4 +1,4 @@
-// Shipped package contract for DSH 0.2.1-alpha.1: manifest, locales, and the built client.
+// Shipped package contract for the explicitly supported DSH releases: manifest, locales, and the built client.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
@@ -24,20 +24,24 @@ const CLIENT_INJECT = [
   '@deepseek-ai/dsh-client-modules',
 ]
 
+const DSH_RANGE = '0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2'
 const PEERS: Record<string, string> = {
-  '@deepseek-ai/cordis': '4.0.5-alpha.1',
-  '@deepseek-ai/schemastery': '3.18.5-alpha.1',
-  '@deepseek-ai/dsh-agent': '0.2.1-alpha.1',
-  '@deepseek-ai/dsh-jobs': '0.2.1-alpha.1',
-  '@deepseek-ai/dsh-skill': '0.2.1-alpha.1',
-  '@deepseek-ai/dsh-tools': '0.2.1-alpha.1',
-  '@deepseek-ai/dsh-typert-protocol': '0.2.1-alpha.1',
-  '@deepseek-ai/dsh-host-webserver': '0.2.1-alpha.1',
+  '@deepseek-ai/cordis': '4.0.4 || 4.0.5-alpha.1',
+  '@deepseek-ai/schemastery': '3.18.4 || 3.18.5-alpha.1',
+  '@deepseek-ai/dsh-agent': DSH_RANGE,
+  '@deepseek-ai/dsh-jobs': DSH_RANGE,
+  '@deepseek-ai/dsh-skill': DSH_RANGE,
+  '@deepseek-ai/dsh-tools': DSH_RANGE,
+  '@deepseek-ai/dsh-typert-protocol': DSH_RANGE,
+  '@deepseek-ai/dsh-host-webserver': DSH_RANGE,
 }
 
-test('package manifest matches the 0.2.1-alpha.1 installer checks', () => {
+test('package manifest and peer family match the finite DSH compatibility matrix', () => {
   assert.equal(pkg.engines.node, '>=24')
-  assert.equal(pkg.engines.dsh, '0.2.1-alpha.1')
+  assert.equal(pkg.engines.dsh, DSH_RANGE)
+  for (const name of Object.keys(PEERS).filter(name => name.startsWith('@deepseek-ai/dsh-'))) {
+    assert.equal(pkg.devDependencies[name], '0.2.1-alpha.2', name + ' build baseline')
+  }
   assert.equal(pkg.dsh.manifestVersion, 1)
   assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
   assert.equal(pkg.dsh.client.platform, 'web')
@@ -51,7 +55,8 @@ test('package manifest matches the 0.2.1-alpha.1 installer checks', () => {
   assert.equal(pkg.peerDependencies.react, undefined)
   assert.equal(pkg.peerDependencies.zod, undefined)
   assert.match(pkg.dependencies.zod, /^\^4\./)
-  assert.match(pkg.devDependencies.react, /^\^19\./)
+  assert.equal(pkg.devDependencies.react, '19.2.8')
+  assert.equal(pkg.devDependencies['react-dom'], pkg.devDependencies.react, 'SSR runtime pair must be pinned together')
   assert.equal(pkg.dependencies.react, undefined)
   readFileSync(join(root, 'icon.svg'))
   readFileSync(join(root, 'cordis.patch.yml'))
