@@ -1,0 +1,47 @@
+name: Review validation
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: review-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    if: github.head_ref == 'fix/review-hardening-20261011'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Inspect published DSH channels
+        run: npm view @deepseek-ai/dsh dist-tags --json
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Quality gate
+        run: pnpm quality
+      - name: Prepare public dependency workspace for offline reproduction
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/review-runtime"
+          cp "$(command -v node)" "$RUNNER_TEMP/review-runtime/node"
+          cp -a "$(dirname "$(dirname "$(readlink -f "$(command -v pnpm)")")")" "$RUNNER_TEMP/review-runtime/pnpm"
+          tar -czf "$RUNNER_TEMP/review-source.tgz" src scripts test locale presets assets package.json pnpm-lock.yaml tsconfig.json tsdown.config.ts tsdown.web.config.ts cordis.patch.yml icon.svg LICENSE README.md README.zh-CN.md AGENTS.md .gitignore .github node_modules lib
+          tar -czf "$RUNNER_TEMP/review-runtime.tgz" -C "$RUNNER_TEMP/review-runtime" .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: review-reproduction
+          path: |
+            ${{ runner.temp }}/review-source.tgz
+            ${{ runner.temp }}/review-runtime.tgz
+          retention-days: 2

@@ -3,66 +3,52 @@ import { probeTerminalSession, type TerminalSessionCapability } from './capabili
 import { resolveSessionConnection } from './process.ts'
 import { TerminalSessionManager } from './manager.ts'
 
-/** 探测失败结果的缓存时长：避免面板每次请求都 spawn 探测进程。 */
 export const TERMINAL_PROBE_FAILURE_TTL_MS = 30_000
-
+export const TERMINAL_PROBE_SUCCESS_TTL_MS = 300_000
 export interface TerminalRuntimeDeps {
   probe?: (opts: { binPath?: string }) => Promise<TerminalSessionCapability>
   now?: () => number
-  createManager?: (opts: ConstructorParameters<typeof TerminalSessionManager>[0]) => Pick<TerminalSessionManager, 'dispose'>
+  createManager?: (opts: ConstructorParameters<typeof TerminalSessionManager>[0]) => { dispose(): void | Promise<void> }
 }
-
 export interface TerminalRuntime {
-  /** 当前 manager；未启用或 socket 路径不可解析时为 null。 */
   manager(): TerminalSessionManager | null
-  /** 能力探测：成功结果永久缓存，失败结果缓存 TTL；并发调用共用一次探测。 */
   ensureAvailable(): Promise<boolean>
-  dispose(): void
+  dispose(): Promise<void>
 }
-
 export function createTerminalRuntime(config: Config, deps: TerminalRuntimeDeps = {}): TerminalRuntime {
   const cfg = resolveTerminalSessionConfig(config)
-  const probe = deps.probe ?? probeTerminalSession
   const now = deps.now ?? Date.now
+  const probe = deps.probe ?? probeTerminalSession
+  const connection = resolveSessionConnection(config)
+  let closed = false
   let capability: TerminalSessionCapability | null = null
   let capabilityAt = 0
-  let inflight: Promise<TerminalSessionCapability> | null = null
-  let manager: TerminalSessionManager | null = null
-
-  if (cfg.enabled) {
-    const conn = resolveSessionConnection(config)
-    if (conn.socketPath) {
-      const opts = {
-        config: cfg,
-        ...(cfg.binPath ? { binPath: cfg.binPath } : {}),
-        socketPath: conn.socketPath,
-        ...(conn.session ? { session: conn.session } : {}),
-      }
-      manager = (deps.createManager ? deps.createManager(opts) : new TerminalSessionManager(opts)) as TerminalSessionManager
-    }
-  }
-
+  let inflight: Promise<boolean> | null = null
+  let manager: TerminalSessionManager | null = cfg.enabled && connection.socketPath
+    ? (deps.createManager?.({ config: cfg, binPath: cfg.binPath, socketPath: connection.socketPath, session: connection.session })
+      ?? new TerminalSessionManager({ config: cfg, binPath: cfg.binPath, socketPath: connection.socketPath, session: connection.session })) as TerminalSessionManager
+    : null
   return {
     manager: () => manager,
     async ensureAvailable() {
-      if (capability?.available) return true
-      if (capability && now() - capabilityAt < TERMINAL_PROBE_FAILURE_TTL_MS) return capability.available
+      if (closed || !manager) return false
+      const ttl = capability?.available ? TERMINAL_PROBE_SUCCESS_TTL_MS : TERMINAL_PROBE_FAILURE_TTL_MS
+      if (capability && now() - capabilityAt < ttl) return capability.available
       if (!inflight) {
-        inflight = probe({ binPath: cfg.binPath }).then(cap => {
-          capability = cap
+        inflight = probe({ binPath: cfg.binPath }).then(value => {
+          if (closed) return false
+          capability = value
           capabilityAt = now()
-          inflight = null
-          return cap
-        }, err => {
-          inflight = null
-          throw err
-        })
+          return value.available
+        }).finally(() => { inflight = null })
       }
-      return (await inflight).available
+      return inflight
     },
-    dispose() {
-      manager?.dispose()
+    async dispose() {
+      closed = true
+      const current = manager
       manager = null
+      await current?.dispose()
     },
   }
 }
