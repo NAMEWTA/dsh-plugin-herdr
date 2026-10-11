@@ -92,10 +92,11 @@ try {
   await page.goto(launchUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   const icon = page.locator('.herdr-panel-icon').first()
   await icon.waitFor({ state: 'attached', timeout: 60_000 })
-  // A fresh profile displays the preview notice. Dismiss it normally, then use
-  // Playwright's actionable click: do not invoke a hidden button through the DOM.
-  const continueButton = page.getByRole('button', { name: /^(Continue|继续)$/ }).first()
-  if (await continueButton.isVisible()) await continueButton.click()
+  // All pinned releases show this notice in a fresh profile. It mounts after the
+  // shell: explicitly wait instead of racing isVisible() against its first render.
+  const notice = page.getByRole('dialog', { name: 'Preview Notice', exact: true })
+  await notice.getByRole('button', { name: 'Continue', exact: true }).click({ timeout: 30_000 })
+  await notice.waitFor({ state: 'hidden', timeout: 10_000 })
   const sidebarButton = icon.locator('xpath=ancestor::*[self::button or @role="button" or @role="tab"][1]')
   await sidebarButton.click({ timeout: 30_000 })
   await page.locator('.herdr-dash-panel').waitFor({ state: 'visible', timeout: 30_000 })
