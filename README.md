@@ -10,28 +10,35 @@ Herdr control-plane plugin for [DeepSeek Harness](https://github.com/deepseek-ai
 ## Requirements and supported downloads
 
 Plugin **0.0.2** targets Node **24+** and DSH **0.2.0-rc.2**, **0.2.1-alpha.1**, or
-**0.2.1-alpha.2**. Run the plugin and Herdr on the same Linux/macOS host (Herdr
-0.9.0 / protocol 22 baseline). Windows named pipes are not supported.
+**0.2.1-alpha.2**. DSH's plugin installer also requires **pnpm on PATH**. Run the
+plugin and Herdr on the same Linux/macOS host (Herdr 0.9.0 / protocol 22 baseline).
+Windows named pipes are not supported.
 
 As checked on **2026-10-11**, npm `latest`/`next` resolve to **0.2.0-rc.2**, while
 `alpha` resolves to **0.2.1-alpha.2**. Thus `npx @deepseek-ai/dsh web` does not
 necessarily run the newest GitHub prerelease. See [compatibility](COMPATIBILITY.md).
 
 ```sh
+npm install --global pnpm@10.28.2
 # Current default-download release, pinned for reproducibility
 npm install --global @deepseek-ai/dsh@0.2.0-rc.2
 # Or explicitly opt in to the latest alpha instead:
 # npm install --global @deepseek-ai/dsh@0.2.1-alpha.2
 dsh --version
+pnpm --version
 ```
 
 ## Install the prebuilt plugin
 
-Use `namewta-dsh-plugin-herdr-0.0.2.tgz` from a successful `ci` run's
-`herdr-plugin-package` artifact, or build it as below. The npm plugin name is
-not an installation source until this plugin is separately published to npm.
+Download `namewta-dsh-plugin-herdr-0.0.2.tgz` and `SHA256SUMS` from
+[GitHub Releases](https://github.com/NAMEWTA/dsh-plugin-herdr/releases). A release
+is created only after main's full CI, real Herdr tests and DSH Web installation
+matrix pass. The same package is also available in a successful `ci` run's
+`herdr-plugin-package` artifact. This plugin is not separately published to npm.
 
 ```sh
+# Run in the directory containing the downloaded package and checksum file
+sha256sum --check SHA256SUMS  # macOS: shasum -a 256 --check SHA256SUMS
 dsh plugin --profile web add /absolute/path/namewta-dsh-plugin-herdr-0.0.2.tgz
 dsh plugin --profile web list
 dsh web

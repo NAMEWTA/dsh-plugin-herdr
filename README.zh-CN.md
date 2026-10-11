@@ -10,28 +10,34 @@
 ## 环境要求与下载版本
 
 插件 **0.0.2** 适配 Node **24+**，支持 DSH **0.2.0-rc.2**、**0.2.1-alpha.1** 和
-**0.2.1-alpha.2**。插件与 Herdr 必须运行在同一台 Linux/macOS 主机上，Herdr 基线为
-**0.9.0 / protocol 22**。不支持 Windows named pipe；使用 WSL 时两者须在同一 Linux 环境。
+**0.2.1-alpha.2**。DSH 插件安装器还要求 **pnpm 在 PATH 中可用**。插件与 Herdr 必须运行在
+同一台 Linux/macOS 主机上，Herdr 基线为 **0.9.0 / protocol 22**。不支持 Windows named pipe；
+使用 WSL 时两者须在同一 Linux 环境。
 
 截至 **2026-10-11**，npm 的 `latest`/`next` 是 **0.2.0-rc.2**，`alpha` 才是
 **0.2.1-alpha.2**。因此默认运行 `npx @deepseek-ai/dsh web` 不一定得到 GitHub 上最新的预览版。
 版本矩阵与验证边界见 [COMPATIBILITY.md](COMPATIBILITY.md)。
 
 ```sh
+npm install --global pnpm@10.28.2
 # 当前默认下载通道的版本，使用精确版本保证可复现
 npm install --global @deepseek-ai/dsh@0.2.0-rc.2
 # 或者主动选择最新 alpha，二选一：
 # npm install --global @deepseek-ai/dsh@0.2.1-alpha.2
 dsh --version
+pnpm --version
 ```
 
 ## 安装预构建插件
 
-从成功的 `ci` 运行中下载 `herdr-plugin-package` 产物，解压得到
-`namewta-dsh-plugin-herdr-0.0.2.tgz`；也可以按下方步骤自行构建。
-本插件尚未单独发布到 npm，不能仅凭 npm 包名下载它。
+从 [GitHub Releases](https://github.com/NAMEWTA/dsh-plugin-herdr/releases) 下载
+`namewta-dsh-plugin-herdr-0.0.2.tgz` 和 `SHA256SUMS`。仅在 main 的完整质量检查、真实 Herdr
+集成和 DSH Web 安装矩阵全部通过后才生成发布包。成功 `ci` 运行中的 `herdr-plugin-package`
+产物也包含同一个包。本插件尚未单独发布到 npm，不能仅凭 npm 包名下载它。
 
 ```sh
+# 在下载包和校验文件所在目录执行
+sha256sum --check SHA256SUMS  # macOS 使用 shasum -a 256 --check SHA256SUMS
 dsh plugin --profile web add /绝对路径/namewta-dsh-plugin-herdr-0.0.2.tgz
 dsh plugin --profile web list
 dsh web

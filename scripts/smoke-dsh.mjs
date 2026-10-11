@@ -2,7 +2,7 @@
 // Does not read or modify a developer's DSH_HOME and does not invoke an LLM.
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -90,6 +90,7 @@ try {
   })
   await page.locator('.herdr-dash-panel').waitFor({ state: 'attached', timeout: 30_000 })
   await page.locator('.herdr-dash-kpis').waitFor({ state: 'attached', timeout: 30_000 })
+  await page.waitForFunction(() => document.querySelector('.herdr-gds-version')?.textContent === 'v0.9.0', null, { timeout: 45_000 })
   await page.screenshot({ path: join(evidence, 'herdr-dashboard.png'), fullPage: true })
   const dashboard = await page.locator('.herdr-dash-panel').innerText()
   writeFileSync(join(evidence, 'dashboard.txt'), dashboard)
@@ -113,5 +114,7 @@ try {
   await browser?.close().catch(() => {})
   await stopChild()
   writeFileSync(join(evidence, 'host.log'), output)
+  const diagnostics = join(home, 'profiles', 'web', '.plugin-manager', 'logs')
+  if (existsSync(diagnostics)) cpSync(diagnostics, join(evidence, 'plugin-manager-logs'), { recursive: true })
   rmSync(home, { recursive: true, force: true })
 }
