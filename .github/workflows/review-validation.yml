@@ -2,6 +2,7 @@ name: Review validation
 on:
   push:
     branches: [fix/review-hardening-20261011]
+  pull_request:
 permissions:
   contents: read
 concurrency:
@@ -9,10 +10,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   validate:
+    if: github.head_ref == 'fix/review-hardening-20261011' || github.ref == 'refs/heads/fix/review-hardening-20261011'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
         with:
           version: 10.28.2
@@ -22,19 +26,4 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
       - name: Quality gate
-        run: pnpm quality 2>&1 | tee review-quality.log
-      - name: Capture reproducible review workspace
-        if: always()
-        run: |
-          mkdir -p /tmp/herdr-review-runtime
-          cp "$(command -v node)" /tmp/herdr-review-runtime/node
-          cp -L "$(command -v pnpm)" /tmp/herdr-review-runtime/pnpm-entry.cjs || true
-          tar --exclude=.git --exclude=review-workspace.tgz -czf /tmp/review-workspace.tgz .
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: review-workspace
-          path: |
-            /tmp/review-workspace.tgz
-            /tmp/herdr-review-runtime/node
-          retention-days: 2
+        run: pnpm quality
