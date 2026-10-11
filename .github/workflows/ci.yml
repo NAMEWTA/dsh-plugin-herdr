@@ -63,8 +63,10 @@ jobs:
         run: npm install --prefix "$RUNNER_TEMP/dsh-cli" --no-audit --no-fund "@deepseek-ai/dsh@$DSH_SMOKE_VERSION" playwright@1.56.1
       - name: Install Chromium
         run: node "$RUNNER_TEMP/dsh-cli/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Install pinned Herdr
+        run: bash scripts/install-herdr-ci.sh
       - name: Install, activate Web dashboard, and uninstall in an isolated home
-        run: node scripts/smoke-dsh.mjs "$RUNNER_TEMP/dsh-cli/node_modules/@deepseek-ai/dsh/lib/bin.js" artifacts/*.tgz "$RUNNER_TEMP/dsh-cli/node_modules/playwright/index.mjs" evidence
+        run: bash scripts/run-herdr-ci.sh node scripts/smoke-dsh.mjs "$RUNNER_TEMP/dsh-cli/node_modules/@deepseek-ai/dsh/lib/bin.js" artifacts/*.tgz "$RUNNER_TEMP/dsh-cli/node_modules/playwright/index.mjs" evidence
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -85,30 +87,41 @@ jobs:
           node-version: 24
       - run: pnpm install --frozen-lockfile
       - name: Install the pinned Herdr binary
-        run: |
-          mkdir -p "$RUNNER_TEMP/herdr-bin"
-          curl --fail --location --retry 3 https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-x86_64 -o "$RUNNER_TEMP/herdr-bin/herdr"
-          echo "4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f  $RUNNER_TEMP/herdr-bin/herdr" | sha256sum --check
-          chmod +x "$RUNNER_TEMP/herdr-bin/herdr"
-          echo "$RUNNER_TEMP/herdr-bin" >> "$GITHUB_PATH"
+        run: bash scripts/install-herdr-ci.sh
       - name: Run real tests in an isolated Herdr session (no silent skip)
         env:
           HERDR_REQUIRE_INTEGRATION: '1'
-        run: |
-          export HERDR_SESSION="dsh-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          herdr server >"$RUNNER_TEMP/herdr-server.log" 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
-          ready=0
-          for i in $(seq 1 60); do
-            if herdr status server --json | grep -q '"running": *true'; then ready=1; break; fi
-            sleep 1
-          done
-          test "$ready" = 1
-          pnpm test:integration
+        run: bash scripts/run-herdr-ci.sh pnpm test:integration
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: herdr-integration-log
           path: ${{ runner.temp }}/herdr-server.log
           retention-days: 14
+  release:
+    name: Publish verified GitHub download
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [quality, dsh-smoke, integration]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: herdr-plugin-package
+          path: artifacts
+      - name: Publish a versioned download (never overwrite; never npm)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
+          tag="v$version"
+          (cd artifacts && sha256sum --check SHA256SUMS)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; preserving its artifacts. Bump package version for a new release."
+            exit 0
+          fi
+          gh release create "$tag" artifacts/*.tgz artifacts/SHA256SUMS artifacts/dsh-dist-tags.json --target "$GITHUB_SHA" --title "Herdr plugin $version" --notes "Prebuilt plugin for the DSH releases in COMPATIBILITY.md. Node 24+ required. Install the .tgz with dsh plugin --profile web add /path/to/package.tgz and restart DSH Web. This download passed the main-branch quality, packed-install, real Herdr and published DSH Web smoke checks. No npm publication is performed."

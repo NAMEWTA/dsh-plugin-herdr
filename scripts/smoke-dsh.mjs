@@ -19,7 +19,7 @@ mkdirSync(evidence, { recursive: true })
 const home = mkdtempSync(join(tmpdir(), 'herdr-dsh-smoke-'))
 const env = { ...process.env, DSH_HOME: home, CI: '1' }
 const packageName = '@namewta/dsh-plugin-herdr'
-let child, browser
+let child, browser, page
 let output = ''
 let fatal
 const capture = chunk => { output = (output + chunk.toString()).slice(-2 * 1024 * 1024) }
@@ -77,7 +77,7 @@ try {
   assert.ok(ready, 'DSH Web did not become ready')
   const { chromium } = await import(pathToFileURL(resolve(playwrightArg)).href)
   browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
+  page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
@@ -91,7 +91,9 @@ try {
   await page.locator('.herdr-dash-panel').waitFor({ state: 'attached', timeout: 30_000 })
   await page.locator('.herdr-dash-kpis').waitFor({ state: 'attached', timeout: 30_000 })
   await page.screenshot({ path: join(evidence, 'herdr-dashboard.png'), fullPage: true })
-  writeFileSync(join(evidence, 'dashboard.txt'), await page.locator('.herdr-dash-panel').innerText())
+  const dashboard = await page.locator('.herdr-dash-panel').innerText()
+  writeFileSync(join(evidence, 'dashboard.txt'), dashboard)
+  assert.match(dashboard, /v0\.9\.0/, 'dashboard must read the actual running Herdr server')
   writeFileSync(join(evidence, 'page-errors.json'), JSON.stringify(errors, null, 2))
   assert.deepEqual(errors, [], 'unhandled browser exception during activation/dashboard')
   await browser.close()
@@ -104,6 +106,10 @@ try {
   writeFileSync(join(evidence, 'result.json'), JSON.stringify({ dsh: version, install: true, web: true, dashboard: true, remove: true, pageErrors: errors.length }, null, 2))
   console.log('Published DSH CLI: install/list/Web/dashboard/remove smoke passed')
 } finally {
+  if (page && !page.isClosed()) {
+    await page.screenshot({ path: join(evidence, 'last-page.png'), fullPage: true }).catch(() => {})
+    writeFileSync(join(evidence, 'last-page.html'), await page.content().catch(() => ''))
+  }
   await browser?.close().catch(() => {})
   await stopChild()
   writeFileSync(join(evidence, 'host.log'), output)
