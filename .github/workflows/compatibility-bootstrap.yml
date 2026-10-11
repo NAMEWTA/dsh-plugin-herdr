@@ -1,0 +1,44 @@
+# Temporary candidate bootstrap; remove after committing the generated lockfile.
+name: Compatibility bootstrap
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: compat-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  candidate:
+    if: github.head_ref == 'fix/dsh-alpha2-install'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Record published DSH channels
+        run: |
+          npm view @deepseek-ai/dsh dist-tags --json | tee "${{ runner.temp }}/dsh-dist-tags.json"
+          npm view @deepseek-ai/dsh@0.2.1-alpha.2 version dist.integrity --json
+      - name: Resolve candidate lockfile
+        run: pnpm install --no-frozen-lockfile
+      - name: Build and typecheck candidate
+        run: pnpm build && pnpm typecheck
+      - name: Preserve source and public dependencies for offline verification
+        if: always()
+        run: |
+          git archive --format=tar.gz -o "${{ runner.temp }}/compat-source.tgz" HEAD
+          tar -czf "${{ runner.temp }}/compat-deps.tgz" node_modules lib pnpm-lock.yaml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compatibility-bootstrap
+          path: |
+            ${{ runner.temp }}/compat-source.tgz
+            ${{ runner.temp }}/compat-deps.tgz
+            ${{ runner.temp }}/dsh-dist-tags.json
+          retention-days: 2
