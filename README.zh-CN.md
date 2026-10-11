@@ -33,7 +33,9 @@ pnpm --version
 从 [GitHub Releases](https://github.com/NAMEWTA/dsh-plugin-herdr/releases) 下载
 `namewta-dsh-plugin-herdr-0.0.2.tgz` 和 `SHA256SUMS`。仅在 main 的完整质量检查、真实 Herdr
 集成和 DSH Web 安装矩阵全部通过后才生成发布包。成功 `ci` 运行中的 `herdr-plugin-package`
-产物也包含同一个包。本插件尚未单独发布到 npm，不能仅凭 npm 包名下载它。
+产物也包含同一个包。**npm 发布是独立操作**：此工作流不会发布到 npm，注册表的 `latest`
+标签可能仍指向旧版插件。安装本次兼容更新请使用明确版本的 `.tgz`，不要把旧的 npm 下载
+误认为这次发布。
 
 ```sh
 # 在下载包和校验文件所在目录执行

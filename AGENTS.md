@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-Contributor guide for **@namewta/dsh-plugin-herdr** 0.0.2, the Herdr control-plane plugin for DeepSeek Harness. It provides 19 `herdr_*` tools, a Web dashboard and a runtime-registered Herdr session preset. It is not published to npm.
+Contributor guide for **@namewta/dsh-plugin-herdr** 0.0.2, the Herdr control-plane plugin for DeepSeek Harness. It provides 19 `herdr_*` tools, a Web dashboard and a runtime-registered Herdr session preset. This release workflow distributes GitHub tarballs; npm publication is a separate operation and older registry versions must not be confused with a new tarball.
 
 ## Compatibility
 

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
+import { readWebStartupUrl, redactLaunchTokens } from './dsh-smoke-utils.mjs'
 
 const [cliArg, archiveArg, playwrightArg, evidenceArg] = process.argv.slice(2)
 assert.ok(cliArg && archiveArg && playwrightArg && evidenceArg,
@@ -27,7 +28,7 @@ function command(args) {
   try {
     return execFileSync(process.execPath, [cli, ...args], { env, cwd: home, encoding: 'utf8', timeout: 180_000, maxBuffer: 8 * 1024 * 1024 })
   } catch (error) {
-    writeFileSync(join(evidence, 'cli-error.log'), String(error.stdout ?? '') + String(error.stderr ?? '') + String(error))
+    writeFileSync(join(evidence, 'cli-error.log'), redactLaunchTokens(String(error.stdout ?? '') + String(error.stderr ?? '') + String(error)))
     throw error
   }
 }
@@ -59,28 +60,36 @@ try {
   await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done) })
   const port = server.address().port
   await new Promise(done => server.close(done))
-  const url = `http://127.0.0.1:${port}`
+  const origin = `http://127.0.0.1:${port}`
   child = spawn(process.execPath, [cli, 'web', '--no-open', '--port', String(port)], { env, cwd: home, stdio: ['ignore', 'pipe', 'pipe'] })
   child.stdout.on('data', capture)
   child.stderr.on('data', capture)
   child.on('error', error => { fatal = error })
+  let launchUrl = null
   let ready = false
   for (let attempt = 0; attempt < 120; attempt++) {
     if (fatal) throw fatal
     if (child.exitCode !== null || child.signalCode !== null) throw new Error('DSH exited before HTTP became ready')
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2000) })
-      if (response.ok && (await response.text()).includes('<html')) { ready = true; break }
-    } catch { /* boot has not bound HTTP yet */ }
+    launchUrl = readWebStartupUrl(output, origin)
+    if (launchUrl) {
+      try {
+        // The token sets a browser cookie via redirect. Node fetch has no cookie jar;
+        // do not follow that redirect here or an authenticated server looks unready.
+        const response = await fetch(launchUrl, { redirect: 'manual', signal: AbortSignal.timeout(2000) })
+        if (response.ok || [302, 303, 307, 308].includes(response.status)) { ready = true; break }
+      } catch { /* boot has not bound HTTP yet */ }
+    }
     await delay(500)
   }
-  assert.ok(ready, 'DSH Web did not become ready')
+  assert.ok(ready && launchUrl, 'DSH Web authenticated launch URL did not become ready')
+  const launchToken = new URL(launchUrl).searchParams.get('token')
+  if (process.env.GITHUB_ACTIONS === 'true') console.log(`::add-mask::${launchToken}`)
   const { chromium } = await import(pathToFileURL(resolve(playwrightArg)).href)
   browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
   page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await page.goto(launchUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   await page.locator('.herdr-panel-icon').first().waitFor({ state: 'attached', timeout: 60_000 })
   // Onboarding may cover the shell in a fresh profile; activate the actual slot's button.
   await page.locator('.herdr-panel-icon').first().evaluate(icon => {
@@ -109,11 +118,11 @@ try {
 } finally {
   if (page && !page.isClosed()) {
     await page.screenshot({ path: join(evidence, 'last-page.png'), fullPage: true }).catch(() => {})
-    writeFileSync(join(evidence, 'last-page.html'), await page.content().catch(() => ''))
+    writeFileSync(join(evidence, 'last-page.html'), redactLaunchTokens(await page.content().catch(() => '')))
   }
   await browser?.close().catch(() => {})
   await stopChild()
-  writeFileSync(join(evidence, 'host.log'), output)
+  writeFileSync(join(evidence, 'host.log'), redactLaunchTokens(output))
   const diagnostics = join(home, 'profiles', 'web', '.plugin-manager', 'logs')
   if (existsSync(diagnostics)) cpSync(diagnostics, join(evidence, 'plugin-manager-logs'), { recursive: true })
   rmSync(home, { recursive: true, force: true })

@@ -34,7 +34,9 @@ Download `namewta-dsh-plugin-herdr-0.0.2.tgz` and `SHA256SUMS` from
 [GitHub Releases](https://github.com/NAMEWTA/dsh-plugin-herdr/releases). A release
 is created only after main's full CI, real Herdr tests and DSH Web installation
 matrix pass. The same package is also available in a successful `ci` run's
-`herdr-plugin-package` artifact. This plugin is not separately published to npm.
+`herdr-plugin-package` artifact. **Publishing to npm is separate:** this workflow
+does not publish there, and the registry's `latest` tag may still name an older
+plugin release. Use the versioned tarball for this compatibility update.
 
 ```sh
 # Run in the directory containing the downloaded package and checksum file
