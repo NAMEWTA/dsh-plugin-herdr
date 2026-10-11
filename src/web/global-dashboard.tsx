@@ -108,6 +108,10 @@ export function HerdrDashboardPanel(): ReactNode {
   const { starting, startError, start } = useHerdrStart()
   const server = dashSnap?.server
   const serverState = deriveMarkerServerState(dashSnap)
+  // Preserve an automatically opened setup flow when recheck discovers installation.
+  useEffect(() => {
+    if (serverState === 'not-installed') setSetupOpen(current => current ?? true)
+  }, [serverState])
   const showSetup = setupOpen ?? serverState === 'not-installed'
   const disconnected = !dashSnap && error != null
   const handleStart = async () => {
