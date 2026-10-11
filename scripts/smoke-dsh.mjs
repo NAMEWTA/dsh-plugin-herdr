@@ -90,15 +90,16 @@ try {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(launchUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
-  await page.locator('.herdr-panel-icon').first().waitFor({ state: 'attached', timeout: 60_000 })
-  // Onboarding may cover the shell in a fresh profile; activate the actual slot's button.
-  await page.locator('.herdr-panel-icon').first().evaluate(icon => {
-    const button = icon.closest('button, [role="button"], [role="tab"]')
-    if (!button) throw new Error('Herdr sidebar control not found')
-    button.click()
-  })
-  await page.locator('.herdr-dash-panel').waitFor({ state: 'attached', timeout: 30_000 })
-  await page.locator('.herdr-dash-kpis').waitFor({ state: 'attached', timeout: 30_000 })
+  const icon = page.locator('.herdr-panel-icon').first()
+  await icon.waitFor({ state: 'attached', timeout: 60_000 })
+  // A fresh profile displays the preview notice. Dismiss it normally, then use
+  // Playwright's actionable click: do not invoke a hidden button through the DOM.
+  const continueButton = page.getByRole('button', { name: /^(Continue|继续)$/ }).first()
+  if (await continueButton.isVisible()) await continueButton.click()
+  const sidebarButton = icon.locator('xpath=ancestor::*[self::button or @role="button" or @role="tab"][1]')
+  await sidebarButton.click({ timeout: 30_000 })
+  await page.locator('.herdr-dash-panel').waitFor({ state: 'visible', timeout: 30_000 })
+  await page.locator('.herdr-dash-kpis').waitFor({ state: 'visible', timeout: 30_000 })
   await page.waitForFunction(() => document.querySelector('.herdr-gds-version')?.textContent === 'v0.9.0', null, { timeout: 45_000 })
   await page.screenshot({ path: join(evidence, 'herdr-dashboard.png'), fullPage: true })
   const dashboard = await page.locator('.herdr-dash-panel').innerText()
