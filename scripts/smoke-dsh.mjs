@@ -139,10 +139,10 @@ try {
   }
   await setup.locator('[data-connection="connected"]').waitFor({ state: 'visible', timeout: 45_000 })
   await page.screenshot({ path: join(evidence, 'herdr-environment.png'), fullPage: true })
-  // The very same feature is reachable through the Host's native settings navigation.
+  // settings.plugins.tab is owned by "Built-in plugins", not the sidebar's "Plugins" page.
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const settingsDialog = page.getByRole('dialog')
-  await settingsDialog.getByText('Plugins', { exact: true }).click()
+  await settingsDialog.getByText('Built-in plugins', { exact: true }).click()
   await settingsDialog.getByRole('tab', { name: 'Herdr environment', exact: true }).click()
   await settingsDialog.locator('[data-cli-state="available"]').waitFor({ state: 'visible', timeout: 30_000 })
   await settingsDialog.locator('[data-connection="connected"]').waitFor({ state: 'visible', timeout: 30_000 })
