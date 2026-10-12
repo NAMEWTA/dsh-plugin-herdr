@@ -26,7 +26,7 @@ const zh = flatten(readJson('zh.json'))
 const en = flatten(readJson('en.json'))
 const CJK = /[\u3400-\u9fff\uff00-\uffef\u3000-\u303f]/
 /** Latin tokens allowed inside Chinese copy. */
-const ZH_LATIN_ALLOW = new Set(['Herdr', 'herdr', 'DeepSeek', 'Harness', 'PID', 'CPU', 'Socket', 'socket'])
+const ZH_LATIN_ALLOW = new Set(['Herdr', 'herdr', 'DeepSeek', 'Harness', 'PID', 'CPU', 'Socket', 'socket', 'npm', 'pnpm', 'Windows', 'WSL', 'Homebrew'])
 /** Words that must never appear untranslated in Chinese copy. */
 const ZH_DENY = ['Dashboard', 'Best effort', 'Refresh', 'Agent', 'agent', 'workspace', 'pane', 'Workspace', 'Pane', 'Loading', 'Error', 'failed']
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort()

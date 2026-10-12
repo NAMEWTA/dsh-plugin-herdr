@@ -14,6 +14,7 @@
 
 // 样式注入副作用：模块加载时执行一次（STYLE_ID 去重），与原 client.tsx 时序一致。
 import './web/styles.ts'
+import './web/environment/styles.ts'
 import { mountHerdrRemote, type RemoteMountCtx } from './web/remote-mount.ts'
 
 export async function apply(ctx: RemoteMountCtx) {

@@ -9,7 +9,7 @@
 
 ## 环境要求与下载版本
 
-插件 **0.0.2** 适配 Node **24+**，支持 DSH **0.2.0-rc.2**、**0.2.1-alpha.1** 和
+插件 **0.0.3** 适配 Node **24+**，支持 DSH **0.2.0-rc.2**、**0.2.1-alpha.1** 和
 **0.2.1-alpha.2**。DSH 插件安装器还要求 **pnpm 在 PATH 中可用**。插件与 Herdr 必须运行在
 同一台 Linux/macOS 主机上，Herdr 基线为 **0.9.0 / protocol 22**。不支持 Windows named pipe；
 使用 WSL 时两者须在同一 Linux 环境。
@@ -31,7 +31,7 @@ pnpm --version
 ## 安装预构建插件
 
 从 [GitHub Releases](https://github.com/NAMEWTA/dsh-plugin-herdr/releases) 下载
-`namewta-dsh-plugin-herdr-0.0.2.tgz` 和 `SHA256SUMS`。仅在 main 的完整质量检查、真实 Herdr
+`namewta-dsh-plugin-herdr-0.0.3.tgz` 和 `SHA256SUMS`。仅在 main 的完整质量检查、真实 Herdr
 集成和 DSH Web 安装矩阵全部通过后才生成发布包。成功 `ci` 运行中的 `herdr-plugin-package`
 产物也包含同一个包。**npm 发布是独立操作**：此工作流不会发布到 npm，注册表的 `latest`
 标签可能仍指向旧版插件。安装本次兼容更新请使用明确版本的 `.tgz`，不要把旧的 npm 下载
@@ -40,7 +40,7 @@ pnpm --version
 ```sh
 # 在下载包和校验文件所在目录执行
 sha256sum --check SHA256SUMS  # macOS 使用 shasum -a 256 --check SHA256SUMS
-dsh plugin --profile web add /绝对路径/namewta-dsh-plugin-herdr-0.0.2.tgz
+dsh plugin --profile web add /绝对路径/namewta-dsh-plugin-herdr-0.0.3.tgz
 dsh plugin --profile web list
 dsh web
 ```
@@ -52,6 +52,45 @@ Herdr 本体需要另行安装并运行；存在 `PATH` 中的可执行文件时
 **不要直接安装尚未构建的 Git 目录。** 仓库不会提交 `lib/`；GitHub 的源码压缩包也不等于
 可安装的预构建插件包。
 
+## 在管理界面检测与设置 Herdr
+
+打开侧栏 **Herdr → 安装与设置**，或 **设置 → 内置插件 → Herdr 环境**。未找到 Herdr 时，
+总览会自动展开安装指引；会话顶部的状态横幅也提供相同入口。
+
+“检测环境 / 测试连接”检测的是运行 DSH 的主机系统、架构、Herdr 可执行文件、npm/pnpm、
+当前套接字与流式终端能力，而不是浏览器所在电脑。安装文件与服务器连接分别展示；
+服务器可达不代表本机 CLI 已安装。重新检测不会启动终端、运行安装脚本或修改配置。
+
+Herdr 官方没有提供 npm 安装方式。Linux/macOS 展示官方安装命令，macOS 另有 Homebrew
+选项；npm 命令仅用于 pnpm 和指定版本的 DSH。复制命令到 DSH 所在主机终端执行后，
+回到此处重新检测，再按需点击 **启动 Herdr 服务**。不会自动停止或升级已有服务。
+原生 Windows 显示 WSL 指引，需在同一发行版内运行 DSH 和 Herdr。
+
+页面显示当前连接设置（只读）：`terminalSession.binPath` / `HERDR_BIN_PATH`、
+`socketPath` / `HERDR_SOCKET_PATH`、`session` / `HERDR_SESSION`。修改插件配置或启动环境后
+请重启 DSH。检测、服务启动与终端会共用二进制查找逻辑，包含官方的 `~/.local/bin` 安装目录；
+显式配置错误时不会悄悄切换到其他二进制。官方安装器可能下载新于 0.9.0 的版本，页面会显示
+验证基线与协议不匹配警告，不把连接成功等同于完整兼容。
+
+## 安装后仍不能使用时
+
+安装本插件不等于安装 Herdr 本体，也不会自动启动 Herdr 服务。新的管理页面在 **0.0.3**
+中提供，旧的 0.0.2 安装包没有此页面。请先核对插件版本：通过包名安装可能得到 npm 中的
+旧版；安装经过验证的明确版本 `.tgz` 后，需要重启安装它的同一个 profile。
+
+进入 **Herdr → 安装与设置**，或 **设置 → 内置插件 → Herdr 环境**：
+
+- **未找到可执行文件**：按页面显示的宿主系统选择安装命令。错误的显式二进制路径仍会
+  显示在设置中，应修正该路径，而不是安装另一个仍会被错误配置遮蔽的程序。浏览器与
+  DSH 可以运行在不同系统，不能按浏览器所在电脑选择命令。
+- **已安装但未连接**：检查页面中的套接字路径和会话名，仅为预期的服务点击启动。
+  插件不会停止或替换正在运行的服务。
+- **检测或启动失败**：有宿主错误信息时，页面会在本地化说明后保留有长度限制的技术原因。
+  修正路径或权限后重新检测；不要通过清空 profile、凭据或已有工作区来排障。
+
+仍有问题时，请提供准确错误文字、宿主系统、DSH／插件／Herdr 版本和失败的具体操作。
+不要分享 API 密钥、带认证信息的启动链接或整个环境变量列表。
+
 ## 从源码构建
 
 ```sh
@@ -61,8 +100,8 @@ npm install --global pnpm@10.28.2
 pnpm install --frozen-lockfile
 pnpm quality
 pnpm pack  # prepack 会自动构建 Host、Typert 和 Web
-pnpm check:package ./namewta-dsh-plugin-herdr-0.0.2.tgz
-dsh plugin --profile web add ./namewta-dsh-plugin-herdr-0.0.2.tgz
+pnpm check:package ./namewta-dsh-plugin-herdr-0.0.3.tgz
+dsh plugin --profile web add ./namewta-dsh-plugin-herdr-0.0.3.tgz
 ```
 
 ## 升级与卸载

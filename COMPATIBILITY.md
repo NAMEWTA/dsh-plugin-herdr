@@ -11,9 +11,9 @@ DSH Web is launched by the `@deepseek-ai/dsh` CLI (`dsh web`); the package
 
 | Plugin | Host release | Intent |
 | --- | --- | --- |
-| 0.0.2 | 0.2.0-rc.2 | Default npm download at this checkpoint |
-| 0.0.2 | 0.2.1-alpha.1 | Existing preview installations |
-| 0.0.2 | 0.2.1-alpha.2 | Latest published alpha; development/typecheck baseline |
+| 0.0.3 | 0.2.0-rc.2 | Default npm download at this checkpoint |
+| 0.0.3 | 0.2.1-alpha.1 | Existing preview installations |
+| 0.0.3 | 0.2.1-alpha.2 | Latest published alpha; development/typecheck baseline |
 
 Only these exact prereleases are admitted by `engines.dsh` and the DSH peer
 family. Other versions require a new compatibility run, not an unrestricted
@@ -38,9 +38,12 @@ externals. The DSH smoke matrix installs that tarball with each published CLI in
 a disposable `DSH_HOME`, opens the real Web shell in Chromium, visits the Herdr
 dashboard, checks unhandled browser errors, then uninstalls the plugin.
 
-Real Herdr integration uses the pinned 0.9.0 Linux binary with its SHA-256 checked,
-a unique test session, and mandatory preflight. Missing prerequisites fail CI;
-local integration may still explicitly skip when Herdr is unavailable.
+Real Herdr integration uses the pinned **0.9.0 and 0.9.3** Linux binaries, each
+with its published SHA-256 checked, a unique test session, and mandatory preflight.
+0.9.3 was the current stable release checked on 2026-10-12 and also declares
+protocol 22. This additional integration matrix does not replace the 0.9.0
+schema fixture or certify every browser/terminal interaction on 0.9.3.
+Missing prerequisites fail CI; local integration may still explicitly skip.
 
 A passing check certifies only the scenarios it executes. It does not certify
 LLM-driven agent work, credentials, remote multi-user isolation, every terminal
@@ -51,6 +54,19 @@ For release acceptance, inspect checks on the exact PR head/merge commit and
 its `dsh-smoke-*` evidence artifacts. Do not treat an old green run or a skipped
 integration job as evidence for a new commit.
 
+## Environment management acceptance
+
+The installation panel uses Host platform/architecture, never browser user-agent detection.
+Open it through **Herdr → Installation & settings** or
+**Settings → Built-in plugins → Herdr environment**; the latter owns `settings.plugins.tab`.
+The DSH matrix exercises both entry points, copy/recheck, and the additional alpha.2
+missing-install case: missing binary → copy the already verified Herdr binary to the
+configured test path → recheck → explicitly start a uniquely named server.
+No network installer is executed by the Web service or browser test. Active connection
+configuration is inspected, not edited live; applying changed paths requires a host restart.
+Official install guidance: https://herdr.dev/docs/install/ (checked 2026-10-12). No official
+npm-based Herdr installer is claimed. Windows guidance does not add native socket support.
+
 ## Sources
 
 - https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2
@@ -58,5 +74,7 @@ integration job as evidence for a new commit.
 - https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/vendor/cordis/package.json
 - https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/vendor/schemastery/package.json
 - https://registry.npmjs.org/-/package/@deepseek-ai/dsh/dist-tags
+- https://github.com/herdrdev/herdr/releases/tag/v0.9.3
+- https://github.com/herdrdev/herdr/blob/v0.9.3/src/protocol/wire.rs
 
 Registry evidence is collected by CI with `npm view @deepseek-ai/dsh dist-tags --json`.
