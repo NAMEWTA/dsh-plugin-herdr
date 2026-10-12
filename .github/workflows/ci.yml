@@ -80,9 +80,15 @@ jobs:
           path: evidence/
           retention-days: 14
   integration:
-    name: Herdr 0.9.0 protocol 22
+    name: Herdr ${{ matrix.herdr }} protocol 22
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        herdr: ['0.9.0', '0.9.3']
+    env:
+      HERDR_CI_VERSION: ${{ matrix.herdr }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,7 +107,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: herdr-integration-log
+          name: herdr-integration-log-${{ matrix.herdr }}
           path: ${{ runner.temp }}/herdr-server.log
           retention-days: 14
   release:

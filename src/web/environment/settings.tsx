@@ -4,6 +4,7 @@ import { getHerdrRemote } from '../remote.ts'
 import { Button } from '../ui.tsx'
 import { t, useHerdrLang } from '../i18n.ts'
 import { statusStore } from '../store.ts'
+import { checkEnvironment, setupFailureDetail } from './check.ts'
 
 export interface EnvironmentViewProps {
   report: HerdrEnvironmentReport | null
@@ -91,18 +92,17 @@ export function HerdrEnvironmentSettings() {
     setBusy(true)
     setError(null)
     try {
-      const remote = getHerdrRemote()
-      if (start) {
-        const result = await remote.start() as { ok?: boolean }
-        if (!result.ok) throw new Error('start failed')
-      }
-      const next = await remote.environment()
+      const next = await checkEnvironment(getHerdrRemote(), start)
       if (alive.current && current === revision.current) {
         setReport(next)
         statusStore.refresh()
       }
-    } catch {
-      if (alive.current && current === revision.current) setError(t(start ? 'setup.startFailed' : 'setup.checkFailed'))
+    } catch (cause) {
+      if (alive.current && current === revision.current) {
+        const summary = t(start ? 'setup.startFailed' : 'setup.checkFailed')
+        const detail = setupFailureDetail(cause)
+        setError(detail ? `${summary} ${detail}` : summary)
+      }
     } finally {
       if (alive.current && current === revision.current) setBusy(false)
     }

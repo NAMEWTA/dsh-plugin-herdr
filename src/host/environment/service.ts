@@ -41,6 +41,8 @@ export function createEnvironmentReader(config: Config, deps: EnvironmentDeps = 
     const cfg = resolveTerminalSessionConfig(config)
     const find = deps.findHerdr ?? (binPath => findHerdrExecutable({ binPath, env, platform }))
     const path = find(cfg.binPath)
+    // Keep an invalid override visible; it is diagnostic data, never an execution fallback.
+    const diagnosticPath = path ?? (cfg.binPath || env.HERDR_BIN_PATH || null)
     const run = deps.run ?? ((bin, args) => runProbe(bin, args, env))
     const socketPath = supported ? resolveSocketPath(config, env) ?? null : null
     const ping = deps.ping ?? (path => socketPing(path, 2500))
@@ -56,7 +58,7 @@ export function createEnvironmentReader(config: Config, deps: EnvironmentDeps = 
       host: { platform, arch: hostArch, hostname: deps.hostname ?? hostname(), nodeVersion: process.version,
         wsl: platform === 'linux' && (/microsoft|wsl/i.test(deps.release ?? release()) || !!env.WSL_DISTRO_NAME) },
       supported,
-      cli: { path, version, state: !supported ? 'unsupported' : !path ? 'missing' : !version ? 'unusable' : 'available' },
+      cli: { path: diagnosticPath, version, state: !supported ? 'unsupported' : !path ? 'missing' : !version ? 'unusable' : 'available' },
       packageManagers: { npm: !!findTool('npm'), pnpm: !!findTool('pnpm') },
       connection: { socketPath, session: resolveSession(config, env) ?? null, running: !!pong, version: pong?.version ?? null, protocol: pong?.protocol ?? null },
       terminal: { enabled: cfg.enabled, available: !!help && /\bobserve\b/.test(help) && /\bcontrol\b/.test(help) },

@@ -57,7 +57,7 @@ A GitHub source archive is not the prebuilt plugin tarball.
 
 ## Herdr installation and environment settings
 
-Open **Herdr → Installation & settings**, or **Settings → Plugins → Herdr environment**.
+Open **Herdr → Installation & settings**, or **Settings → Built-in plugins → Herdr environment**.
 The dashboard opens installation guidance automatically when the executable is missing;
 the session server banner also exposes the same panel.
 
@@ -78,6 +78,28 @@ and terminals share executable discovery, including `~/.local/bin`; invalid expl
 paths never fall back silently. The official installer may select a newer Herdr than
 our 0.9.0/protocol 22 baseline. The panel warns rather than claiming full compatibility.
 It never automatically installs, stops, upgrades or replaces running software.
+
+## Troubleshooting after installation
+
+Installing this plugin does not install the Herdr executable or start its server. The
+new management screen is included in **0.0.3**, not the earlier 0.0.2 package. Check the
+installed plugin version; a package-name installation can resolve to an older npm release.
+Install the explicitly verified tarball into the same profile, then restart that profile.
+
+Use **Herdr → Installation & settings** or **Settings → Built-in plugins → Herdr environment**:
+
+- **Executable not found:** follow the commands for the displayed Host system. An invalid
+  explicit binary override remains visible in the settings; fix it rather than installing
+  another binary that the override would hide. A browser on Windows can be connected to a
+  Linux Host, so do not use the browser OS to choose installation commands.
+- **Installed but disconnected:** inspect the displayed socket and session. Click Start only
+  for the intended server; the plugin does not stop or replace an existing server.
+- **Check/start failed:** the localized error includes a bounded technical cause when the
+  Host provides one. After correcting paths or permissions, recheck. Do not clear your
+  profile, credentials or existing workspaces as a troubleshooting step.
+
+If the error persists, share the exact message, the Host OS, DSH/plugin/Herdr versions and
+which action failed. Do not share API keys, authentication URLs or an entire environment dump.
 
 ## Build from source
 
