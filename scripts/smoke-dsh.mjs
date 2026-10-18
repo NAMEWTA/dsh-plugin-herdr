@@ -28,6 +28,7 @@ if (missingInstall) {
 const packageName = '@namewta/dsh-plugin-herdr'
 const errors = []
 let child, browser, page
+let fixtureWorkspaceId = null
 let output = ''
 let fatal
 const capture = chunk => { output = (output + chunk.toString()).slice(-2 * 1024 * 1024) }
@@ -38,6 +39,18 @@ function command(args) {
     writeFileSync(join(evidence, 'cli-error.log'), redactLaunchTokens(String(error.stdout ?? '') + String(error.stderr ?? '') + String(error)))
     throw error
   }
+}
+function fixtureCommand(args) {
+  // Never create fixtures in a default or developer server. run-herdr-ci owns this named daemon.
+  assert.ok(process.env.RUNNER_TEMP && process.env.GITHUB_RUN_ID, 'pane smoke requires the disposable CI runner')
+  const expectedSession = missingInstall ? `herdr-install-check-${process.pid}`
+    : `dsh-ci-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT || '1'}`
+  assert.equal(env.HERDR_SESSION, expectedSession, 'fixture must target the uniquely named CI session')
+  const stdout = execFileSync(env.HERDR_BIN_PATH || 'herdr', ['--session', expectedSession, ...args],
+    { env, cwd: home, encoding: 'utf8', timeout: 15_000 })
+  const response = JSON.parse(stdout)
+  assert.ok(!response.error, JSON.stringify(response.error))
+  return response.result
 }
 async function stopChild() {
   if (!child || child.exitCode !== null || child.signalCode !== null) return
@@ -139,6 +152,56 @@ try {
   }
   await setup.locator('[data-connection="connected"]').waitFor({ state: 'visible', timeout: 45_000 })
   await page.screenshot({ path: join(evidence, 'herdr-environment.png'), fullPage: true })
+  // Real ordinary terminal: no model credential, DSH binding, or developer profile required.
+  const fixtureLabel = `dsh-inspector-smoke-${process.pid}`
+  const created = fixtureCommand(['workspace', 'create', '--cwd', home, '--label', fixtureLabel, '--no-focus'])
+  fixtureWorkspaceId = created?.workspace?.workspace_id
+  const fixturePaneId = created?.root_pane?.pane_id
+  assert.ok(typeof fixtureWorkspaceId === 'string' && fixtureWorkspaceId)
+  assert.ok(typeof fixturePaneId === 'string' && fixturePaneId)
+  await page.getByRole('button', { name: 'Refresh dashboard', exact: true }).click()
+  const fixtureCard = page.locator('.herdr-dash-ws-card').filter({ hasText: fixtureLabel })
+  await fixtureCard.waitFor({ state: 'visible', timeout: 30_000 })
+  await fixtureCard.getByRole('button', { name: /Expand panes/ }).click()
+  const fixtureRow = fixtureCard.locator('.herdr-dash-pane-row').filter({ has: page.locator(`[title="${fixturePaneId}"]`) })
+  await fixtureRow.click()
+  const inspector = page.locator('[data-pane-inspector]')
+  await inspector.waitFor({ state: 'visible', timeout: 30_000 })
+  assert.equal(await inspector.getAttribute('data-pane-inspector'), fixturePaneId)
+  await inspector.getByText('No DSH session is bound to this pane.', { exact: false }).waitFor({ timeout: 30_000 })
+  assert.equal(await inspector.getByRole('button', { name: 'Open in DSH', exact: true }).isDisabled(), true)
+  assert.ok((await inspector.innerText()).includes(fixtureWorkspaceId))
+  assert.ok((await inspector.innerText()).includes(home), 'all-scope inspector must show actual fixture cwd')
+  const paneCommand = inspector.locator('[data-inspector-command="pane"]')
+  await paneCommand.waitFor({ state: 'visible', timeout: 30_000 })
+  const quote = value => "'" + value.replace(/'/g, "'\\''") + "'"
+  const socket = await setup.locator('dt').filter({ hasText: /^Socket path$/ }).locator('..').locator('dd').innerText()
+  const binary = await setup.locator('dt').filter({ hasText: /^Herdr binary path$/ }).locator('..').locator('dd').innerText()
+  await paneCommand.getByRole('button', { name: 'Copy command: Pane metadata', exact: true }).click()
+  const copiedCommand = await page.evaluate(() => navigator.clipboard.readText())
+  assert.equal(copiedCommand, `HERDR_SOCKET_PATH=${quote(socket)} ${quote(binary)} pane get ${quote(fixturePaneId)}`)
+  writeFileSync(join(evidence, 'inspector-command.txt'), copiedCommand + '\n')
+  await page.screenshot({ path: join(evidence, 'herdr-pane-inspector.png'), fullPage: true })
+  // Clipboard rejection must remain a visible recoverable error in the real component.
+  await page.evaluate(() => {
+    window.__inspectorWriteText = navigator.clipboard.writeText
+    navigator.clipboard.writeText = async () => { throw new Error('smoke clipboard rejection') }
+  })
+  await paneCommand.getByRole('button', { name: 'Copy command: Pane metadata', exact: true }).click()
+  await inspector.getByRole('alert').filter({ hasText: 'Clipboard unavailable' }).waitFor({ timeout: 10_000 })
+  await page.evaluate(() => { navigator.clipboard.writeText = window.__inspectorWriteText; delete window.__inspectorWriteText })
+  await inspector.getByRole('button', { name: 'Close pane inspector', exact: true }).click()
+  await inspector.waitFor({ state: 'hidden', timeout: 10_000 })
+  await fixtureRow.click()
+  await inspector.waitFor({ state: 'visible', timeout: 30_000 })
+  await inspector.locator('[data-inspector-command="pane"]').waitFor({ state: 'visible', timeout: 30_000 })
+  // Remove only the fixture we created. The open inspector must lose stale actions.
+  fixtureCommand(['workspace', 'close', fixtureWorkspaceId])
+  fixtureWorkspaceId = null
+  await page.getByRole('button', { name: 'Refresh dashboard', exact: true }).click()
+  await inspector.waitFor({ state: 'hidden', timeout: 30_000 })
+  await page.getByText('The selected pane is no longer in the visible dashboard snapshot.', { exact: false }).waitFor({ timeout: 10_000 })
+
   // settings.plugins.tab is owned by "Built-in plugins", not the sidebar's "Plugins" page.
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
   const settingsDialog = page.getByRole('dialog')
@@ -162,7 +225,7 @@ try {
   const removed = command(['plugin', '--profile', 'web', 'list'])
   writeFileSync(join(evidence, 'removed.txt'), removed)
   assert.ok(!removed.includes(packageName), 'plugin still present after removal')
-  writeFileSync(join(evidence, 'result.json'), JSON.stringify({ dsh: version, install: true, web: true, dashboard: true, environmentSettings: true, nativeSettings: true, missingInstallRecovery: missingInstall, remove: true, pageErrors: errors.length }, null, 2))
+  writeFileSync(join(evidence, 'result.json'), JSON.stringify({ dsh: version, install: true, web: true, dashboard: true, environmentSettings: true, paneInspector: true, inspectorClipboardFailure: true, inspectorDisappearance: true, nativeSettings: true, missingInstallRecovery: missingInstall, remove: true, pageErrors: errors.length }, null, 2))
   console.log('Published DSH CLI: install/list/Web/dashboard/remove smoke passed')
 } catch (error) {
   writeFileSync(join(evidence, 'failure.log'), redactLaunchTokens(error instanceof Error ? error.stack ?? error.message : String(error)))
@@ -178,8 +241,12 @@ try {
   writeFileSync(join(evidence, 'host.log'), redactLaunchTokens(output))
   const diagnostics = join(home, 'profiles', 'web', '.plugin-manager', 'logs')
   if (existsSync(diagnostics)) cpSync(diagnostics, join(evidence, 'plugin-manager-logs'), { recursive: true })
+  if (fixtureWorkspaceId) {
+    try { fixtureCommand(['workspace', 'close', fixtureWorkspaceId]) } catch (error) { console.error('Fixture cleanup failed:', String(error)) }
+  }
   if (missingInstall && existsSync(env.HERDR_BIN_PATH)) {
     try { execFileSync(env.HERDR_BIN_PATH, ['server', 'stop'], { env, cwd: home, timeout: 10_000, stdio: 'ignore' }) } catch { /* only the uniquely named disposable test server */ }
   }
   rmSync(home, { recursive: true, force: true })
 }
+

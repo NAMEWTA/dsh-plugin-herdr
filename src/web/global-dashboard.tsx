@@ -15,8 +15,10 @@ import {
   useHerdrDashboard,
   useHerdrStart,
 } from './store.ts'
-import { getSessionId, navigateToPane } from './navigation.ts'
-import { fetchPaneSession, fetchSelfPaneId } from './session-pane.ts'
+import { getSessionId } from './navigation.ts'
+import { fetchSelfPaneId } from './session-pane.ts'
+import { PaneInspector } from './pane-inspector.tsx'
+import { findInspectedPane } from './pane-inspector-model.ts'
 import { DashboardContent } from './dashboard-view.tsx'
 import { HerdrLogo } from './pane-list.tsx'
 import type { HerdrDashboardPaneRef } from './dashboard-types.ts'
@@ -45,14 +47,16 @@ function markerStateText(state: MarkerServerState): string {
 export function HerdrDashboardPanel(): ReactNode {
   void useHerdrLang()
   const [setupOpen, setSetupOpen] = useState<boolean | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const noticeTimer = useRef<number | undefined>(undefined)
-  const showNotice = (message: string) => {
-    setNotice(message)
-    window.clearTimeout(noticeTimer.current)
-    noticeTimer.current = window.setTimeout(() => setNotice(null), 3000)
+  const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null)
+  const inspectorRegion = useRef<HTMLDivElement | null>(null)
+  const inspectorTrigger = useRef<HTMLElement | null>(null)
+  const closeInspector = () => {
+    setSelectedPaneId(null)
+    if (inspectorTrigger.current?.isConnected) inspectorTrigger.current.focus()
   }
-  useEffect(() => () => window.clearTimeout(noticeTimer.current), [])
+  useEffect(() => {
+    if (selectedPaneId) inspectorRegion.current?.focus()
+  }, [selectedPaneId])
 
   const [selfPaneId, setSelfPaneId] = useState<string | null>(null)
   const selfPaneIdRef = useRef<string | null>(null)
@@ -94,17 +98,12 @@ export function HerdrDashboardPanel(): ReactNode {
   }
 
   const onPaneClick = (target: HerdrDashboardPaneRef) => {
-    const sid = getSessionId()
-    void fetchPaneSession(target.pane_id).then(paneSessionId => {
-      try {
-        navigateToPane(target.pane_id, { selfSessionId: sid, paneSessionId })
-      } catch (e) {
-        showNotice(e instanceof Error ? e.message : String(e))
-      }
-    })
+    inspectorTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSelectedPaneId(target.pane_id)
   }
 
   const { snap: dashSnap, error, refresh: refreshDash } = useHerdrDashboard()
+  const selected = findInspectedPane(dashSnap, selectedPaneId, hiddenPaneIds, hiddenWorkspaceIds)
   const { starting, startError, start } = useHerdrStart()
   const server = dashSnap?.server
   const serverState = deriveMarkerServerState(dashSnap)
@@ -151,7 +150,6 @@ export function HerdrDashboardPanel(): ReactNode {
         ) : null}
         <Button aria-expanded={showSetup} aria-controls="herdr-setup-region" onClick={() => setSetupOpen(!showSetup)}>{t('setup.title')}</Button>
       </header>
-      {notice ? <div className="herdr-gds-notice" role="status">{notice}</div> : null}
       {actionError ? (
         <div className="herdr-action-error" key={actionError.key}>
           <span>{actionError.message}</span>
@@ -161,6 +159,16 @@ export function HerdrDashboardPanel(): ReactNode {
       {disconnected ? <div className="herdr-server-error">{t('banner.unavailable')}</div> : null}
       <div className="herdr-gds-body">
         {showSetup ? <div id="herdr-setup-region"><HerdrEnvironmentSettings /></div> : null}
+        {selectedPaneId ? (
+          <div ref={inspectorRegion} tabIndex={-1} aria-label={t('inspector.title')}>
+            {selected ? <PaneInspector key={JSON.stringify([selectedPaneId, selected.workspace.workspace_id, dashSnap?.server.socket, dashSnap?.server.session])} selected={selected} onClose={closeInspector} /> : (
+              <div className="herdr-dash-card">
+                <p role="status">{t('inspector.disappeared')}</p>
+                <button type="button" onClick={closeInspector}>{t('view.close')}</button>
+              </div>
+            )}
+          </div>
+        ) : null}
         <DashboardContent
           onPaneClick={onPaneClick}
           selfPaneId={selfPaneId}
@@ -173,3 +181,4 @@ export function HerdrDashboardPanel(): ReactNode {
     </section>
   )
 }
+

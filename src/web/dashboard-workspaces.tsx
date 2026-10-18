@@ -104,7 +104,7 @@ function PaneRow({ pane, self, onPaneClick, onClosePane }: {
   const displayState = paneDisplayState(pane.status)
   const displayName = paneDisplayLabel(pane)
   const stateLabel = t(STATUS_LABEL_KEYS[displayState])
-  const rowLabel = self ? t('dashboard.paneSelfTitle', { id: displayName }) : t('dashboard.paneJumpTitle', { id: displayName })
+  const rowLabel = t('inspector.select', { id: displayName })
 
   const [confirmClose, setConfirmClose] = useState(false)
   const [closeBusy, setCloseBusy] = useState(false)
@@ -310,3 +310,4 @@ export function DashboardWorkspaces({ snap: input, selfPaneId, hiddenWorkspaceId
     </section>
   )
 }
+
