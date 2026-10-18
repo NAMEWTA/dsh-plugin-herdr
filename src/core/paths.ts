@@ -32,7 +32,7 @@ const DEFAULTS: Required<PathWithinOptions> = {
 function withinCore(root: string, p: string, sep: string): boolean {
   if (root === '') return p === ''
   if (p === root) return true
-  return p.startsWith(root + sep)
+  return p.startsWith(root.endsWith(sep) ? root : root + sep)
 }
 
 /** win32 的 path.sep 是反斜杠。夹具和 Herdr 常给 /proj/repo，比较前折成 \\。POSIX 不改写。 */
@@ -72,3 +72,4 @@ export function isPathWithinProject(
 ): boolean {
   return isPathWithin(projectRoot, p)
 }
+
