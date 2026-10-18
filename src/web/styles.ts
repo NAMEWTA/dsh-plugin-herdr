@@ -1445,6 +1445,63 @@ svg.herdr-preset-logo > * {
   background: var(--dsw-alias-bg-layer-1);
   min-width: 0;
 }
+/* Scoped inspector surface: compact facts and copy-only command cards. */
+.herdr-inspector {
+  margin: 12px; padding: 16px; gap: 12px;
+  font-family: var(--dsw-font-family); font-size: 12px; line-height: 18px;
+  color: var(--dsw-alias-label-primary); box-sizing: border-box;
+}
+.herdr-inspector h2, .herdr-inspector h3, .herdr-inspector h4, .herdr-inspector p { margin: 0; }
+.herdr-inspector-head { display: flex; align-items: center; gap: 12px; scroll-margin-top: 64px; }
+.herdr-inspector-head h2 { flex: 1; min-width: 0; font-size: 15px; line-height: 22px; font-weight: 600; }
+.herdr-inspector .herdr-button {
+  flex: none; font: inherit; line-height: 18px; padding: 5px 10px; min-height: 30px;
+  border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); cursor: pointer;
+}
+.herdr-inspector .herdr-button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+.herdr-inspector .herdr-button:disabled { color: var(--dsw-alias-label-tertiary); opacity: .65; cursor: default; }
+.herdr-inspector .herdr-button:focus-visible, .herdr-inspector pre:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-focus-ring, var(--dsw-alias-state-info-primary)); outline-offset: 2px;
+}
+.herdr-inspector-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px 20px; padding: 12px; margin: 0;
+  background: var(--dsw-alias-bg-module-platform); border-radius: 8px;
+}
+.herdr-inspector-fact { min-width: 0; }
+.herdr-inspector-fact[data-wide] { grid-column: span 2; }
+.herdr-inspector-fact dt { color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px; margin-bottom: 3px; }
+.herdr-inspector-fact dd { margin: 0; overflow-wrap: anywhere; font-family: var(--ds-font-family-code); font-size: 12px; line-height: 18px; }
+.herdr-inspector-binding { color: var(--dsw-alias-label-secondary); }
+.herdr-inspector-binding[data-binding='error'], .herdr-inspector-feedback[role='alert'] { color: var(--dsw-alias-state-error-primary); }
+.herdr-inspector-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.herdr-inspector-command-intro { border-top: 1px solid var(--dsw-alias-border-l1); padding-top: 12px; scroll-margin-top: 64px; }
+.herdr-inspector-command-intro h3 { font-size: 13px; line-height: 20px; font-weight: 600; margin-bottom: 5px; }
+.herdr-inspector-command-intro p { color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 17px; margin-top: 3px; }
+.herdr-inspector-command-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.herdr-inspector-command { min-width: 0; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; overflow: hidden; }
+.herdr-inspector-command header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; }
+.herdr-inspector-command h4 { min-width: 0; font-size: 12px; line-height: 18px; font-weight: 500; }
+.herdr-inspector-command .herdr-button { font-size: 11px; padding: 2px 8px; min-height: 26px; }
+.herdr-inspector-command pre {
+  margin: 0; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text;
+  background: var(--dsw-alias-markdown-code-block); color: var(--dsw-alias-label-secondary);
+  font-family: var(--ds-font-family-code); font-size: 11px; line-height: 17px;
+}
+.herdr-inspector-command code { font: inherit; }
+.herdr-inspector-feedback { color: var(--dsw-alias-label-secondary); font-size: 11px; }
+.herdr-inspector-feedback:empty { display: none; }
+@media (max-width: 900px) {
+  .herdr-inspector-command-grid { grid-template-columns: minmax(0, 1fr); }
+  .herdr-inspector-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .herdr-inspector { margin: 8px; padding: 12px; }
+  .herdr-inspector-facts { grid-template-columns: minmax(0, 1fr); }
+  .herdr-inspector-fact[data-wide] { grid-column: auto; }
+  .herdr-inspector-actions .herdr-button { flex: 1 1 160px; }
+}
 .herdr-dash-card-title {
   font-size: 12px; line-height: 18px; font-weight: 600;
   color: var(--dsw-alias-label-secondary);
@@ -2170,3 +2227,4 @@ svg.herdr-preset-logo > * {
 }
 
 export {}
+

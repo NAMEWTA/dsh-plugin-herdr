@@ -23,7 +23,7 @@ test('real inspector renders IDs/cwd and explains unbound pane in both languages
       const html = render()
       for (const value of ['real-pane-7', 'real-workspace-2', 'real-tab-3', '/working']) assert.ok(html.includes(value))
       assert.ok(html.includes('&lt;unsafe&gt;'))
-      assert.match(html, /<button type="button" disabled="">/)
+      assert.match(html, /<button\b[^>]*disabled=""[^>]*>/)
       assert.ok(html.includes(lang === 'en' ? 'No DSH session is bound' : '未绑定 DeepSeek Harness 会话'))
       assert.ok(html.includes(lang === 'en' ? 'browser display order only' : '仅改变浏览器中的显示顺序'))
     }
@@ -34,10 +34,10 @@ test('bound navigation is enabled only after verification; errors and copy failu
   try {
     const bound = render({ binding: { state: 'bound', sessionId: 'dsh-session-1' } })
     assert.ok(bound.includes('dsh-session-1'))
-    assert.match(bound, /<button type="button">Open in DSH<\/button>/)
+    assert.match(bound, /<button type="button" class="herdr-button">Open in DSH<\/button>/)
     for (const state of ['checking', 'error', 'unbound'] as const) {
       const html = render({ binding: { state } })
-      assert.match(html, /<button type="button" disabled="">Open in DSH<\/button>/)
+      assert.match(html, /<button\b[^>]*disabled=""[^>]*>Open in DSH<\/button>/)
     }
     const failure = render({ feedback: 'copyFailed' })
     assert.match(failure, /role="alert" aria-live="polite"/)
@@ -55,6 +55,11 @@ test('verified commands are selectable and individually named for copy; no run c
     }
     const html = render({ report })
     assert.equal((html.match(/data-inspector-command=/g) ?? []).length, 6)
+    assert.ok(html.includes('class="herdr-dash-card herdr-inspector"'))
+    assert.ok(html.includes('<dl class="herdr-inspector-facts">'))
+    assert.ok(html.includes('class="herdr-inspector-command-grid"'))
+    assert.equal((html.match(/class="herdr-inspector-command"/g) ?? []).length, 6)
+    assert.ok(!html.includes('style='), 'layout belongs to scoped theme styles')
     assert.ok(html.includes('HERDR_SOCKET_PATH='))
     assert.ok(html.includes('/tmp/specific.sock'))
     assert.ok(!html.includes('--session'))
@@ -63,3 +68,4 @@ test('verified commands are selectable and individually named for copy; no run c
     assert.ok(html.includes('not executed by this panel'))
   } finally { setHerdrLang('zh') }
 })
+

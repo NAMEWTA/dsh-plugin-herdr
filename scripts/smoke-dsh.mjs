@@ -181,7 +181,25 @@ try {
   const copiedCommand = await page.evaluate(() => navigator.clipboard.readText())
   assert.equal(copiedCommand, `HERDR_SOCKET_PATH=${quote(socket)} ${quote(binary)} pane get ${quote(fixturePaneId)}`)
   writeFileSync(join(evidence, 'inspector-command.txt'), copiedCommand + '\n')
-  await page.screenshot({ path: join(evidence, 'herdr-pane-inspector.png'), fullPage: true })
+  // Capture actual viewport states, including the header/facts that copy-button scrolling can hide.
+  const inspectorHead = inspector.locator('.herdr-inspector-head')
+  await inspectorHead.evaluate(element => element.scrollIntoView({ block: 'start' }))
+  await page.waitForFunction(() => {
+    const head = document.querySelector('.herdr-inspector-head')?.getBoundingClientRect()
+    const facts = document.querySelector('.herdr-inspector-facts')?.getBoundingClientRect()
+    return head && facts && head.top >= 0 && facts.bottom <= window.innerHeight
+  })
+  assert.equal(await inspector.locator('h2').evaluate(element => getComputedStyle(element).fontSize), '15px')
+  assert.equal(await inspector.locator('.herdr-inspector-command-grid').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 2)
+  await page.screenshot({ path: join(evidence, 'herdr-pane-inspector.png'), fullPage: false })
+  await inspector.locator('.herdr-inspector-command-intro').evaluate(element => element.scrollIntoView({ block: 'start' }))
+  await page.screenshot({ path: join(evidence, 'herdr-pane-inspector-commands.png'), fullPage: false })
+  await page.setViewportSize({ width: 760, height: 1000 })
+  await inspectorHead.evaluate(element => element.scrollIntoView({ block: 'start' }))
+  assert.equal(await inspector.locator('.herdr-inspector-command-grid').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 1)
+  assert.ok(await inspector.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'inspector must not overflow horizontally at narrow width')
+  await page.screenshot({ path: join(evidence, 'herdr-pane-inspector-narrow.png'), fullPage: false })
+  await page.setViewportSize({ width: 1440, height: 1000 })
   // Clipboard rejection must remain a visible recoverable error in the real component.
   await page.evaluate(() => {
     window.__inspectorWriteText = navigator.clipboard.writeText
@@ -249,4 +267,5 @@ try {
   }
   rmSync(home, { recursive: true, force: true })
 }
+
 
