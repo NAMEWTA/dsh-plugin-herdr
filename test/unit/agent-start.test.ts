@@ -22,7 +22,9 @@ function makeHarness(herdr: Record<string, unknown>, snapAgents: Array<{ agent?:
 
 const agentExec = { signal: new AbortController().signal, agent: { id: 'sess-A' } } as never
 
-test('agent-start: omitted pane_id splits off the bound pane (session workspace)', async () => {
+test('agent-start: omitted pane_id splits off the bound pane (session workspace)', async t => {
+  // No elapsed startup time in this case; keep the exact default-budget assertion deterministic.
+  t.mock.method(Date, 'now', () => 1_000_000)
   const calls: Array<Record<string, unknown>> = []
   const { defs } = makeHarness({
     paneSplit: async (req: Record<string, unknown>) => {
@@ -41,6 +43,25 @@ test('agent-start: omitted pane_id splits off the bound pane (session workspace)
     assert.deepEqual(calls[0], { name: 'pi-1', kind: 'pi', pane_id: 'w1:p9', timeout_ms: 30000 }, 'name auto-generates <kind>-<n> and the default budget is forwarded')
     assert.equal((res as { pane_id: string }).pane_id, 'w1:p9')
     assert.equal((res as { status: string }).status, 'idle')
+  } finally {
+    getBindingRegistry().delete('sess-A')
+  }
+})
+
+test('agent-start: split time is deducted from the same startup deadline', async t => {
+  let now = 1_000_000
+  t.mock.method(Date, 'now', () => now)
+  const { defs } = makeHarness({
+    paneSplit: async () => { now += 500; return { pane_id: 'w1:p9' } },
+    agentStart: async (req: Record<string, unknown>) => {
+      assert.equal(req.timeout_ms, 29500, 'split time must not expand the default startup budget')
+      return { pane_id: 'w1:p9', agent: 'pi', agent_status: 'idle', interactive_ready: true }
+    },
+  })
+  getBindingRegistry().set('sess-A', { pane_id: 'w1:p5', created: true, workspace_id: 'w1' })
+  try {
+    const run = defs.find(d => d.name === 'herdr_agent_start')!
+    await run.execute({ kind: 'pi' }, agentExec)
   } finally {
     getBindingRegistry().delete('sess-A')
   }
@@ -177,3 +198,4 @@ test('agent-start: non-busy errors still fail immediately', async () => {
     getBindingRegistry().delete('sess-A')
   }
 })
+
