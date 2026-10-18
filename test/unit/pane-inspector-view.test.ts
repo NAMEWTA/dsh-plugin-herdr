@@ -24,7 +24,7 @@ test('real inspector renders IDs/cwd and explains unbound pane in both languages
       for (const value of ['real-pane-7', 'real-workspace-2', 'real-tab-3', '/working']) assert.ok(html.includes(value))
       assert.ok(html.includes('&lt;unsafe&gt;'))
       assert.match(html, /<button type="button" disabled="">/)
-      assert.ok(html.includes(lang === 'en' ? 'No DSH session is bound' : '未绑定 DSH 会话'))
+      assert.ok(html.includes(lang === 'en' ? 'No DSH session is bound' : '未绑定 DeepSeek Harness 会话'))
       assert.ok(html.includes(lang === 'en' ? 'browser display order only' : '仅改变浏览器中的显示顺序'))
     }
   } finally { setHerdrLang('zh') }
