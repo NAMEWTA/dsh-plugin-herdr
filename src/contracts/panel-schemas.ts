@@ -10,7 +10,7 @@ const dimension = z.number().int().min(1).max(MAX_TERMINAL_DIMENSION)
 const maybeText = text.nullable()
 const empty = z.object({}).strict().optional()
 /** Methods that take no request argument at all (no request codec on the wire). */
-export const PANEL_NO_REQUEST: ReadonlySet<string> = new Set(['environment'])
+export const PANEL_NO_REQUEST: ReadonlySet<string> = new Set(['environment', 'dashboard', 'topology', 'start', 'terminalStats'])
 const resource = z.object({ kind: z.enum(['workspace', 'pane']), id }).strict()
 const mutation = z.object({ ok: z.boolean(), error: text.optional(), code: text.optional() }).strict()
 const input = z.discriminatedUnion('type', [
@@ -85,3 +85,4 @@ export type PanelMethod = keyof typeof PANEL_DEFINITIONS
 export const PANEL_METHODS: readonly PanelMethod[] = Object.freeze(Object.keys(PANEL_DEFINITIONS) as PanelMethod[])
 export type PanelRequest<M extends PanelMethod> = z.input<(typeof PANEL_DEFINITIONS)[M]['request']>
 export type PanelResult<M extends PanelMethod> = z.output<(typeof PANEL_DEFINITIONS)[M]['result']>
+
