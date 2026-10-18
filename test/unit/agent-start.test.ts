@@ -38,7 +38,7 @@ test('agent-start: omitted pane_id splits off the bound pane (session workspace)
   try {
     const run = defs.find(d => d.name === 'herdr_agent_start')!
     const res = await run.execute({ kind: 'pi' }, agentExec)
-    assert.deepEqual(calls[0], { name: 'pi-1', kind: 'pi', pane_id: 'w1:p9', args: undefined, timeout_ms: undefined }, 'name auto-generates <kind>-<n>')
+    assert.deepEqual(calls[0], { name: 'pi-1', kind: 'pi', pane_id: 'w1:p9', timeout_ms: 30000 }, 'name auto-generates <kind>-<n> and the default budget is forwarded')
     assert.equal((res as { pane_id: string }).pane_id, 'w1:p9')
     assert.equal((res as { status: string }).status, 'idle')
   } finally {
@@ -69,7 +69,7 @@ test('agent-start: no bound pane and no pane_id → rejects with clear message',
 test('agent-start: rejects out-of-range timeout_ms', async () => {
   const { defs } = makeHarness({})
   const run = defs.find(d => d.name === 'herdr_agent_start')!
-  await assert.rejects(() => run.execute({ kind: 'pi', pane_id: 'w1:p1', timeout_ms: 1000 }, agentExec), /timeout_ms must be > 3000/)
+  await assert.rejects(() => run.execute({ kind: 'pi', pane_id: 'w1:p1', timeout_ms: 1000 }, agentExec), /timeout_ms must be an integer > 3000/)
 })
 
 test('agent-start: retries agent_pane_busy until the fresh pane shell is ready', async () => {
@@ -139,8 +139,8 @@ test('agent-start: interactive_ready agents skip the wait', async () => {
 test('agent-start: rejects one-shot mode args (--print / exec)', async () => {
   const { defs } = makeHarness({})
   const run = defs.find(d => d.name === 'herdr_agent_start')!
-  await assert.rejects(() => run.execute({ kind: 'pi', pane_id: 'w1:p1', args: ['--print', 'check disk'] }, agentExec), /one-shot mode flag --print/)
-  await assert.rejects(() => run.execute({ kind: 'codex', pane_id: 'w1:p1', args: ['exec', 'ip addr'] }, agentExec), /one-shot mode flag exec/)
+  await assert.rejects(() => run.execute({ kind: 'pi', pane_id: 'w1:p1', args: ['--print', 'check disk'] }, agentExec), /one-shot mode is not allowed/)
+  await assert.rejects(() => run.execute({ kind: 'codex', pane_id: 'w1:p1', args: ['exec', 'ip addr'] }, agentExec), /one-shot mode is not allowed/)
 })
 
 test('agent-start: allows configuration-only args (e.g. --model)', async () => {

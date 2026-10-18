@@ -153,10 +153,11 @@ test('tools, jobs, skills, webServer, typert, and typertGateway activate the sin
     assert.equal(events?.mode, 'stream')
     assert.equal(events?.cancellation?.parameter, 'signal')
     assert.equal(events?.result.mode, 'strict')
-    if (events?.result.mode === 'strict') {
-      const parsed = events.result.create().parse({ ok: true }) as { ok?: boolean }
-      assert.equal(parsed.ok, true)
-    }
+    // The stream result is a discriminated event union, validated at the boundary.
+    const codec = events?.result as { create(): { parse(value: unknown): unknown } }
+    const parsed = codec.create().parse({ type: 'heartbeat', stale: false, last_error: null }) as { type?: string }
+    assert.equal(parsed.type, 'heartbeat')
+    assert.throws(() => codec.create().parse({ ok: true }), 'unknown event types are rejected')
   } finally {
     stopTypert()
     await sessionFiber?.dispose()

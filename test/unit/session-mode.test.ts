@@ -1,8 +1,12 @@
-import { test } from 'node:test'
+import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
 import * as sessionMode from '../../src/host/session-mode.ts'
 import { getBindingRegistry } from '../../src/host/binding-registry.ts'
+
+// The registry lives on globalThis so standing mounts share it. Every case must
+// start clean: a leftover binding from an earlier case makes create() short-circuit.
+beforeEach(() => { getBindingRegistry().clear() })
 
 // 注：测试直接调用 apply（与 state-report 测试一致）。真实 dsh 环境由 loader
 // 挂载组合（standing scope），事件经 scope 载体过滤后到达监听器。
@@ -100,9 +104,9 @@ test('session-mode: agent/created creates a dedicated workspace (project cwd) wi
     pane_id: 'wN1:p1',
     source: 'dsh:test',
     agent: 'dsh',
-    tokens: { dsh_session: 'sess-A' },
+    tokens: { dsh_session: 'sess-A', dsh_workspace: 'wN1' },
     ttl_ms: null,
-  }, 'internal marker stored in pane tokens')
+  }, 'internal marker stored in pane tokens (pane ownership is explicit)')
   assert.equal(calls.reports.length, 1)
   assert.equal(calls.reports[0].state, 'idle')
   assert.equal(calls.reports[0].pane_id, 'wN1:p1')
@@ -130,6 +134,8 @@ test('session-mode: request → working, turn-stopping → idle, keyed per agent
   const resolved = await ctx.waterfall({} as any, 'agent/request', { agent: { id: 'sess-A' } }, () => 'cfg')
   assert.equal(resolved, 'cfg', 'waterfall chain passes through next()')
   await ctx.serial({} as any, 'agent/turn-stopping', { agent: { id: 'sess-A' } })
+  // Reports are queued per agent; let the queue drain before asserting order.
+  await flush()
 
   // A 绑定 wN1:p1（第一个 workspace），B 绑定 wN2:p1（第二个）
   const aStates = calls.reports.filter(r => r.pane_id === 'wN1:p1').map(s => s.state)
@@ -252,9 +258,9 @@ test('CA-013: dispose before bind completes leaves no pane or registry entry', a
   // bind 完成前 agent 被 dispose
   ctx.emit({} as any, 'agent/disposed', { agent: { id: 'sess-race' } })
   await new Promise(r => setTimeout(r, 200))
-  // workspace 创建了，但立即被回收：不遗留 registry/绑定，不上报 idle
-  assert.equal(calls.wsCreates.length, 1, 'bind still ran to create the workspace')
-  assert.deepEqual(calls.wsCloses, ['wN'], 'workspace created mid-race must be closed')
+  // The revision gate now aborts before creating anything: no resource to reclaim.
+  assert.equal(calls.wsCreates.length, 0, 'aborted bind never creates a workspace')
+  assert.deepEqual(calls.wsCloses, [], 'nothing was created, so nothing is closed')
   assert.equal(registry.has('sess-race'), false, 'no registry entry for disposed agent')
   assert.equal(calls.reports.length, 0, 'no idle report for a disposed agent')
   // 事件链不受影响
@@ -283,18 +289,20 @@ test('CR: dispose during bind clears the disposedAgents flag — session id reus
   ctx.emit({} as any, 'agent/created', { agent: { id: 'sess-reuse' } })
   ctx.emit({} as any, 'agent/disposed', { agent: { id: 'sess-reuse' } })
   await new Promise(r => setTimeout(r, 200))
-  assert.deepEqual(calls.wsCloses, ['wN'], 'mid-race workspace closed')
+  // The aborted bind never created the workspace, so there is nothing to close.
+  assert.deepEqual(calls.wsCloses, [], 'aborted bind created nothing to close')
+  assert.equal(calls.wsCreates.length, 0, 'aborted bind did not create a workspace')
   assert.equal(registry.has('sess-reuse'), false)
   // 第二次：同一 session id 复用——必须正常绑定（新建 workspace、不误关）
   ctx.emit({} as any, 'agent/created', { agent: { id: 'sess-reuse' } })
   await new Promise(r => setTimeout(r, 150)) // bind 是异步的（慢 snapshot 80ms）
   assert.equal(registry.has('sess-reuse'), true, 'reused session id binds again')
-  assert.equal(calls.wsCloses.length, 1, 'no spurious close for the reused binding')
-  assert.equal(calls.wsCreates.length, 2, 'second bind creates a fresh workspace')
+  assert.equal(calls.wsCloses.length, 0, 'no spurious close for the reused binding')
+  assert.equal(calls.wsCreates.length, 1, 'second bind creates a fresh workspace')
   // 正常 dispose 第二次绑定
   ctx.emit({} as any, 'agent/disposed', { agent: { id: 'sess-reuse' } })
   await flush()
-  assert.deepEqual(calls.wsCloses, ['wN', 'wN'], 'second binding closed on dispose')
+  assert.deepEqual(calls.wsCloses, ['wN'], 'second binding closed on dispose')
   assert.equal(registry.has('sess-reuse'), false)
   void ctx.fiber.dispose()
 })
@@ -343,11 +351,12 @@ test('fix: concurrent agent/created for the same agent creates only one workspac
 })
 
 test('fix: reuses pane already marked with dsh_session token (registry lost after restart)', async () => {
-  const { ctx, calls } = makeHarness([{ pane_id: 'w9:p2', workspace_id: 'w9', tokens: { dsh_session: 'sess-A' } }])
+  const { ctx, calls } = makeHarness([{ pane_id: 'w9:p2', workspace_id: 'w9', tokens: { dsh_session: 'sess-A', dsh_workspace: 'w9' } }])
   ctx.emit({} as any, 'agent/created', { agent: { id: 'sess-A' } })
   await flush()
   assert.equal(calls.wsCreates.length, 0, 'no new workspace when marked pane exists')
-  assert.equal(calls.renames.length, 0, 'no re-mark needed for existing pane')
+  // Bind re-applies the label so a reused pane and its workspace stay consistent.
+  assert.deepEqual(calls.renames[0], { pane_id: 'w9:p2', label: 'dsh:sess-A' }, 'reused pane label is refreshed')
   assert.equal(calls.reports.length, 1)
   assert.equal(calls.reports[0].pane_id, 'w9:p2')
   // 复用的专属 workspace 随会话关闭
@@ -365,7 +374,7 @@ test('fix: agent/request fallback binds when agent/created never fired (preset s
   assert.equal(calls.wsCreates.length, 1, 'fallback bind creates workspace on first request')
   assert.deepEqual(calls.renames[0], { pane_id: 'wN1:p1', label: 'dsh:sess-A' })
   // 兜底路径不主动 report idle（状态由 request working 驱动）
-  assert.deepEqual(calls.reports.map(r => r.state), ['working'])
+  assert.deepEqual(calls.reports.map(r => r.state), ['working'], 'only the request-driven working report')
   void ctx.fiber.dispose()
 })
 
@@ -424,6 +433,7 @@ test('session-mode: config.label override wins over the session title', async ()
     paneRename: async (paneId: string, label: string | null) => { calls.renames.push({ pane_id: paneId, label }) },
     reportMetadata: async () => {},
     workspaceClose: async () => {},
+    workspaceRename: async () => {},
     reportAgent: async () => {},
     paneClose: async () => {},
   }
@@ -449,7 +459,7 @@ test('session-mode: session/title event after bind renames workspace and pane (a
   // 标题异步生成（session/title 事件）→ 补正 workspace + pane
   ctx.emit({} as any, 'session/event', { id: 'sess-A' }, { type: 'session/title', data: { title: '开启一个 pi Agent 检查当前系统' } })
   await flush()
-  assert.deepEqual(calls.wsRenames, [{ workspace_id: 'wN1', label: '开启一个 pi Agent 检查当前系统' }])
+  assert.deepEqual(calls.wsRenames.at(-1), { workspace_id: 'wN1', label: '开启一个 pi Agent 检查当前系统' })
   assert.equal(calls.renames.at(-1)?.label, '开启一个 pi Agent 检查当前系统')
   void ctx.fiber.dispose()
 })
@@ -466,7 +476,7 @@ test('session-mode: session/title event only renames bound agents (no binding �
 test('session-mode: reuse of a marked pane corrects the label when the title is available', async () => {
   // 模拟进程重启后 registry 清空：复用带 dsh_session 标记的 pane，且标题已生成
   const { ctx, calls } = makeHarness([
-    { pane_id: 'w9:p2', workspace_id: 'w9', tokens: { dsh_session: 'sess-A' } },
+    { pane_id: 'w9:p2', workspace_id: 'w9', tokens: { dsh_session: 'sess-A', dsh_workspace: 'w9' } },
   ])
   ctx.emit({} as any, 'agent/created', {
     agent: { id: 'sess-A', session: titledSession('sess-A', '开启一个 pi Agent 检查当前系统') },

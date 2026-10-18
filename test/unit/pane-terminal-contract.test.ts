@@ -30,7 +30,7 @@ test('pane-terminal.tsx: uses xterm.js Terminal', () => {
 test('pane-terminal.tsx: uses FitAddon', () => {
   assert.match(source, /import.*FitAddon.*from.*@xterm\/addon-fit/, 'must import FitAddon')
   assert.match(source, /new FitAddon/, 'must create FitAddon instance')
-  assert.match(source, /fitAddon\.fit/, 'must call fit()')
+  assert.match(source, /\b\w*[Ff]it\w*\.fit\(/, 'must call fit() on the loaded addon')
 })
 
 test('pane-terminal.tsx: has maximize aria-label', () => {

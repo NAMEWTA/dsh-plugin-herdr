@@ -208,14 +208,16 @@ test('CA-003: workspace_close returns closed_panes from snapshot count', async (
   assert.equal(closedWs, 'w1')
 })
 
-test('CA-003: workspace_close falls back to closed_panes=0 when snapshot fails', async () => {
+test('CA-003: workspace_close refuses to close when the preflight snapshot fails', async () => {
   const herdr = makeHerdr()
+  let closed = false
   herdr.snapshot = async () => { throw new HerdrError('HERDR_UNAVAILABLE', 'down') }
+  herdr.workspaceClose = async () => { closed = true }
   const tools = registerAll({ herdr })
   const ws = tools.find(t => t.name === 'herdr_workspace_close')!
-  // 快照失败不阻塞关闭，仍返回 ok:true + closed_panes:0
-  const value = await ws.def.execute({ workspace_id: 'w1' }, exec)
-  assert.deepEqual(value, { ok: true, closed_panes: 0 })
+  // Destructive actions fail closed: an unverifiable workspace is never closed.
+  await assert.rejects(() => ws.def.execute({ workspace_id: 'w1' }, exec), /HERDR_UNAVAILABLE|down/)
+  assert.equal(closed, false, 'the workspace must survive a failed preflight')
 })
 
 test('CA-003: pane_rename null/empty label calls paneRename clear path', async () => {

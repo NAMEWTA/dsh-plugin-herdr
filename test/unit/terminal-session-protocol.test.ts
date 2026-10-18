@@ -72,7 +72,7 @@ test('parseFrame: rejects non-object / arrays', () => {
 })
 
 test('parseFrame: rejects wrong event type', () => {
-  assert.throws(() => parseFrame(frame({ type: 'terminal.input' }), LIMITS), /意外的事件类型/)
+  assert.throws(() => parseFrame(frame({ type: 'terminal.input' }), LIMITS), /unexpected event type/)
 })
 
 test('parseFrame: rejects invalid seq/width/height/full', () => {
@@ -88,7 +88,7 @@ test('parseFrame: rejects missing / non-canonical / oversized base64 bytes', () 
   assert.throws(() => parseFrame(frame({ bytes: '!!!not-base64!!!' }), LIMITS), TerminalSessionError)
   // oversized decoded
   const big = Buffer.alloc(2_000_000).toString('base64')
-  assert.throws(() => parseFrame(frame({ bytes: big }), { maxDecodedFrameBytes: 1_000 }), /frame 超限/)
+  assert.throws(() => parseFrame(frame({ bytes: big }), { maxDecodedFrameBytes: 1_000 }), /encoded frame exceeds limit/)
 })
 
 test('parseFrame: base64 decode is byte-exact', () => {

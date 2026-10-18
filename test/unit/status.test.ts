@@ -92,7 +92,10 @@ test('startHerdrServer: timeout returns not running', async () => {
   const info = await startHerdrServer('/x/herdr.sock', { timeoutMs: 60, spawnFn: spawn, probe })
   assert.equal(info.running, false)
   assert.equal(info.status, 'not_running')
-  assert.ok(Date.now() - started >= 490, 'at least one poll interval elapsed (clock-jitter tolerant)')
+  // The deadline is honored, not padded: a 60ms budget must not wait a fixed interval.
+  const elapsed = Date.now() - started
+  assert.ok(elapsed >= 50, `waited for the deadline (got ${elapsed}ms)`)
+  assert.ok(elapsed < 2000, `returned promptly after the budget (got ${elapsed}ms)`)
 })
 
 // ---------------------------------------------------------------------------

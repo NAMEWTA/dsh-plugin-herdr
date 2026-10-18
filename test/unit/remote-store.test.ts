@@ -19,7 +19,7 @@ test('status store calls the remote unary method', async () => {
       seen = request
       return { server: { running: true }, agents: [], topology: { workspaces: [] }, updated_at: 1 }
     },
-  } as HerdrRemote
+  } as unknown as HerdrRemote
   setHerdrRemote(remote)
   openGlobalDashboard()
   const stop = statusStore.subscribe(() => {})

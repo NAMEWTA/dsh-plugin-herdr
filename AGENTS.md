@@ -9,14 +9,15 @@ Node 24+; pnpm 10.28.2. Supported DSH releases are the finite set **0.2.0-rc.2, 
 ## Structure
 
 - `src/core/`: framework-independent protocol, errors, output, polling, ANSI and path utilities. `protocol.ts` is generated from the schema fixture.
-- `src/host/`: `index.ts` mounts provider then runtime; `herdr/` contains the socket service, `tools/registry.ts` is the authoritative list of tools, `events/` handles subscriptions and reporting, `panel/` exposes Typert Remote, and `terminal-session/` manages CLI processes. `session-mode.ts` is a separate preset child entry.
+- `src/host/`: `index.ts` mounts provider then runtime; `herdr/` contains the socket service, `tools/registry.ts` is the authoritative list of tools, `events/` handles subscriptions and reporting, `panel/` exposes Typert Remote, and `terminal-session/` manages CLI processes. `application/` holds the shared policies (resource authorization, session bindings, agent launch) that tools and panel call. `session-mode.ts` is a separate preset child entry.
+- `src/contracts/`: the single runtime contract source. `panel-schemas.ts` declares `PANEL_DEFINITIONS`; Typert codecs and the Web remote type are generated from it, so adding a panel method starts here.
 - `src/web/`: client views, stores and pure UI logic; `src/client.tsx` is the thin entry. React is supplied by the host shell. Preserve the `ModuleLoader` factory contract and synchronous style injection required by `claimStyles`.
 - `locale/{zh,en}.json`: shared bilingual panel/brand dictionaries.
 - `scripts/`: protocol/Typert generation, package verification, isolated DSH smoke.
 - `test/unit/`: Node tests, including built-client activation and bilingual SSR. `test/packaging/`: tarball validation regressions. `test/integration/`: real Herdr tests. `test/fixtures/`: protocol schema and recorded Remote payloads.
 - `lib/`: generated and gitignored. `cordis.patch.yml`: one runtime plugin insert.
 
-The historical YAML under `presets/herdr/` is not the active preset definition: `src/host/preset.ts` registers the runtime preset. Do not change one and assume the other changed. The unfinished broader architecture hardening is isolated in draft PR #13, not part of this compatibility release.
+The historical YAML under `presets/herdr/` is not the active preset definition: `src/host/preset.ts` registers the runtime preset. Do not change one and assume the other changed. The contract-first architecture (`src/contracts/`, `src/host/application/`, `src/web/features/`) is part of `main`; read `IMPLEMENTATION_STATUS.md` for what has and has not been validated.
 
 ## Commands and acceptance
 

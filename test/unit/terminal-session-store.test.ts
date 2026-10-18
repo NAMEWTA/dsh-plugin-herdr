@@ -46,13 +46,14 @@ test('store: requestControl transitions starting->controlling and delivers frame
   await store.requestControl('w1:p1', { cols: 80, rows: 24 })
   assert.equal(t.starts[0]?.mode, 'control')
   assert.equal(t.starts[0]?.takeover, false)
-  // #4：start 成功后不得立即宣告 live；只有收到 ready（基线确认）才 controlling
+  // #4：start 成功后不得立即宣告 live；ready 只确立基线，首个 full 帧才 controlling
   assert.ok(!sig.some(s => s.type === 'status' && s.status === 'controlling'), 'not live before ready')
   // push ready + full frame then a diff
   const slot = t.slots[0]!
   slot.cb({ type: 'ready', sessionId: slot.sessionId, mode: 'control', generation: 1, resumed: false, afterSeq: 0 })
-  assert.ok(sig.some(s => s.type === 'status' && s.status === 'controlling'), 'live after ready')
+  assert.ok(!sig.some(s => s.type === 'status' && s.status === 'controlling'), 'ready alone cannot claim a baseline')
   slot.cb({ type: 'frame', generation: 1, seq: 1, full: true, width: 80, height: 24, bytes: 'aGk=' })
+  assert.ok(sig.some(s => s.type === 'status' && s.status === 'controlling'), 'live once the full baseline frame arrives')
   slot.cb({ type: 'frame', generation: 1, seq: 2, full: false, width: 80, height: 24, bytes: 'eA==' })
   const frames = collectFrameSignals(sig)
   assert.deepEqual(frames.map(f => f.seq), [1, 2])
@@ -176,8 +177,12 @@ test('store: sendInput/resize send controller commands', async () => {
   await store.requestControl('w1:p1', { cols: 80, rows: 24 })
   const slot = t.slots[0]!
   slot.cb({ type: 'ready', sessionId: slot.sessionId, mode: 'control', generation: 1, resumed: false, afterSeq: 0 })
+  // Commands are only legal once the full baseline established controlling.
+  slot.cb({ type: 'frame', generation: 1, seq: 1, full: true, width: 80, height: 24, bytes: 'aGk=' })
   store.sendInput('w1:p1', new TextEncoder().encode('hi'))
   store.resize('w1:p1', { cols: 100, rows: 30 })
+  // Commands drain through the bounded input queue, so let it settle first.
+  await new Promise(r => setTimeout(r, 10))
   assert.equal(t.commands[0]?.cmd.type, 'input')
   assert.equal((t.commands[0]!.cmd as { type: 'input'; bytes: string }).bytes, 'aGk=')
   assert.deepEqual(t.commands[1]?.cmd, { type: 'resize', cols: 100, rows: 30 })
@@ -219,8 +224,9 @@ test('store: stale old-stream closed must not close the new controller (#2)', as
   // takeover 重建：新 session + 新 events 流
   await store.requestControl('w1:p1', { cols: 80, rows: 24 }, true)
   const ctl = t.slots[1]!
-  // 建立 controlling 基线
+  // 建立 controlling 基线（ready 后还需要 full 帧）
   ctl.cb({ type: 'ready', sessionId: ctl.sessionId, mode: 'control', generation: 1, resumed: false, afterSeq: 0 })
+  ctl.cb({ type: 'frame', generation: 1, seq: 1, full: true, width: 80, height: 24, bytes: 'aGk=' })
   assert.ok(sig.some(s => s.type === 'status' && s.status === 'controlling'))
   // 旧流的 reader.cancel finally 发出 closed（带旧 sessionId）→ 必须被忽略
   old.cb({ type: 'closed', sessionId: oldSid, reason: 'detached' })
@@ -288,6 +294,9 @@ test('store: start 不可用失败进入冷却，其余 pane 冷却期内不再 
   store.subscribe('w1:p2', s => sig2.push(s))
   await store.requestControl('w1:p2', { cols: 80, rows: 24 })
   assert.equal(startCalls, 1, 'cooldown must suppress further start attempts')
-  assert.ok(sig2.some(s => s.type === 'status' && s.status === 'error' && s.message?.includes('冷却')))
+  // The cooldown surfaces the localized unavailable message (no stale start attempt).
+  const cooldownMessage = sig2.find((s): s is Extract<TerminalStoreSignal, { type: 'status' }> => s.type === 'status' && s.status === 'error')?.message
+  assert.ok(cooldownMessage, 'cooldown reports an error status')
+  assert.ok(cooldownMessage !== String('terminal session 不可用'), 'cooldown reason is not the raw start failure')
   assert.ok(!store.getPane('w1:p2')?.sessionId)
 })

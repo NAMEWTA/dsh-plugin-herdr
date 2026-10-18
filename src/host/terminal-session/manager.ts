@@ -1,40 +1,15 @@
 /**
- * TerminalSessionManager（design: pane-terminal-session-state-machine §6.1）。
- *
- * 职责：
- * - 按 sessionId 管理 CLI 子进程（observe/control 均支持；首版路由只暴露 observe）；
- * - 解析 stdout NDJSON → 校验 frame → generation 隔离 → 广播给浏览器订阅方；
- * - replay buffer 支持断线续传；cursor 不满足时重建 generation，新 generation 首帧必 full；
- * - controller-only 的 input/resize/release（由路由门控）；
- * - 限额（per-pane / 全局 controller / 全局进程数）；
- * - 浏览器断开宽限期回收；插件 dispose 释放全部并终止子进程。
- *
- * 不持有 xterm/React 状态，不把 ChildProcess 泄漏给上层。
+ * One owner for terminal processes, replay and leases. Closing processes continue
+ * to consume quota until exit/close is observed. See docs/architecture.md.
  */
-
 import type { ChildProcess } from 'node:child_process'
-import { randomFillSync } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { NDJSONParser, parseFrame, isClosedEvent, type TerminalFrame } from './protocol.ts'
-import { resolveHerdrBin, spawnTerminalSession } from './process.ts'
+import { resolveHerdrBin, spawnTerminalSession } from './spawn.ts'
 import { TerminalSessionError, protocolError } from './errors.ts'
-import type { BrowserTerminalEvent, TerminalSessionMode, TerminalSessionStartRequest } from './types.ts'
+import { isDimension, isInputBase64, MAX_INPUT_BASE64_LENGTH, MAX_SCROLL_LINES } from '../../contracts/terminal.ts'
+import type { BrowserTerminalEvent, TerminalSessionMode, TerminalSessionStartRequest } from '../../contracts/terminal.ts'
 import type { TerminalSessionConfig } from '../config.ts'
-
-/** 重建前等待旧 child 退出释放 ownership/resize lock 的有界超时（ms）。 */
-const REBUILD_WAIT_MS = 1000
-
-/** 等待 child 退出（已退出立即返回；超时兜底），不悬挂。 */
-function waitChildExit(child: ChildProcess, timeoutMs: number): Promise<void> {
-  return new Promise(resolveDone => {
-    if (child.exitCode !== null) { resolveDone(); return }
-    let settled = false
-    const done = (): void => { if (settled) return; settled = true; clearTimeout(timer); child.off('exit', onExit); resolveDone() }
-    const onExit = (): void => done()
-    child.once('exit', onExit)
-    const timer = setTimeout(done, timeoutMs)
-    timer.unref?.()
-  })
-}
 
 export interface TerminalSessionManagerDeps {
   config: TerminalSessionConfig
@@ -45,34 +20,21 @@ export interface TerminalSessionManagerDeps {
   spawnChild?: typeof spawnTerminalSession
   now?: () => number
   randomId?: () => string
+  /** Injectable deadlines for deterministic failure tests. */
+  readyTimeoutMs?: number
+  shutdownTimeoutMs?: number
 }
-
-export interface AttachCursor {
-  generation: number
-  afterSeq: number
-}
-
-type Subscriber = (ev: BrowserTerminalEvent) => void
-
-/** 全局帧监听器：/herdr-events 单流复用（web 端所有卡片共享一条 SSE，替代 per-session SSE）。 */
-export type GlobalFrameListener = (sessionId: string, paneId: string, ev: BrowserTerminalEvent) => void
-
-/** manager 诊断上报形状（指标/诊断数据源）。 */
+export interface AttachCursor { generation: number; afterSeq: number }
+type Subscriber = (event: BrowserTerminalEvent) => void
+export type GlobalFrameListener = (sessionId: string, paneId: string, event: BrowserTerminalEvent) => void
 export interface TerminalSessionReport {
   activeProcesses: number
   observers: number
   controllers: number
   limits: { maxObservers: number; maxControllers: number; maxProcesses: number }
-  sessions: Array<{
-    sessionId: string
-    paneId: string
-    mode: TerminalSessionMode
-    generation: number
-    lastSeq: number
-    replayBytes: number
-  }>
+  sessions: Array<{ sessionId: string; paneId: string; mode: TerminalSessionMode; generation: number; lastSeq: number; replayBytes: number }>
 }
-
+type Frame = Extract<BrowserTerminalEvent, { type: 'frame' }>
 interface Session {
   sessionId: string
   paneId: string
@@ -83,503 +45,390 @@ interface Session {
   generation: number
   lastSeq: number
   fullArmed: boolean
-  state: 'starting' | 'live' | 'closing' | 'closed'
+  state: 'starting' | 'live' | 'rebuilding' | 'closing' | 'closed'
   child?: ChildProcess
   parser: NDJSONParser
   subscribers: Set<Subscriber>
-  readyBySub: Map<Subscriber, boolean>
-  replay: Array<{ seq: number; event: Extract<BrowserTerminalEvent, { type: 'frame' }> }>
+  replay: Frame[]
   replayBytes: number
   graceTimer?: ReturnType<typeof setTimeout>
   idleTimer?: ReturnType<typeof setTimeout>
+  readyTimer?: ReturnType<typeof setTimeout>
+  releasePromise?: Promise<void>
+  rebuildPromise?: Promise<void>
+  inputBlocked: boolean
   conflictReported: boolean
 }
 
 export class TerminalSessionManager {
   private readonly sessions = new Map<string, Session>()
-  private readonly deps: TerminalSessionManagerDeps
-  private readonly maxDecoded: number
-  private readonly maxLine: number
-  private readonly replayCap: number
-  private readonly controllers = new Set<string>()
   private readonly globalListeners = new Set<GlobalFrameListener>()
+  private readonly terminations = new WeakMap<ChildProcess, Promise<void>>()
+  private globalClients = 0
+  private disposed = false
 
-  constructor(deps: TerminalSessionManagerDeps) {
-    this.deps = deps
-    this.maxDecoded = deps.config.maxDecodedFrameBytes
-    this.maxLine = deps.config.maxNdjsonLineBytes
-    this.replayCap = deps.config.replayBufferBytes
-  }
+  constructor(private readonly deps: TerminalSessionManagerDeps) {}
 
-  /** 当前活跃进程数（限额/诊断用）。 */
-  get processCount(): number {
-    let n = 0
-    for (const s of this.sessions.values()) if (s.state !== 'closed') n++
-    return n
-  }
+  get processCount(): number { return this.sessions.size }
+  observerCount(): number { return [...this.sessions.values()].filter(s => s.mode === 'observe').length }
+  private controllerCount(): number { return [...this.sessions.values()].filter(s => s.mode === 'control').length }
 
-  /** 当前活跃 observer 数（maxObservers 限额用）。 */
-  observerCount(): number {
-    let n = 0
-    for (const s of this.sessions.values()) if (s.mode === 'observe' && s.state !== 'closed') n++
-    return n
-  }
-
-  /** 诊断/指标数据源。 */
-  report(): {
-    activeProcesses: number
-    observers: number
-    controllers: number
-    limits: { maxObservers: number; maxControllers: number; maxProcesses: number }
-    sessions: Array<{
-      sessionId: string
-      paneId: string
-      mode: TerminalSessionMode
-      generation: number
-      lastSeq: number
-      replayBytes: number
-    }>
-  } {
-    const cfg = this.deps.config
-    const sessions: TerminalSessionReport['sessions'] = []
-    for (const s of this.sessions.values()) {
-      if (s.state === 'closed') continue
-      sessions.push({ sessionId: s.sessionId, paneId: s.paneId, mode: s.mode, generation: s.generation, lastSeq: s.lastSeq, replayBytes: s.replayBytes })
-    }
+  report(): TerminalSessionReport {
+    const { maxObservers, maxControllers, maxProcesses } = this.deps.config
     return {
       activeProcesses: this.processCount,
       observers: this.observerCount(),
-      controllers: this.controllers.size,
-      limits: { maxObservers: cfg.maxObservers, maxControllers: cfg.maxControllers, maxProcesses: cfg.maxProcesses },
-      sessions,
+      controllers: this.controllerCount(),
+      limits: { maxObservers, maxControllers, maxProcesses },
+      sessions: [...this.sessions.values()].map(s => ({
+        sessionId: s.sessionId, paneId: s.paneId, mode: s.mode,
+        generation: s.generation, lastSeq: s.lastSeq, replayBytes: s.replayBytes,
+      })),
     }
   }
 
-  /** 创建并启动一个 terminal session，返回 sessionId + generation。 */
   start(req: TerminalSessionStartRequest): { sessionId: string; generation: number } {
     const cfg = this.deps.config
+    if (this.disposed) throw new TerminalSessionError('terminal_session_unavailable', 'terminal runtime disposed')
+    if (!req.pane_id?.trim() || !isDimension(req.cols) || !isDimension(req.rows) || !['observe', 'control'].includes(req.mode)) {
+      throw protocolError('invalid terminal start request')
+    }
+    if (this.processCount >= cfg.maxProcesses) throw new TerminalSessionError('terminal_session_unavailable', '达到全局进程数上限')
     if (req.mode === 'control') {
-      if (this.controllers.size >= cfg.maxControllers) {
-        throw new TerminalSessionError('terminal_session_unavailable', '达到全局 controller 上限')
+      if (this.controllerCount() >= cfg.maxControllers) throw new TerminalSessionError('terminal_session_unavailable', '达到全局 controller 上限')
+      if ([...this.sessions.values()].some(s => s.mode === 'control' && s.paneId === req.pane_id)) {
+        throw new TerminalSessionError('terminal_session_conflict', '该 pane 已有 controller')
       }
-      for (const s of this.sessions.values()) {
-        if (s.mode === 'control' && s.paneId === req.pane_id && s.state !== 'closed') {
-          throw new TerminalSessionError('terminal_session_forbidden', '该 pane 已有 controller')
-        }
-      }
-      this.controllers.add(req.pane_id)
-    } else {
-      // observer 限额（maxObservers，per 插件进程护栏）与全局进程数
-      if (this.observerCount() >= cfg.maxObservers) {
-        throw new TerminalSessionError('terminal_session_unavailable', '达到全局 observer 上限')
-      }
-      if (this.processCount >= cfg.maxProcesses) {
-        throw new TerminalSessionError('terminal_session_unavailable', '达到全局进程数上限')
-      }
+    } else if (this.observerCount() >= cfg.maxObservers) {
+      throw new TerminalSessionError('terminal_session_unavailable', '达到全局 observer 上限')
     }
-
-    const sessionId = (this.deps.randomId ?? this.randomId)()
-    const session: Session = {
-      sessionId,
-      paneId: req.pane_id,
-      mode: req.mode,
-      cols: req.cols,
-      rows: req.rows,
-      takeover: req.takeover ?? false,
-      generation: 1,
-      lastSeq: 0,
-      fullArmed: false,
-      state: 'starting',
-      parser: new NDJSONParser(this.maxLine),
-      subscribers: new Set(),
-      readyBySub: new Map(),
-      replay: [],
-      replayBytes: 0,
-      conflictReported: false,
+    const sessionId = this.deps.randomId?.() ?? randomBytes(16).toString('hex')
+    if (this.sessions.has(sessionId)) throw protocolError('duplicate terminal session identifier')
+    const s: Session = {
+      sessionId, paneId: req.pane_id, mode: req.mode, cols: req.cols, rows: req.rows,
+      takeover: req.takeover ?? false, generation: 1, lastSeq: 0, fullArmed: false,
+      state: 'starting', parser: new NDJSONParser(cfg.maxNdjsonLineBytes),
+      subscribers: new Set(), replay: [], replayBytes: 0, inputBlocked: false, conflictReported: false,
     }
-    this.sessions.set(sessionId, session)
-    this.spawnChild(session)
-    return { sessionId, generation: session.generation }
+    this.sessions.set(sessionId, s)
+    try { this.spawnChild(s) } catch (error) {
+      this.finalize(s)
+      throw new TerminalSessionError('terminal_session_unavailable', error instanceof Error ? error.message : String(error))
+    }
+    return { sessionId, generation: s.generation }
   }
 
-  /** 释放会话：写 release（controller）、正常回收子进程。 */
   release(sessionId: string, reason?: string): Promise<void> {
     const s = this.sessions.get(sessionId)
-    if (!s || s.state === 'closed') return Promise.resolve()
-    if (s.state !== 'closing') {
-      s.state = 'closing'
-      this.emit(s, { type: 'closed', sessionId, reason })
-    }
-    return this.reap(s, { sendRelease: s.mode === 'control' })
+    if (!s) return Promise.resolve()
+    if (s.releasePromise) return s.releasePromise
+    s.state = 'closing'
+    this.clearTimers(s)
+    this.emit(s, { type: 'closed', sessionId, reason })
+    const child = s.child
+    const work = child ? this.terminate(child, s.mode === 'control') : Promise.resolve()
+    s.releasePromise = work.then(() => { this.finalize(s) }, error => {
+      // Do not pretend quota was freed if the child has not actually exited.
+      this.emit(s, { type: 'error', sessionId, code: 'terminal_session_timeout', message: String(error), retryable: false })
+      throw error
+    })
+    return s.releasePromise
   }
 
-  /** 释放所有会话并终止子进程（插件 dispose）。 */
-  dispose(): void {
-    for (const s of [...this.sessions.values()]) {
-      void this.reap(s, { sendRelease: s.mode === 'control' })
-    }
-    this.sessions.clear()
-    this.controllers.clear()
+  /** Explicit, user-confirmed takeover only; normal start never evicts an owner. */
+  async releaseControllers(paneId: string): Promise<void> {
+    await Promise.all([...this.sessions.values()].filter(s => s.paneId === paneId && s.mode === 'control').map(s => this.release(s.sessionId, 'explicit takeover')))
   }
 
-  /** 注册全局帧监听器（/herdr-events 单流转发），返回退订函数。 */
+  async dispose(): Promise<void> {
+    this.disposed = true
+    await Promise.allSettled([...this.sessions.keys()].map(id => this.release(id, 'runtime disposed')))
+    this.globalListeners.clear()
+    this.globalClients = 0
+  }
+
   addGlobalListener(cb: GlobalFrameListener): () => void {
     this.globalListeners.add(cb)
     return () => { this.globalListeners.delete(cb) }
   }
-
-  /** 全局客户端（/herdr-events 单流）接入：取消所有会话挂起的断开宽限回收。 */
   onGlobalClientConnect(): void {
-    for (const s of this.sessions.values()) {
-      if (s.graceTimer) { clearTimeout(s.graceTimer); s.graceTimer = undefined }
-    }
+    this.globalClients++
+    for (const s of this.sessions.values()) this.cancelGrace(s)
   }
-
-  /** 最后一个全局客户端断开：所有 live 会话进入断开宽限期（web 端不再持有
-   *  per-session SSE，浏览器关页不会逐会话通知，必须由单流断开统一兜底回收）。 */
   onGlobalClientDisconnect(): void {
-    for (const s of [...this.sessions.values()]) this.onClientDisconnect(s.sessionId)
+    if (this.globalClients === 0) return
+    if (--this.globalClients > 0) return
+    for (const s of this.sessions.values()) this.onClientDisconnect(s.sessionId)
   }
-
-  /** 当前 live 会话清单（/herdr-events 新连接回放基线用）。 */
-  liveSessions(): Array<{ sessionId: string; paneId: string; mode: TerminalSessionMode; generation: number }> {
-    const out: Array<{ sessionId: string; paneId: string; mode: TerminalSessionMode; generation: number }> = []
-    for (const s of this.sessions.values()) {
-      if (s.state === 'live' && s.fullArmed) {
-        out.push({ sessionId: s.sessionId, paneId: s.paneId, mode: s.mode, generation: s.generation })
-      }
-    }
-    return out
-  }
-
-  /** 最新 full 帧（generation 内基线），供 /herdr-events 新连接补齐重连缺口。 */
-  replayLatestFull(sessionId: string): Extract<BrowserTerminalEvent, { type: 'frame' }> | null {
+  onClientDisconnect(sessionId: string): void {
     const s = this.sessions.get(sessionId)
-    if (!s || s.state !== 'live' || !s.fullArmed) return null
-    for (let i = s.replay.length - 1; i >= 0; i--) {
-      if (s.replay[i]!.event.full) return s.replay[i]!.event
-    }
-    return null
+    if (!s || !this.alive(s) || this.globalClients > 0 || s.subscribers.size > 0) return
+    this.cancelGrace(s)
+    const generation = s.generation
+    s.graceTimer = setTimeout(() => {
+      s.graceTimer = undefined
+      if (this.sessions.get(sessionId) === s && s.generation === generation && this.globalClients === 0 && s.subscribers.size === 0) {
+        void this.release(sessionId, 'disconnect grace').catch(() => {})
+      }
+    }, this.deps.config.disconnectGraceMs)
+    s.graceTimer.unref?.()
   }
 
-  /** 订阅 session 事件流，返回退订函数。v1 以单订阅方为主。 */
+  liveSessions(): Array<{ sessionId: string; paneId: string; mode: TerminalSessionMode; generation: number }> {
+    return [...this.sessions.values()].filter(s => s.state === 'live' && s.fullArmed)
+      .map(s => ({ sessionId: s.sessionId, paneId: s.paneId, mode: s.mode, generation: s.generation }))
+  }
+  replayLatestFull(sessionId: string): Frame | null {
+    const s = this.sessions.get(sessionId)
+    if (!s || !this.alive(s)) return null
+    return s.replay.findLast(frame => frame.full) ?? null
+  }
+
+  /**
+   * Used by the production Remote as well as tests. With no cursor return the
+   * latest full AND every subsequent diff, never an old full on its own.
+   * Listeners must be attached before calling this; rebuilding emits a fresh
+   * generation through those listeners if the bounded replay no longer covers it.
+   */
+  attach(sessionId: string, cursor?: AttachCursor): BrowserTerminalEvent[] {
+    const s = this.sessions.get(sessionId)
+    if (!s || !this.alive(s)) throw new TerminalSessionError('terminal_session_not_found', 'session 不存在')
+    this.cancelGrace(s)
+    if (!s.fullArmed || s.state === 'rebuilding') return []
+    if (cursor) {
+      if (cursor.generation !== s.generation || !Number.isSafeInteger(cursor.afterSeq) || cursor.afterSeq < 0 || cursor.afterSeq > s.lastSeq) {
+        this.requestRebuild(s, 'invalid or stale attach cursor')
+        return []
+      }
+      if (cursor.afterSeq === s.lastSeq) return [this.ready(s, true, cursor.afterSeq)]
+      const index = s.replay.findIndex(frame => frame.seq === cursor.afterSeq + 1)
+      if (index >= 0) return [this.ready(s, true, cursor.afterSeq), ...s.replay.slice(index)]
+      this.requestRebuild(s, 'replay buffer cannot cover cursor')
+      return []
+    }
+    const index = s.replay.findLastIndex(frame => frame.full)
+    if (index < 0) {
+      this.requestRebuild(s, 'full baseline evicted from replay')
+      return []
+    }
+    return [this.ready(s, false, s.replay[index]!.seq - 1), ...s.replay.slice(index)]
+  }
+
   subscribe(sessionId: string, cursor: AttachCursor, cb: Subscriber): () => void {
     const s = this.sessions.get(sessionId)
-    if (!s || s.state === 'closed') {
+    if (!s || !this.alive(s)) {
       queueMicrotask(() => cb({ type: 'error', sessionId, code: 'terminal_session_not_found', message: 'session 不存在', retryable: false }))
       return () => {}
     }
     s.subscribers.add(cb)
-    // 客户端已回来：取消挂起的断开宽限期回收（否则重连成功仍会被 grace 定时器删除 session）
-    if (s.graceTimer) { clearTimeout(s.graceTimer); s.graceTimer = undefined }
-    this.scheduleIdleReset(s)
-    this.handleAttach(s, cb, cursor)
+    this.cancelGrace(s)
+    for (const event of this.attach(sessionId, cursor)) cb(event)
+    let active = true
     return () => {
+      if (!active) return
+      active = false
       s.subscribers.delete(cb)
-      s.readyBySub.delete(cb)
+      this.onClientDisconnect(sessionId)
     }
   }
 
-  /** 订阅方写回 backpressure：阻塞则暂停 child stdout，解除后恢复。 */
   setBlocked(sessionId: string, blocked: boolean): void {
-    const s = this.sessions.get(sessionId)
-    if (!s) return
-    const out = s.child?.stdout
+    const out = this.sessions.get(sessionId)?.child?.stdout
     if (!out || blocked === out.isPaused()) return
     if (blocked) out.pause()
     else out.resume()
   }
 
-  /** 写 stdin 命令；resize 允许 observe/control，input/scroll 仅 control。 */
   writeCommand(sessionId: string, payload: string): void {
     const s = this.sessions.get(sessionId)
-    if (!s || s.state === 'closed') throw new TerminalSessionError('terminal_session_not_found', 'session 不存在')
-    const isResize = payload.includes('"terminal.resize"')
+    if (!s || !this.alive(s)) throw new TerminalSessionError('terminal_session_not_found', 'session 不存在')
+    if (Buffer.byteLength(payload) > MAX_INPUT_BASE64_LENGTH + 256) throw protocolError('command exceeds size limit')
+    let command: Record<string, unknown>
+    try { command = JSON.parse(payload) as Record<string, unknown> } catch { throw protocolError('invalid command JSON') }
+    if (!command || typeof command !== 'object' || Array.isArray(command)) throw protocolError('invalid command')
+    const isResize = command.type === 'terminal.resize'
     if (s.mode !== 'control' && !isResize) throw new TerminalSessionError('terminal_session_forbidden', 'controller-only 命令')
+    if (isResize) {
+      if (!isDimension(command.cols) || !isDimension(command.rows)) throw protocolError('invalid resize dimensions')
+    } else if (command.type === 'terminal.input') {
+      if (!isInputBase64(command.bytes)) throw protocolError('invalid or oversized input Base64')
+    } else if (command.type === 'terminal.scroll') {
+      if (!['up', 'down'].includes(String(command.direction)) || !Number.isSafeInteger(command.lines) || Number(command.lines) < 1 || Number(command.lines) > MAX_SCROLL_LINES) throw protocolError('invalid scroll')
+    } else throw protocolError('unsupported terminal command')
     const input = s.child?.stdin
-    if (!input || !input.writable || s.child!.exitCode !== null) {
-      throw new TerminalSessionError('terminal_session_process_exited', 'controller 子进程已退出')
+    if (!input?.writable || s.state !== 'live') throw new TerminalSessionError('terminal_session_process_exited', 'terminal process is not writable')
+    if (s.inputBlocked || input.writableNeedDrain || (input.writableLength ?? 0) + Buffer.byteLength(payload) > MAX_INPUT_BASE64_LENGTH + 256) {
+      throw new TerminalSessionError('terminal_session_input_backpressure', 'input not accepted: terminal buffer is full')
     }
-    // Herdr control CLI 用 stdin.lines() 读取——每条命令必须以单个换行终止，
-    // 否则下一条命令会与上一条拼成非法 JSON（输入/resize/scroll 不执行）。
-    input.write(payload + '\n')
+    // false means this write WAS accepted but the next one must wait for drain.
+    s.inputBlocked = !input.write(JSON.stringify(command) + '\n')
+    if (isResize) { s.cols = Number(command.cols); s.rows = Number(command.rows) }
     this.touch(s)
   }
 
-  /** 浏览器连接断开：observer 与 controller 都保留一段宽限期，供浏览器重连在这个窗口内续传。 */
-  onClientDisconnect(sessionId: string): void {
-    const s = this.sessions.get(sessionId)
-    if (!s || s.state !== 'live') return
-    // observer 也保留宽限期：否则 events 断开即刻删 session，浏览器重连回拿到 not_found。
-    const grace = this.deps.config.disconnectGraceMs
-    if (grace > 0) {
-      s.graceTimer = setTimeout(() => { void this.release(sessionId, 'disconnect grace') }, grace)
-      s.graceTimer.unref?.()
-    } else {
-      void this.release(sessionId, 'client disconnected')
-    }
-  }
-
-  // -------- 内部 --------
-
-  private randomId(): string {
-    // 不透明安全 token：command/release 路由以 sessionId 为主要授权凭据，
-    // 必须用密码学随机；测试通过 deps.randomId 注入确定性 id。
-    const buf = new Uint8Array(16)
-    randomFillSync(buf)
-    return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('')
-  }
-
   private spawnChild(s: Session): void {
-    const bin = this.deps.binPath ?? resolveHerdrBin({ env: this.deps.env })
-    if (!bin) {
-      this.failClosed(s, new TerminalSessionError('terminal_session_unavailable', '无法定位 herdr 二进制'))
-      return
-    }
     const child = (this.deps.spawnChild ?? spawnTerminalSession)(
-      bin,
+      resolveHerdrBin({ binPath: this.deps.binPath, env: this.deps.env }),
       { mode: s.mode, paneId: s.paneId, cols: s.cols, rows: s.rows, takeover: s.takeover },
-      this.deps.socketPath,
-      this.deps.session,
-      this.deps.env,
+      this.deps.socketPath, this.deps.session, this.deps.env,
     )
     s.child = child
     s.state = 'live'
-    child.stdout!.on('data', (chunk: Buffer) => this.onStdout(s, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
-    let stderrTail = ''
-    child.stderr!.on('data', (chunk: Buffer) => {
-      const c = chunk.toString('utf8')
-      stderrTail = (stderrTail + c).slice(-8192)
-      this.maybeDetectConflict(s, stderrTail)
+    s.inputBlocked = false
+    const isCurrent = () => s.child === child && s.state === 'live'
+    child.on('error', error => { if (isCurrent()) this.fail(s, new TerminalSessionError('terminal_session_process_exited', error.message)) })
+    child.stdin?.on?.('error', error => { if (isCurrent()) this.fail(s, new TerminalSessionError('terminal_session_process_exited', error.message)) })
+    child.stdin?.on?.('drain', () => { if (isCurrent()) s.inputBlocked = false })
+    child.stdout?.on('data', (chunk: Buffer) => {
+      if (isCurrent()) this.onStdout(s, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
     })
-    child.on('exit', (code, signal) => {
-      // 只有仍是当前 child 才处理（重建后旧 child 退出不归本会话）
-      if (s.child !== child) return
-      if (s.state === 'live') {
-        this.failClosed(s, new TerminalSessionError('terminal_session_process_exited', `子进程退出: ${code ?? signal ?? '?'}`, { retryable: true }))
-      } else {
-        // closing/closed → 由 release 已 emit closed；这里只清理注册
-        this.sessions.delete(s.sessionId)
+    let stderrTail = ''
+    child.stderr?.on('data', (chunk: Buffer) => {
+      if (!isCurrent()) return
+      stderrTail = (stderrTail + chunk.toString('utf8')).slice(-8192)
+      if (s.mode === 'control' && !s.conflictReported && /\b(already|currently|occupied|conflict)\b/i.test(stderrTail)) {
+        s.conflictReported = true
+        this.emit(s, { type: 'conflict', sessionId: s.sessionId, message: stderrTail.trim().slice(0, 200) })
       }
     })
+    const onExit = () => {
+      if (s.child !== child || s.state === 'rebuilding') return
+      if (s.state === 'live') this.emit(s, { type: 'error', sessionId: s.sessionId, code: 'terminal_session_process_exited', message: 'terminal process exited', retryable: true })
+      this.finalize(s)
+    }
+    child.once('exit', onExit)
+    child.once('close', onExit)
+    s.readyTimer = setTimeout(() => {
+      if (isCurrent() && !s.fullArmed) this.fail(s, new TerminalSessionError('terminal_session_timeout', 'terminal first full frame timed out'))
+    }, this.deps.readyTimeoutMs ?? 30_000)
+    s.readyTimer.unref?.()
+    this.touch(s)
+    this.onClientDisconnect(s.sessionId)
   }
 
-  /** 重建：generation++ 并重启 child，等待新的 full 基线。 */
-  private async rebuild(s: Session, reason: string): Promise<void> {
-    if (!this.sessionAlive(s)) return
-    s.generation += 1
+  private requestRebuild(s: Session, reason: string): void {
+    if (!this.alive(s) || s.rebuildPromise) return
+    s.state = 'rebuilding'
+    this.clearTimers(s)
+    s.generation++
     s.lastSeq = 0
     s.fullArmed = false
     s.replay = []
     s.replayBytes = 0
-    s.parser = new NDJSONParser(this.maxLine) // 重建边界：清掉旧流残余 buffer
-    // 既有订阅方仍有效，重新标记待接收新 generation 的 ready
-    for (const sub of s.subscribers) s.readyBySub.set(sub, false)
-    const old = s.child
-    let oldWaited: Promise<void> = Promise.resolve()
-    if (old) {
-      // 先摘除旧 child 的监听，避免其退出时被当成"当前 child 意外退出"而 failClosed
-      old.removeAllListeners('exit')
-      old.stdout?.removeAllListeners('data')
-      old.stderr?.removeAllListeners('data')
-      old.stdout?.pause()
-      oldWaited = waitChildExit(old, REBUILD_WAIT_MS)
-      old.kill()
-    }
+    s.parser = new NDJSONParser(this.deps.config.maxNdjsonLineBytes)
     this.emit(s, { type: 'error', sessionId: s.sessionId, code: 'terminal_session_frame_gap', message: reason, retryable: true })
-    // controller 重建必须等旧 owner 完全退出（释放 ownership/resize lock），否则新进程会 conflict。
-    await oldWaited
-    if (!this.sessionAlive(s)) return
-    this.spawnChild(s)
-  }
-
-  /** 会话是否仍存活（重建/回收 await 期间 s.state 可能被修改，用方法绕过 TS 收窄）。 */
-  private sessionAlive(s: Session): boolean {
-    return s.state !== 'closed' && s.state !== 'closing'
+    const old = s.child
+    s.rebuildPromise = (old ? this.terminate(old, s.mode === 'control') : Promise.resolve()).then(() => {
+      if (!this.alive(s) || this.disposed || this.sessions.get(s.sessionId) !== s) return
+      s.child = undefined
+      this.spawnChild(s)
+    }).catch(error => {
+      this.fail(s, new TerminalSessionError('terminal_session_timeout', `terminal rebuild failed: ${String(error)}`))
+    }).finally(() => { s.rebuildPromise = undefined })
   }
 
   private onStdout(s: Session, chunk: Buffer): void {
-    if (s.state === 'closed' || s.state === 'closing') return
     const lines = s.parser.push(chunk)
-    if (s.parser.exceeded()) {
-      this.failClosed(s, new TerminalSessionError('terminal_session_protocol_error', 'stdout 单行超过上限'))
-      return
-    }
+    if (s.parser.exceeded()) { this.fail(s, protocolError('stdout line exceeds limit')); return }
     for (const line of lines) {
-      let obj: unknown
-      try {
-        obj = JSON.parse(line.trim())
-      } catch {
-        this.failClosed(s, protocolError('非法 JSON 行'))
+      if (s.state !== 'live') return
+      let raw: unknown
+      try { raw = JSON.parse(line) } catch { this.fail(s, protocolError('invalid JSON line')); return }
+      if (isClosedEvent(raw)) { void this.release(s.sessionId, raw.reason).catch(() => {}); return }
+      try { this.onFrame(s, parseFrame(raw, this.deps.config)) } catch (error) {
+        this.fail(s, error instanceof TerminalSessionError ? error : protocolError(String(error)))
         return
       }
-      if (isClosedEvent(obj)) {
-        this.emit(s, { type: 'closed', sessionId: s.sessionId, reason: obj.reason })
-        void this.reap(s, { sendRelease: false })
-        return
-      }
-      let frame: TerminalFrame
-      try {
-        frame = parseFrame(obj, { maxDecodedFrameBytes: this.maxDecoded })
-      } catch (err) {
-        this.failClosed(s, err instanceof Error ? err : protocolError(String(err)))
-        return
-      }
-      this.onFrame(s, frame)
     }
   }
-
   private onFrame(s: Session, frame: TerminalFrame): void {
-    const firstFull = !s.fullArmed
-    if (firstFull) {
-      if (!frame.full) {
-        this.failClosed(s, protocolError('当前 generation 首帧不是 full'))
-        return
-      }
-      s.fullArmed = true
-    }
-    if (frame.seq !== s.lastSeq + 1) {
-      void this.rebuild(s, `seq 缺口: 期望 ${s.lastSeq + 1}，收到 ${frame.seq}`)
-      return
-    }
+    if (!s.fullArmed && !frame.full) { this.fail(s, protocolError('first frame is not full')); return }
+    if (frame.seq !== s.lastSeq + 1) { this.requestRebuild(s, `seq gap: expected ${s.lastSeq + 1}, received ${frame.seq}`); return }
+    const first = !s.fullArmed
+    s.fullArmed = true
     s.lastSeq = frame.seq
-    const ev: Extract<BrowserTerminalEvent, { type: 'frame' }> = {
-      type: 'frame',
-      generation: s.generation,
-      seq: frame.seq,
-      full: frame.full,
-      width: frame.width,
-      height: frame.height,
-      bytes: frame.bytes.toString('base64'),
+    if (s.readyTimer) { clearTimeout(s.readyTimer); s.readyTimer = undefined }
+    const event: Frame = { type: 'frame', generation: s.generation, seq: frame.seq, full: frame.full, width: frame.width, height: frame.height, bytes: frame.bytes.toString('base64') }
+    s.replay.push(event)
+    s.replayBytes += event.bytes.length + 128
+    while (s.replay.length && s.replayBytes > this.deps.config.replayBufferBytes) {
+      s.replayBytes -= s.replay.shift()!.bytes.length + 128
     }
-    this.enqueueReplay(s, ev)
-    if (firstFull) {
-      // 等待该 generation ready 的订阅方先收 ready，再收首个 full
-      const ready: BrowserTerminalEvent = { type: 'ready', sessionId: s.sessionId, mode: s.mode, generation: s.generation, resumed: false, afterSeq: 0 }
-      for (const sub of s.subscribers) {
-        if (s.readyBySub.get(sub) === false) {
-          this.sendReady(s, sub, false, 0)
-          s.readyBySub.set(sub, true)
-          sub(ev)
-        }
-      }
-      // 全局单流监听者无 per-session 订阅，ready + 首帧在此单独转发
-      this.emitGlobal(s, ready)
-      this.emitGlobal(s, ev)
-    } else {
-      this.emit(s, ev)
-    }
+    if (first) this.emit(s, this.ready(s, false, 0))
+    this.emit(s, event)
   }
-
-  private enqueueReplay(s: Session, frame: Extract<BrowserTerminalEvent, { type: 'frame' }>): void {
-    s.replay.push({ seq: frame.seq, event: frame })
-    s.replayBytes += frame.bytes.length
-    while (s.replay.length > 0 && s.replayBytes > this.replayCap) {
-      const dropped = s.replay.shift()
-      if (dropped) s.replayBytes -= dropped.event.bytes.length
-    }
+  private ready(s: Session, resumed: boolean, afterSeq: number): BrowserTerminalEvent {
+    return { type: 'ready', sessionId: s.sessionId, mode: s.mode, generation: s.generation, resumed, afterSeq }
   }
-
-  private handleAttach(s: Session, cb: Subscriber, cursor: AttachCursor): void {
-    if (cursor.generation === s.generation && s.fullArmed) {
-      const idx = s.replay.findIndex(r => r.seq > cursor.afterSeq)
-      if (idx >= 0) {
-        this.sendReady(s, cb, true, cursor.afterSeq)
-        for (let i = idx; i < s.replay.length; i++) cb(s.replay[i].event)
-        s.readyBySub.set(cb, true)
-        return
-      }
-      // afterSeq 落在 replay 之外（含 afterSeq 紧跟最新帧）→ 无法用 diff 续传，重建
-      void this.rebuild(s, 'replay buffer 无法覆盖所需 cursor')
-      return
-    }
-    if (cursor.generation !== s.generation && s.fullArmed) {
-      void this.rebuild(s, 'generation 不匹配，重建')
-      return
-    }
-    // 未 full（或 generation 已匹配但还没首个 full）：等该 generation 的 ready
-    s.readyBySub.set(cb, false)
+  private emit(s: Session, event: BrowserTerminalEvent): void {
+    event = { ...event, generation: s.generation }
+    for (const cb of [...s.subscribers]) { try { cb(event) } catch { /* isolate listeners */ } }
+    for (const cb of [...this.globalListeners]) { try { cb(s.sessionId, s.paneId, event) } catch { /* isolate listeners */ } }
   }
-
-  private sendReady(s: Session, sub: Subscriber, resumed: boolean, afterSeq: number): void {
-    sub({ type: 'ready', sessionId: s.sessionId, mode: s.mode, generation: s.generation, resumed, afterSeq })
+  private alive(s: Session): boolean { return s.state !== 'closing' && s.state !== 'closed' }
+  private fail(s: Session, error: TerminalSessionError): void {
+    if (!this.alive(s)) return
+    this.emit(s, { type: 'error', sessionId: s.sessionId, code: error.code, message: error.message, retryable: error.retryable })
+    void this.release(s.sessionId, error.code).catch(() => {})
   }
-
-  private emit(s: Session, ev: BrowserTerminalEvent): void {
-    for (const sub of s.subscribers) {
-      try { sub(ev) } catch { /* 路由层写回失败由其自处理 */ }
-    }
-    this.emitGlobal(s, ev)
-  }
-
-  /** 全局转发（/herdr-events 单流）：不依赖 per-session 订阅方存在。 */
-  private emitGlobal(s: Session, ev: BrowserTerminalEvent): void {
-    if (this.globalListeners.size === 0) return
-    for (const cb of this.globalListeners) {
-      try { cb(s.sessionId, s.paneId, ev) } catch { /* 路由层容错 */ }
-    }
-  }
-
-  private maybeDetectConflict(s: Session, stderrTail: string): void {
-    if (s.mode !== 'control' || s.conflictReported) return
-    if (/\b(already|currently|occupied|conflict)\b/i.test(stderrTail)) {
-      s.conflictReported = true
-      this.emit(s, { type: 'conflict', sessionId: s.sessionId, message: stderrTail.trim().slice(0, 200) })
-    }
-  }
-
-  private scheduleIdleReset(s: Session): void {
+  private touch(s: Session): void {
     if (s.mode !== 'control') return
     if (s.idleTimer) clearTimeout(s.idleTimer)
-    s.idleTimer = setTimeout(() => { void this.release(s.sessionId, 'idle timeout') }, this.deps.config.controllerIdleMs)
+    s.idleTimer = setTimeout(() => { void this.release(s.sessionId, 'idle timeout').catch(() => {}) }, this.deps.config.controllerIdleMs)
     s.idleTimer.unref?.()
   }
-
-  private touch(s: Session): void {
-    this.scheduleIdleReset(s)
+  private cancelGrace(s: Session): void {
+    if (s.graceTimer) clearTimeout(s.graceTimer)
+    s.graceTimer = undefined
+  }
+  private clearTimers(s: Session): void {
+    this.cancelGrace(s)
+    if (s.idleTimer) clearTimeout(s.idleTimer)
+    if (s.readyTimer) clearTimeout(s.readyTimer)
+    s.idleTimer = s.readyTimer = undefined
+  }
+  private finalize(s: Session): void {
+    this.clearTimers(s)
+    s.state = 'closed'
+    if (this.sessions.get(s.sessionId) === s) this.sessions.delete(s.sessionId)
   }
 
-  private failClosed(s: Session, err: Error): void {
-    const code = err instanceof TerminalSessionError ? err.code : 'terminal_session_protocol_error'
-    const retryable = err instanceof TerminalSessionError ? err.retryable : false
-    this.emit(s, { type: 'error', sessionId: s.sessionId, code, message: err.message, retryable })
-    void this.reap(s, { sendRelease: false })
-  }
-
-  private reap(s: Session, opts: { sendRelease: boolean }): Promise<void> {
-    return new Promise<void>(resolveReap => {
-      if (s.state === 'closed') { resolveReap(); return }
-      s.state = 'closed'
-      if (s.graceTimer) clearTimeout(s.graceTimer)
-      if (s.idleTimer) clearTimeout(s.idleTimer)
-      if (s.mode === 'control') this.controllers.delete(s.paneId)
-      const child = s.child
-      if (!child) {
-        this.sessions.delete(s.sessionId)
-        resolveReap()
-        return
+  private terminate(child: ChildProcess, sendRelease: boolean): Promise<void> {
+    const existing = this.terminations.get(child)
+    if (existing) return existing
+    const promise = new Promise<void>((resolve, reject) => {
+      if (child.exitCode !== null || child.signalCode != null) { resolve(); return }
+      const timeout = this.deps.shutdownTimeoutMs ?? 1000
+      let timer: ReturnType<typeof setTimeout> | undefined
+      let settled = false
+      const finish = (error?: Error) => {
+        if (settled) return
+        settled = true
+        if (timer) clearTimeout(timer)
+        child.off('exit', done)
+        child.off('close', done)
+        if (error) reject(error)
+        else resolve()
       }
-      const cleanup = (): void => {
-        if (child.exitCode === null) {
-          try { child.kill('SIGTERM') } catch { /* 已退出 */ }
-        }
-        this.sessions.delete(s.sessionId)
-        resolveReap()
+      const done = () => finish()
+      child.once('exit', done)
+      child.once('close', done)
+      const kill = (signal: NodeJS.Signals, next: () => void) => {
+        if (settled) return
+        try { child.kill(signal) } catch { /* wait for exit/close or escalation */ }
+        if (!settled) timer = setTimeout(next, timeout)
       }
-      if (opts.sendRelease && child.stdin?.writable && child.exitCode === null) {
+      const force = () => kill('SIGKILL', () => finish(new Error('terminal process did not exit after SIGKILL')))
+      const soft = () => kill('SIGTERM', force)
+      if (sendRelease && child.stdin?.writable) {
         try {
-          // 先注册 exit 监听再写 release + EOF：真实 CLI 收到 release 且 stdin 关闭后即退出，
-          // 退出路径必须能捕获（含同步退出），避免只能依赖下面的 unref'd 兜底定时器
-          // （unref 定时器在事件循环耗尽时不保证点火，Node 22 测试运行器会报 pending promise）。
-          const timer = setTimeout(cleanup, 1000)
-          timer.unref?.()
-          child.once('exit', () => { clearTimeout(timer); cleanup() })
           child.stdin.write('{"type":"terminal.release"}\n')
           child.stdin.end()
-          return
-        } catch { /* 写入失败 → 走普通回收 */ }
-      }
-      cleanup()
+          if (!settled) timer = setTimeout(soft, timeout)
+        } catch { soft() }
+      } else soft()
     })
+    this.terminations.set(child, promise)
+    return promise
   }
 }

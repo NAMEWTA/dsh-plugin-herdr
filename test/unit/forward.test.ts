@@ -205,7 +205,8 @@ test('CA-008: subscribe error envelope rejects HERDR_ERROR', async () => {
     await assert.rejects(() => client.subscribe([{ type: 'bogus' }]), (err: Error) => {
       assert.ok(err instanceof HerdrError)
       assert.equal(err.code, 'HERDR_ERROR')
-      assert.match(err.message, /invalid_request/)
+      // The server's own diagnostic is preserved rather than flattened to the code.
+      assert.match(err.message, /bad subscription/)
       return true
     })
     client.close()
