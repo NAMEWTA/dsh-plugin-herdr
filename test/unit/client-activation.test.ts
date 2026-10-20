@@ -71,6 +71,30 @@ test('TYPERT_REMOTE is a valid Remote contribution sharing the host invocations'
   for (const d of TYPERT_REMOTE.descriptors) assert.equal(d.namespace, 'herdr')
 })
 
+// 回归：网关客户端 prepareInvocation 按 descriptor.parameters.length 严格比较实参个数，
+// 无 request 语义的方法（0 参 host 方法）必须声明 parameters: []，
+// 否则 Web 侧按 0 个实参调用会得到 "herdr/<m> expected 1 argument(s), got 0"。
+test('zero-request panel methods declare no wire parameter', async () => {
+  const { PANEL_NO_REQUEST } = await import('../../lib/panel-contract.js')
+  const { HerdrPanelService } = await import('../../src/host/panel/remote.ts')
+  const proto = HerdrPanelService.prototype as unknown as Record<string, Function>
+  const noRequest = [...PANEL_NO_REQUEST] as string[]
+  for (const name of noRequest) {
+    assert.ok(name in proto, `PANEL_NO_REQUEST names a panel method: ${name}`)
+    assert.equal(proto[name].length, 0, `host ${name}() takes no parameters`)
+    const d = TYPERT.invocations.find((i: { method: string }) => i.method === name)
+    assert.deepEqual(d?.parameters, [], `herdr/${name} descriptor must have 0 parameters`)
+  }
+  // 0 参 host 方法全部登记：dashboard/topology/start/terminalStats 与 environment 同类。
+  for (const name of ['environment', 'dashboard', 'topology', 'start', 'terminalStats']) {
+    assert.ok(noRequest.includes(name), `${name} is a no-request method`)
+  }
+  for (const name of ['status', 'events']) {
+    const d = TYPERT.invocations.find((i: { method: string }) => i.method === name)
+    assert.equal(d?.parameters.length, 1, `herdr/${name} carries its optional request`)
+  }
+})
+
 test('built web entry activates under alpha remote/inject semantics', async () => {
   const reg = loadClientFactory()
   assert.equal(reg.id, pkg.name, 'ModuleLoader id must equal the package name in the boot graph')

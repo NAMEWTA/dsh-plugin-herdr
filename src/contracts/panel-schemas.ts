@@ -10,7 +10,7 @@ const dimension = z.number().int().min(1).max(MAX_TERMINAL_DIMENSION)
 const maybeText = text.nullable()
 const empty = z.object({}).strict().optional()
 /** Methods that take no request argument at all (no request codec on the wire). */
-export const PANEL_NO_REQUEST: ReadonlySet<string> = new Set(['environment'])
+export const PANEL_NO_REQUEST: ReadonlySet<string> = new Set(['environment', 'dashboard', 'topology', 'start', 'terminalStats'])
 const resource = z.object({ kind: z.enum(['workspace', 'pane']), id }).strict()
 const mutation = z.object({ ok: z.boolean(), error: text.optional(), code: text.optional() }).strict()
 const input = z.discriminatedUnion('type', [
