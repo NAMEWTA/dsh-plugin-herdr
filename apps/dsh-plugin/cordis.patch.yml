@@ -1,0 +1,4 @@
+- insert:
+    - id: namewta-workbench
+      name: '@namewta/dsh-workbench'
+      config: {}

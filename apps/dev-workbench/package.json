@@ -1,0 +1,16 @@
+{
+  "name": "@workbench/dev",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@workbench/contracts": "workspace:*",
+    "@workbench/sdk": "workspace:*",
+    "@workbench/testkit": "workspace:*",
+    "@workbench/shell": "workspace:*",
+    "@workbench/herdr": "workspace:*",
+    "@workbench/example-notes": "workspace:*",
+    "@workbench/ui": "workspace:*",
+    "@workbench/core": "workspace:*"
+  }
+}

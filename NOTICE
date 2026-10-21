@@ -1,0 +1,5 @@
+Workbench is independently maintained by NAMEWTA.
+Retained protocol transport and terminal lifecycle code derives from sunny0826/dsh-plugin-herdr and NAMEWTA/dsh-plugin-herdr, under MIT; see LICENSE.
+The original project is not an update source. Herdr and DeepSeek Harness are external dependencies, not this project's upstream code authority.
+UI components are project-owned Base UI/shadcn-style compositions. Bundled dependency licenses are listed in lib/THIRD-PARTY-LICENSES.txt and lib/sbom.cdx.json.
+The Workbench icon is an original geometric SVG created for this project. No proprietary font assets are distributed.

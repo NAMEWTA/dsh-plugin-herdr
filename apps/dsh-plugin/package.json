@@ -1,0 +1,82 @@
+{
+  "name": "@namewta/dsh-workbench",
+  "version": "1.0.0-alpha.1",
+  "description": "A modular, independently maintained developer workbench. Herdr is its first module.",
+  "license": "MIT",
+  "author": "NAMEWTA",
+  "type": "module",
+  "main": "lib/host.js",
+  "types": "lib/host.d.ts",
+  "icon": "./icon.svg",
+  "engines": {
+    "node": ">=24.22.0 <25",
+    "dsh": "0.2.1-alpha.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NAMEWTA/dsh-plugin-herdr.git",
+    "directory": "apps/dsh-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/NAMEWTA/dsh-plugin-herdr/issues"
+  },
+  "homepage": "https://github.com/NAMEWTA/dsh-plugin-herdr#workbench",
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./lib/host.d.ts",
+      "default": "./lib/host.js"
+    },
+    "./client": "./lib/client.js",
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "@deepseek-ai/dsh-agent": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-alpha.2",
+    "@deepseek-ai/schemastery": "3.18.5-alpha.1"
+  },
+  "devDependencies": {
+    "@workbench/contracts": "workspace:*",
+    "@workbench/core": "workspace:*",
+    "@workbench/sdk": "workspace:*",
+    "@workbench/dsh": "workspace:*",
+    "@workbench/herdr": "workspace:*",
+    "@workbench/shell": "workspace:*",
+    "@workbench/ui": "workspace:*"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-modules",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../tooling/check-built.mjs"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@workbench/example-notes",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./web": "./src/web.tsx"
+  },
+  "devDependencies": {
+    "@workbench/contracts": "workspace:*",
+    "@workbench/sdk": "workspace:*",
+    "@workbench/ui": "workspace:*"
+  }
+}

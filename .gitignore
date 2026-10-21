@@ -1,28 +1,16 @@
-# 依赖与构建
 node_modules/
-lib/
-dist/
+**/lib/
+**/dist/
+artifacts/
+.evidence/
+.ci-runtime/
+coverage/
+playwright-report/
+test-results/
 *.tgz
-.pnpm-store/
-
-# 本地测试环境
-.dsh-extract/
-.dsh-home/
-.dsh-blank/
-scratch-plugin/
-
-# 日志与临时文件
-*.log
-.tmp-*
-
-# 系统
 .DS_Store
+.env*
+!**/.env.example
 
-# 内部文档（不进仓库）
-docs/
-DESIGN.md
-TASKS.md
-
-.playwright-mcp
-.playwright-cli
-.agentstest/render/.render-*.mjs
+apps/dsh-plugin/src/build.ts
+apps/dsh-plugin/src/styles.generated.ts
