@@ -5,9 +5,7 @@
   "type": "module",
   "license": "MIT",
   "packageManager": "pnpm@10.28.2",
-  "engines": {
-    "node": ">=24.22.0 <25"
-  },
+  "engines": { "node": ">=24.22.0 <25" },
   "scripts": {
     "build": "node tooling/build.mjs",
     "dev": "vite --config apps/dev-workbench/vite.config.ts",
@@ -22,7 +20,7 @@
     "test:integration": "node --experimental-transform-types --test \"tests/integration/*.test.ts\"",
     "test:package": "node --test \"tests/packaging/*.test.mjs\"",
     "quality": "pnpm build && pnpm typecheck && pnpm check:architecture && pnpm gen:protocol:check && pnpm gen:contracts:check && pnpm test:unit && pnpm test:components && pnpm test:package",
-    "pack:plugin": "pnpm --filter @namewta/dsh-workbench pack --pack-destination ../../artifacts",
+    "pack:plugin": "node tooling/pack.mjs",
     "check:package": "node tooling/check-package.mjs"
   },
   "devDependencies": {
