@@ -1,0 +1,9 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-nova",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": { "css": "src/styles.css", "baseColor": "neutral", "cssVariables": true, "prefix": "wb" },
+  "iconLibrary": "lucide",
+  "aliases": { "components": "@workbench/ui", "utils": "@workbench/ui", "ui": "@workbench/ui" }
+}

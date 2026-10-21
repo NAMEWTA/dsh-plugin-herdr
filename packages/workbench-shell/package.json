@@ -1,0 +1,14 @@
+{
+  "name": "@workbench/shell",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "devDependencies": {
+    "@workbench/contracts": "workspace:*",
+    "@workbench/sdk": "workspace:*",
+    "@workbench/ui": "workspace:*"
+  }
+}

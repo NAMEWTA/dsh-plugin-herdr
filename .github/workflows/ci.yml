@@ -1,139 +1,106 @@
-name: ci
+name: Workbench acceptance
 on:
   push:
-    branches: [main]
+    branches: [main, refactor/modular-workbench]
   pull_request:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: workbench-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: true
 jobs:
   quality:
-    name: Quality and packed artifact
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    name: Architecture, contracts, regressions and final package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 24
+          node-version: 24.22.0
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm quality
-      - name: Build the distributable and verify its contents
+      - name: Build immutable candidate, never publish it
         run: |
           mkdir -p artifacts
-          pnpm pack --pack-destination artifacts
-          pnpm check:package artifacts/*.tgz
+          pnpm pack:plugin
+          node tooling/check-package.mjs artifacts/*.tgz
           (cd artifacts && sha256sum *.tgz > SHA256SUMS)
-          npm view @deepseek-ai/dsh dist-tags --json > artifacts/dsh-dist-tags.json
-      - uses: actions/upload-artifact@v4
+          cp apps/dsh-plugin/lib/build.json artifacts/build.json
+          cp apps/dsh-plugin/lib/sbom.cdx.json artifacts/sbom.cdx.json
+          node tooling/check-package-name.mjs > artifacts/package-name.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: herdr-plugin-package
+          name: workbench-candidate
           path: artifacts/
-          retention-days: 30
-  dsh-smoke:
-    name: DSH Web ${{ matrix.dsh }} (${{ matrix.environment }})
-    needs: quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        dsh: ['0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2']
-        environment: [installed]
-        include:
-          - dsh: 0.2.1-alpha.2
-            environment: missing
-    env:
-      DSH_SMOKE_VERSION: ${{ matrix.dsh }}
-      HERDR_SMOKE_MISSING: ${{ matrix.environment == 'missing' && '1' || '0' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - uses: actions/download-artifact@v4
-        with:
-          name: herdr-plugin-package
-          path: artifacts
-      - name: Verify artifact checksum
-        run: cd artifacts && sha256sum --check SHA256SUMS
-      - name: Install the published CLI and a pinned browser runner
-        run: npm install --prefix "$RUNNER_TEMP/dsh-cli" --no-audit --no-fund "@deepseek-ai/dsh@$DSH_SMOKE_VERSION" playwright@1.56.1
-      - name: Install Chromium
-        run: node "$RUNNER_TEMP/dsh-cli/node_modules/playwright/cli.js" install --with-deps chromium
-      - name: Install pinned Herdr
-        run: bash scripts/install-herdr-ci.sh
-      - name: Install, activate Web dashboard, and uninstall in an isolated home
-        run: bash scripts/run-herdr-ci.sh node scripts/smoke-dsh.mjs "$RUNNER_TEMP/dsh-cli/node_modules/@deepseek-ai/dsh/lib/bin.js" artifacts/*.tgz "$RUNNER_TEMP/dsh-cli/node_modules/playwright/index.mjs" evidence
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: dsh-smoke-${{ matrix.dsh }}-${{ matrix.environment }}
-          path: evidence/
           retention-days: 14
   integration:
-    name: Herdr ${{ matrix.herdr }} protocol 22
-    runs-on: ubuntu-latest
+    name: Real Herdr 0.9.3, ownership and terminal leases
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        herdr: ['0.9.0', '0.9.3']
-    env:
-      HERDR_CI_VERSION: ${{ matrix.herdr }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 24
+          node-version: 24.22.0
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install the pinned Herdr binary
-        run: bash scripts/install-herdr-ci.sh
-      - name: Run real tests in an isolated Herdr session (no silent skip)
+      - run: bash tooling/install-herdr-ci.sh
+      - name: Real protocol and resource lifecycle (no silent skips)
         env:
-          HERDR_REQUIRE_INTEGRATION: '1'
-        run: bash scripts/run-herdr-ci.sh pnpm test:integration
-      - uses: actions/upload-artifact@v4
+          HERDR_TEST_BINARY: ${{ runner.temp }}/herdr-bin/herdr
+        run: |
+          mkdir -p .evidence
+          set -o pipefail
+          pnpm test:integration 2>&1 | tee .evidence/integration.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: herdr-integration-log-${{ matrix.herdr }}
-          path: ${{ runner.temp }}/herdr-server.log
+          name: integration-evidence
+          path: .evidence/
+          include-hidden-files: true
           retention-days: 14
-  release:
-    name: Publish verified GitHub download
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [quality, dsh-smoke, integration]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  browser:
+    name: Responsive UI, accessibility and installed DSH Web
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          name: herdr-plugin-package
+          node-version: 24.22.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Real HTTP browser fixtures and WCAG checks
+        run: pnpm test:e2e
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workbench-candidate
           path: artifacts
-      - name: Publish a versioned download (never overwrite; never npm)
+      - run: cd artifacts && sha256sum --check SHA256SUMS
+      - run: bash tooling/install-herdr-ci.sh
+      - name: Install exact published host, not a local substitute
+        run: npm install --prefix "$RUNNER_TEMP/dsh" --no-audit --no-fund @deepseek-ai/dsh@0.2.1-alpha.2
+      - name: Install final candidate, exercise authenticated gateway, terminal and uninstall
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
-          tag="v$version"
-          (cd artifacts && sha256sum --check SHA256SUMS)
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists; preserving its artifacts. Bump package version for a new release."
-            exit 0
-          fi
-          gh release create "$tag" artifacts/*.tgz artifacts/SHA256SUMS artifacts/dsh-dist-tags.json --target "$GITHUB_SHA" --title "Herdr plugin $version" --notes "Prebuilt plugin for the DSH releases in COMPATIBILITY.md. Node 24+ and pnpm on PATH required. Install the .tgz with dsh plugin --profile web add /path/to/package.tgz and restart DSH Web. This download passed the main-branch quality, packed-install, real Herdr and published DSH Web smoke checks. No npm publication is performed."
+          HERDR_TEST_BINARY: ${{ runner.temp }}/herdr-bin/herdr
+        run: node tests/e2e/dsh.mjs "$RUNNER_TEMP/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js" artifacts/*.tgz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: browser-and-dsh-evidence
+          path: .evidence/
+          include-hidden-files: true
+          retention-days: 14

@@ -1,0 +1,20 @@
+{
+  "name": "@workbench/dsh",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/host/index.ts",
+    "./web": "./src/web/index.tsx",
+    "./contract": "./src/contract.ts",
+    "./config": "./src/host/config.ts",
+    "./tools": "./src/host/tools.ts"
+  },
+  "devDependencies": {
+    "@workbench/contracts": "workspace:*",
+    "@workbench/sdk": "workspace:*",
+    "@workbench/core": "workspace:*",
+    "@workbench/shell": "workspace:*",
+    "@workbench/ui": "workspace:*"
+  }
+}

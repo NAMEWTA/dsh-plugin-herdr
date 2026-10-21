@@ -1,0 +1,90 @@
+﻿ID,优先级,阶段,分类,需求,验收标准,关联,实施状态,代码与验证,仍需完成
+IND-01,P0,M0,独立化,独立仓库与来源登记,交付仓库不属于原 fork 网络；旧基线和来源可追溯，不删除旧资源。,第6章 / S03,已实现部分或自动化部分；存在发布门槛,docs/provenance.md; tooling/build.mjs; tests/packaging,待管理员完成 GitHub fork detach；PR 不修改仓库网络关系
+IND-02,P0,M0,独立化,独立命名与发行元数据,package、更新源、问题入口和文档全部指向新项目；名称可用性核验留档。,第6章 / S02,已实现部分或自动化部分；存在发布门槛,docs/provenance.md; tooling/build.mjs; tests/packaging,候选命名已落地；最终仓库/品牌与 npm 发布权限待确认
+IND-03,P0,M5,独立化,独立构建发布,禁止下载原插件上游构件替代构建；产物包含 SHA、版本和校验信息。,第6、22章,已实现，自动化证据见路径；最终以当前 CI 为准,docs/provenance.md; tooling/build.mjs; tests/packaging,
+IND-04,P0,M0,独立化,保留版权与资产来源,NOTICE/许可证包含所有保留代码必要通知；图标字体单独核验。,第6章 / S16,已实现，自动化证据见路径；最终以当前 CI 为准,docs/provenance.md; tooling/build.mjs; tests/packaging,
+IND-05,P0,M1,独立化,不保留旧运行时兼容层,旧 API、旧配置和旧导出不进入新包；不设置隐式双写或回退。,第6章,已实现，自动化证据见路径；最终以当前 CI 为准,docs/provenance.md; tooling/build.mjs; tests/packaging,
+IND-06,P0,M5,独立化,无损退出旧产品,新版本不自动删除旧配置、Herdr pane 或工作区；新旧命名空间明确。,第6、22章,已实现，自动化证据见路径；最终以当前 CI 为准,docs/provenance.md; tooling/build.mjs; tests/packaging,
+ARC-01,P0,M1,架构,中立平台核心,依赖检查证明 core 不导入 DSH、Herdr、React 或业务模块。,第7章,已实现，自动化证据见路径；最终以当前 CI 为准,tooling/check-architecture.mjs; adapters/dsh/src/contract.ts,
+ARC-02,P0,M1,架构,Web/Host 环境分离,Web 无 host 深层类型或 Node IO 导入；contracts 可独立类型检查。,第3、7章 / S12,已实现，自动化证据见路径；最终以当前 CI 为准,tooling/check-architecture.mjs; adapters/dsh/src/contract.ts,
+ARC-03,P0,M1,架构,公开宿主适配,仓库无 __reactFiber 读取、哈希类名匹配或宿主标题猜测。,第3章 / S13,已实现，自动化证据见路径；最终以当前 CI 为准,tooling/check-architecture.mjs; adapters/dsh/src/contract.ts,
+ARC-04,P0,M1,架构,唯一公共 UI 入口,模块不直接引用第二套通用组件库；依赖与 lint 阻止绕过。,第9、14章,已实现，自动化证据见路径；最终以当前 CI 为准,tooling/check-architecture.mjs; adapters/dsh/src/contract.ts,
+ARC-05,P0,M1,架构,服务契约单源,schema、描述符、客户端参数个数来自同一声明并有真实调用测试。,第17章 / S01,已实现，自动化证据见路径；最终以当前 CI 为准,tooling/check-architecture.mjs; adapters/dsh/src/contract.ts,
+ARC-06,P0,M2,架构,Herdr 公共协议适配,基础协议错误、未知字段与缺失能力可控；不 vendor 私有运行时。,第12章 / H01、R08,已实现，自动化证据见路径；最终以当前 CI 为准,tooling/check-architecture.mjs; adapters/dsh/src/contract.ts,
+ARC-07,P0,M1,架构,可复验开发宿主,不启动 DSH/Herdr 可运行 mock UI，但发布验收仍必须实机联调。,第8、21章,已实现，自动化证据见路径；最终以当前 CI 为准,tooling/check-architecture.mjs; adapters/dsh/src/contract.ts,
+MOD-01,P0,M1,模块系统,Manifest 与版本验证,重复 ID、依赖环、不支持的 platformApi 阻止启动并给出诊断。,第10章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/platform-core; tests/unit/runtime.test.ts; modules/example-notes,
+MOD-02,P0,M1,模块系统,贡献注册可回滚,任一贡献失败后无残留路由、导航、动作或后台任务。,第10章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/platform-core; tests/unit/runtime.test.ts; modules/example-notes,
+MOD-03,P0,M4,模块系统,安全停用与清理,停用进入 draining；定时器、订阅和桥接进程回收，外部 Agent 继续运行。,第10、15章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/platform-core; tests/unit/runtime.test.ts; modules/example-notes,
+MOD-04,P0,M1,模块系统,故障隔离,某模块页面或启动抛错不使壳层/其他模块白屏。,第10章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/platform-core; tests/unit/runtime.test.ts; modules/example-notes,
+MOD-05,P0,M1,模块系统,设置与数据命名空间,模块无法经受控存储接口覆盖其他模块数据。,第10、18章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/platform-core; tests/unit/runtime.test.ts; modules/example-notes,
+MOD-06,P0,M1,模块系统,第二模块扩展证明,示例模块加入不修改壳层和 Herdr；正式发行默认排除。,第10章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/platform-core; tests/unit/runtime.test.ts; modules/example-notes,
+MOD-07,P0,M1,模块系统,可信模块范围,仅构建期批准的第一方模块可加载；无任意 URL/npm 代码执行入口。,第10、19章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/platform-core; tests/unit/runtime.test.ts; modules/example-notes,
+UI-01,P0,M1,统一体验,统一 token 与组件,页面、设置、弹窗、工具栏、通知均使用同一 token/组件目录。,第14章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,
+UI-02,P0,M1,统一体验,亮暗与系统主题,两主题完整覆盖所有页面状态；不修改宿主全局主题。,第14章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,
+UI-03,P0,M1,统一体验,作用域与浮层,工作台样式不改变 DSH 页面；portal 位于受控根并验证焦点。,第14章 / T05,已实现，自动化证据见路径；最终以当前 CI 为准,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,
+UI-04,P0,M2,统一体验,全局/模块/资源导航,任一路径显示完整范围；刷新和返回保留受支持的导航上下文。,第5、13章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,
+UI-05,P0,M2,统一体验,待处理优先首页,首页主要区域展示待介入与工作区；监控数字不挤占主动作。,第13章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,
+UI-06,P0,M2,统一体验,完整页面状态,loading、empty、partial、stale、unsupported、forbidden 均有 stories 与测试。,第14章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,
+UI-07,P0,M4,统一体验,键盘与焦点,核心流程无需鼠标；弹窗焦点返回；终端输入不被全局快捷键截获。,第14章 / T09,已实现部分或自动化部分；存在发布门槛,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,自动焦点/快捷键已覆盖；真实读屏器端到端仍需人工验收
+UI-08,P0,M4,统一体验,窄容器与触屏,375/768/1280/1920 CSS px 用例通过；内容不出现非预期横向溢出。,第13、20章,已实现部分或自动化部分；存在发布门槛,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,四档宽度自动覆盖；真实触屏/软键盘人工验收待完成
+UI-09,P0,M2,统一体验,中文与英文一致,业务文本无硬编码散落；长标题、时区、数字和复数行为验证。,第14、21章,已实现，自动化证据见路径；最终以当前 CI 为准,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,
+UI-10,P0,M4,统一体验,密度与无障碍,舒适/紧凑不隐藏关键状态；对比度、减少动效与读屏关键流程通过。,第14章,已实现部分或自动化部分；存在发布门槛,packages/ui; packages/workbench-shell; tests/components; tests/e2e/run.mjs,axe/主题/密度自动覆盖；真实读屏器和整套状态人工验收待完成
+HER-01,P0,M2,Herdr 管理,环境分层诊断,分别判断 Host、CLI、服务、socket、协议与终端能力，禁止隐式安装。,第13、15章 / S06,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-02,P0,M2,Herdr 管理,真实总览,总数和范围来自同一已标注 snapshot；采集失败不变 0。,第11、13章 / S15,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-03,P0,M2,Herdr 管理,工作区列表,搜索/过滤/卡片/表格共享操作与数据；空结果与真空数据分开。,第13章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-04,P0,M3,Herdr 管理,工作区创建与重命名,重复提交受控；局部失败明确；不以名称当唯一身份。,第15章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-05,P0,M3,Herdr 管理,tabs/panes 基础管理,创建、选择、重命名、关闭按能力开放；不支持有明确原因。,第13、17章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-06,P0,M3,Herdr 管理,Agent 启动与查看,可执行与参数校验；失败不重复创建工作区；支持进入现有 pane。,第13、15章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-07,P0,M3,Herdr 管理,DSH 会话绑定,绑定显式持久；缺失时 fail closed；不回退当前聚焦工作区。,第11章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-08,P0,M2,Herdr 管理,运行资源口径,CPU/RSS 显示采样对象/来源/时间；未知为 null；历史趋势不伪造。,第11章 / S15、R13,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-09,P0,M3,Herdr 管理,危险操作分级,停止观察、关闭 pane、关闭工作区、停止服务为不同权限和确认。,第15、19章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+HER-10,P0,M2,Herdr 管理,能力可见性,当前 binary 与 running server 信息分开；缺失能力只影响相应功能。,第12章 / H01,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr; tests/integration/herdr.test.ts; tests/e2e/dsh.mjs,
+ATT-01,P0,M4,待处理,注意事项聚合,审批/问题/错误/完成未读有明确来源；无法辨认时显示需要查看。,第13章 / R02、R05,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/web/attention*; modules/herdr/src/domain/selectors.ts,
+ATT-02,P0,M4,待处理,稳定优先级排序,置顶与优先级可解释；聚焦/操作中的行不会因刷新跳走。,第13章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/web/attention*; modules/herdr/src/domain/selectors.ts,
+ATT-03,P0,M4,待处理,安全资源跳转,事项旧 epoch 或 occupant 已变更时不打开新对象执行旧动作。,第11、15章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/web/attention*; modules/herdr/src/domain/selectors.ts,
+ATT-04,P0,M4,待处理,去重与已读,相同状态不重复通知；已读、暂时隐藏和解决是不同状态。,第13章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/web/attention*; modules/herdr/src/domain/selectors.ts,
+ATT-05,P0,M4,待处理,受限批量处理,仅安全已读标记可批量；无全部批准或跨 pane 批量发键。,第13、19章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/web/attention*; modules/herdr/src/domain/selectors.ts,
+ATT-06,P0,M4,待处理,原始 done 语义,不把 done 直接推导成任务成功；工作台已读与 Herdr seen 区分。,第11章 / H01,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/web/attention*; modules/herdr/src/domain/selectors.ts,
+TER-01,P0,M3,终端,默认只读观察,未取得有效 lease 时服务端拒绝任何输入；前端无隐式 Enter。,第12章 / S10,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-02,P0,M3,终端,互斥控制权,同一 pane instance 同时只授予一个受本产品管理的 controller。,第12章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-03,P0,M3,终端,显式接管,新窗口确认接管后旧 lease 撤销；旧 token/请求均被拒绝。,第12、15章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-04,P0,M3,终端,全帧与差量连续,缺基线、跳号、旧 generation 时重建；不向旧全帧接不连续差量。,第12章 / S10,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-05,P0,M3,终端,可见兴趣与配额,列表不启动终端；未退出子进程继续占配额；超额有可恢复提示。,第12、20章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-06,P0,M3,终端,流量控制,高产出与慢浏览器下有界内存；不能随意丢 ANSI 字节后继续显示。,第12章 / T08,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-07,P0,M3,终端,断线不重复输入,连接失效立即停输；恢复不重发按键；不确定结果可见。,第12、15章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-08,P0,M4,终端,输入与复制准确,CJK IME、多行粘贴、特殊键、选区复制、软键盘有实测用例。,第12章,已实现部分或自动化部分；存在发布门槛,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,CJK 字节/粘贴边界有自动覆盖；物理 IME、软键盘、特殊键与剪贴板人工验收待完成
+TER-09,P0,M3,终端,尺寸与外部客户端,观察者不无权更改共享终端；外部 TUI 并发限制明确展示。,第12章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+TER-10,P0,M4,终端,卸载与多窗口寿命,一窗口离开不终止另一窗口所需流；关闭 UI 不关闭 Agent。,第12、21章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/terminals.ts; modules/herdr/test; tests/integration,
+DAT-01,P0,M2,数据一致性,复合资源身份,不同主机同 ID 不能串数据；epoch/occupant 变化令旧写入失效。,第11章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/read-model.ts; tests/unit/read-model.test.ts,
+DAT-02,P0,M2,数据一致性,单飞权威刷新,事件标记 dirty；快照读取串行；读取中变脏会再次刷新。,第12章 / H04,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/read-model.ts; tests/unit/read-model.test.ts,
+DAT-03,P0,M2,数据一致性,缺口恢复,events_lost/断流标 stale，重订阅后权威重读；历史缺口保留。,第12章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/read-model.ts; tests/unit/read-model.test.ts,
+DAT-04,P0,M2,数据一致性,局部降级,单个 collector/连接失败不清空其他有效数据；显示 coverage。,第11章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/read-model.ts; tests/unit/read-model.test.ts,
+DAT-05,P0,M2,数据一致性,唯一状态转换,未知状态不归为 done；原始态、连接态、注意态互不覆盖。,第11章 / S12,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/read-model.ts; tests/unit/read-model.test.ts,
+DAT-06,P0,M2,数据一致性,有界缓存与切换取消,切连接后旧响应被丢弃；缓存按作用域隔离并有容量/过期约束。,第11、18章,已实现，自动化证据见路径；最终以当前 CI 为准,modules/herdr/src/application/read-model.ts; tests/unit/read-model.test.ts,
+SEC-01,P0,M1,安全,服务端授权,所有读/写/终端消息按身份与作用域校验；无身份不默认放行。,第19章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+SEC-02,P0,M3,安全,目标与并发校验,危险动作带目标实例及前置条件；过期确认拒绝。,第17、19章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+SEC-03,P0,M3,安全,来源与会话校验,受支持部署验证 Origin/CSRF/会话过期；WebSocket 消息继续鉴权。,第19章 / T07,已实现部分或自动化部分；存在发布门槛,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,身份/作用域单测已覆盖；真实 Origin/会话边界以当前 DSH CI 为准
+SEC-04,P0,M3,安全,凭据生命周期,无长期 token URL 或诊断泄漏；停用/登出撤销受控 lease。,第18、19章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+SEC-05,P0,M3,安全,进程调用安全,可执行路径和 argv 明确分离；不把用户字段拼 shell 命令。,第13、19章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+SEC-06,P0,M4,安全,终端与富文本安全,链接协议、HTML/Markdown、剪贴板行为受控；恶意输出不能执行脚本。,第19章 / T06,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+SEC-07,P0,M4,安全,最小内容审计,默认不记录原始按键、完整终端或 token；可关联请求与结果。,第18、19章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+SEC-08,P0,M5,安全,依赖与构件安全,锁文件、来源、SBOM/许可证、固定构件哈希和产物测试齐全。,第22章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+SEC-09,P0,M3,安全,外部资源保护,无明确归属和授权不自动关闭；资源名/标签不是所有权证据。,第11、19章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh; docs/security.md; tests/unit/storage-clients.test.ts; tests/e2e/dsh.mjs,
+OBS-01,P0,M2,可观测性,诊断页,展示 build、连接、能力、采样状态、最后错误及 requestId。,第13章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh/src/host/persistence.ts; modules/herdr/src/web/environment.tsx; packages/workbench-shell,
+OBS-02,P0,M4,可观测性,基本操作审计,受控写入记录 actor/action/target/result/time；不与外部事件混淆。,第18章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh/src/host/persistence.ts; modules/herdr/src/web/environment.tsx; packages/workbench-shell,
+OBS-03,P0,M4,可观测性,脱敏导出,导出可预览；默认去除 token、正文和敏感路径。,第13、18章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh/src/host/persistence.ts; modules/herdr/src/web/environment.tsx; packages/workbench-shell,
+OBS-04,P0,M4,可观测性,资源预算监测,终端进程、订阅、缓冲字节和清理失败可查，支持排障。,第20章,已实现，自动化证据见路径；最终以当前 CI 为准,adapters/dsh/src/host/persistence.ts; modules/herdr/src/web/environment.tsx; packages/workbench-shell,
+OBS-05,P1,M6,可观测性,持久历史与趋势,保存真实采样并显示中断；保留周期和删除机制可配置。,第11、18章,后续阶段，未实现,adapters/dsh/src/host/persistence.ts; modules/herdr/src/web/environment.tsx; packages/workbench-shell,按获批 M6/M7 后续范围独立实施和验收
+QA-01,P0,M0,质量,基线与证据冻结,记录源码 SHA、CI、支持版本和已有回归用例；历史结果不冒充当前。,第0、21章,已实现，自动化证据见路径；最终以当前 CI 为准,docs/testing.md; .github/workflows/ci.yml,
+QA-02,P0,M1,质量,架构与契约门禁,依赖方向、模块贡献、schema/arity 与生成物漂移自动校验。,第7、17、21章,已实现，自动化证据见路径；最终以当前 CI 为准,docs/testing.md; .github/workflows/ci.yml,
+QA-03,P0,M3,质量,真实集成,对最终声明支持的平台和版本执行真实 DSH+Herdr，缺环境不得静默跳过。,第21章,已实现部分或自动化部分；存在发布门槛,docs/testing.md; .github/workflows/ci.yml,必须以当前 PR 的真实 Herdr + DSH CI 为准，缺环境不得跳过
+QA-04,P0,M4,质量,故障与竞争回归,多窗口、events_lost、进程退出失败、输入不确定、资源替换用例通过。,第21章,已实现，自动化证据见路径；最终以当前 CI 为准,docs/testing.md; .github/workflows/ci.yml,
+QA-05,P0,M4,质量,设计系统回归,亮暗、密度、断点与核心状态截图/键盘/读屏验证。,第14、21章,已实现部分或自动化部分；存在发布门槛,docs/testing.md; .github/workflows/ci.yml,截图/axe/键盘自动覆盖；人工视觉/读屏签署待完成
+QA-06,P0,M5,质量,最终构件验收,只用打包产物安装/启用/卸载；不依赖开发目录或预存 node_modules。,第22章,已实现部分或自动化部分；存在发布门槛,docs/testing.md; .github/workflows/ci.yml,打包检查已覆盖；最终包安装/卸载以当前 DSH CI 为准
+QA-07,P0,M5,质量,性能与稳态,按固定环境验证首屏、列表、输入、缓冲和长时内存预算。,第20章,已实现部分或自动化部分；存在发布门槛,docs/testing.md; .github/workflows/ci.yml,有界配额/队列已实现；固定设备长时压力和延迟预算尚未验证
+QA-08,P0,M5,质量,文档与发布一致,README、已知限制、支持矩阵与实际 SHA/CI 一致，未通过项不写已完成。,第0、22章 / S05,已实现，自动化证据见路径；最终以当前 CI 为准,docs/testing.md; .github/workflows/ci.yml,
+EXT-01,P1,M6,后续扩展,结构化聊天适配,仅确定会话映射才显示；未知 fallback 终端；审批重验 prompt。,第15章,后续阶段，未实现,docs/acceptance.md,按获批 M6/M7 后续范围独立实施和验收
+EXT-02,P1,M6,后续扩展,多主机连接,独立认证/健康/配额；SSH 主机身份验证；单主机失败不阻塞其他。,第15章,后续阶段，未实现,docs/acceptance.md,按获批 M6/M7 后续范围独立实施和验收
+EXT-03,P1,M6,后续扩展,PWA 与通知,明确用户授权、隐私、撤销、离线只读和无自动重放。,第13、19章,后续阶段，未实现,docs/acceptance.md,按获批 M6/M7 后续范围独立实施和验收
+EXT-04,P2,M7,后续扩展,生产独立宿主,补齐独立身份、安全 HTTP/WS、存储、升级、部署与进程管理后验收。,第2、6章,后续阶段，未实现,docs/acceptance.md,按获批 M6/M7 后续范围独立实施和验收
+EXT-05,P2,M7,后续扩展,第三方模块扩展,进程/沙箱隔离、签名、权限、撤销和供应链设计完成后才开放。,第10章,后续阶段，未实现,docs/acceptance.md,按获批 M6/M7 后续范围独立实施和验收

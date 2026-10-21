@@ -1,9 +1,0 @@
-- insert:
-    # 唯一入口：内部先装配 ctx.herdr 提供者，再装配工具 / 面板 / 事件（src/host/index.ts）
-    - id: dsh-plugin-herdr
-      name: '@namewta/dsh-plugin-herdr'
-      config:
-        timeoutMs: 15000
-        allowBackground: false
-        events:
-          enabled: false

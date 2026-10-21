@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - packages/*
+  - adapters/*
+  - modules/*
+onlyBuiltDependencies:
+  - esbuild
+  - '@tailwindcss/oxide'
+  - oxc-resolver

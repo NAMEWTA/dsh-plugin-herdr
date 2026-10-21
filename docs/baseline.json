@@ -1,0 +1,13 @@
+{
+  "sourceRepository": "NAMEWTA/dsh-plugin-herdr",
+  "sourceCommit": "846583f0c7aff044a09bb878ba3e03d996b2ff56",
+  "sourcePackage": "@namewta/dsh-plugin-herdr@0.0.3",
+  "designSha256": "11b0bbfced43e8c54c97f8622fbf19a64a1963772956ac64dd6a06aed317ad94",
+  "herdrSchemaSha256": "9e2af207e9aa8183d4aeca5fde9cc48e7909bb40cdbd7cf21608a6d3ea78075b",
+  "baselineLocalQuality": {
+    "node": "24.22.0",
+    "unitPassed": 505,
+    "packagingPassed": 10,
+    "note": "Historical baseline only, not a result for the refactor."
+  }
+}

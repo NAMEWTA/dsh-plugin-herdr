@@ -1,0 +1,19 @@
+{
+  "name": "@workbench/herdr",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./web": "./src/web/index.tsx",
+    "./manifest": "./src/manifest.ts",
+    "./contracts/config": "./src/contracts/config.ts"
+  },
+  "devDependencies": {
+    "@workbench/contracts": "workspace:*",
+    "@workbench/sdk": "workspace:*",
+    "@workbench/ui": "workspace:*",
+    "@workbench/core": "workspace:*"
+  }
+}

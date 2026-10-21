@@ -1,50 +1,28 @@
-# Repository Guidelines
+# Workbench contributor guide
 
-Contributor guide for **@namewta/dsh-plugin-herdr** 0.0.3, the Herdr control-plane plugin for DeepSeek Harness. It provides 19 `herdr_*` tools, a Web dashboard and a runtime-registered Herdr session preset. This release workflow distributes GitHub tarballs; npm publication is a separate operation and older registry versions must not be confused with a new tarball.
+Read `docs/architecture.md`, `docs/security.md`, `docs/acceptance.md` and the relevant module before changing code. The approved scope and 89 requirements are in `docs/design-baseline.md` and `docs/requirements-status.csv`.
 
-## Compatibility
+## Boundaries
 
-Node 24+; pnpm 10.28.2. Supported DSH releases are the finite set **0.2.0-rc.2, 0.2.1-alpha.1 and 0.2.1-alpha.2**. Development dependencies use exact alpha.2 pins; peer dependencies and `engines.dsh` list the supported releases explicitly. Herdr fixtures target **0.9.0 / protocol 22**. Read `COMPATIBILITY.md` before changing version claims. GitHub's newest prerelease and npm's default download can differ.
+- `platform-core` must not import DSH, React, Herdr or business modules. Module code must not import the DSH adapter.
+- Host and Web code communicate only through environment-neutral contracts. Use public workspace exports; no cross-package source paths.
+- Modules use `@workbench/ui` for shared controls, tokens and portals. Do not add another component primitive system.
+- Only reviewed first-party modules are compiled into the product. SDK restrictions are not a sandbox against malicious code.
+- Use DSH public slots and Remote interfaces. Never read React Fiber, hashed host class names, or mutate host DOM/branding.
+- This is a breaking replacement. Do not restore old package aliases, configs, exports, tools, presets, DOM patches or version matrices.
 
-## Structure
+## Safety and lifecycle
 
-- `src/core/`: framework-independent protocol, errors, output, polling, ANSI and path utilities. `protocol.ts` is generated from the schema fixture.
-- `src/host/`: `index.ts` mounts provider then runtime; `herdr/` contains the socket service, `tools/registry.ts` is the authoritative list of tools, `events/` handles subscriptions and reporting, `panel/` exposes Typert Remote, and `terminal-session/` manages CLI processes. `application/` holds the shared policies (resource authorization, session bindings, agent launch) that tools and panel call. `session-mode.ts` is a separate preset child entry.
-- `src/contracts/`: the single runtime contract source. `panel-schemas.ts` declares `PANEL_DEFINITIONS`; Typert codecs and the Web remote type are generated from it, so adding a panel method starts here.
-- `src/web/`: client views, stores and pure UI logic; `src/client.tsx` is the thin entry. React is supplied by the host shell. Preserve the `ModuleLoader` factory contract and synchronous style injection required by `claimStyles`.
-- `locale/{zh,en}.json`: shared bilingual panel/brand dictionaries.
-- `scripts/`: protocol/Typert generation, package verification, isolated DSH smoke.
-- `test/unit/`: Node tests, including built-client activation and bilingual SSR. `test/packaging/`: tarball validation regressions. `test/integration/`: real Herdr tests. `test/fixtures/`: protocol schema and recorded Remote payloads.
-- `lib/`: generated and gitignored. `cordis.patch.yml`: one runtime plugin insert.
+All reads and writes require server-derived identity and scope. Client claims cannot grant permission. Keep schemas, Remote arity and generated descriptors single-source.
 
-The historical YAML under `presets/herdr/` is not the active preset definition: `src/host/preset.ts` registers the runtime preset. Do not change one and assume the other changed. The contract-first architecture (`src/contracts/`, `src/host/application/`, `src/web/features/`) is part of `main`; read `IMPLEMENTATION_STATUS.md` for what has and has not been validated.
+Resource labels are not ownership. Check connection/session/epoch/instance before writes. External resources need explicit adoption. Missing conversation bindings fail closed; never fall back to a focused workspace.
 
-## Commands and acceptance
+Terminal observation is read-only. Control, takeover and resource destruction are separate actions. Never replay uncertain input. Preserve generation/sequence/full-frame semantics, byte order, quotas and process-exit accounting. Closing UI or disabling a module releases bridges, not external agents.
 
-```sh
-pnpm install --frozen-lockfile
-pnpm quality
-pnpm pack
-pnpm check:package ./namewta-dsh-plugin-herdr-0.0.3.tgz
-pnpm test:integration
-```
+Own subscriptions, timers and processes through module lifecycle. Do not swallow failed cleanup and pretend quota was freed. Raw terminal output, keystrokes and credentials do not belong in audit or diagnostics.
 
-`quality` builds Host/Typert/Web, typechecks, checks generated protocol drift, and runs unit and packaging tests. `prepack` builds automatically; `prepublishOnly` runs quality. Never claim an unbuilt Git checkout is an installable package.
+## Verification
 
-The required CI jobs run on Node 24. The DSH matrix downloads each published CLI and installs, opens the actual Chromium Web dashboard, then removes the same tarball in a disposable `DSH_HOME`. Real Herdr integration uses a pinned, checksum-verified binary and an isolated named session. `HERDR_REQUIRE_INTEGRATION=1` makes missing prerequisites fail rather than skip. Local integration can skip explicitly, but a skip is not acceptance evidence.
+Use Node 24.22.0 and pnpm 10.28.2. Run `pnpm quality`, the real Herdr integration suite, HTTP Playwright fixtures and final-package DSH acceptance. `HERDR_TEST_BINARY` must identify the pinned binary; missing prerequisites are failures, not skips. Do not delete failing assertions just to make CI green.
 
-Keep tests for the production path, not only source-string sentinels. New behavior requires a failing regression before the fix. Do not weaken assertions to hide failures. Record exactly which checks ran and which still require credentials or manual testing.
-
-## TypeScript and ownership
-
-Strict TypeScript, NodeNext/ES2022, automatic JSX. Two spaces, no semicolons, single quotes; camelCase values, PascalCase types, kebab-case files. Keep comments concise. No general-purpose linter is configured; strict typecheck and contract tests are the enforced baseline.
-
-Declare injected Cordis services on the owning fiber. Tie timers, subscriptions and child processes to explicit lifetimes. Avoid side effects after cancellation and never infer whole-workspace ownership from a pane token. Do not modify a user's live DSH/Herdr profile during tests.
-
-## Localization
-
-Every new visible string needs both zh and en, including matching placeholders. Use `t()`/`useHerdrLang()` and the runtime locale service; static `html lang` is not the active language. `brand.*` supplies hero/preset copy. Preserve locale-parity and real render regressions.
-
-## Changes and PRs
-
-Use Conventional Commits. PR titles/descriptions and issues are English by default. Keep compatibility changes separate from broad refactors. Do not merge until required checks pass on the exact head and disclose any remaining validation limits. Never claim tests were run based only on an old report. Do not publish to npm or alter branch-protection settings without explicit authorization.
+Preserve MIT attribution. Do not publish, overwrite releases, force-push main, detach/rename the repository or delete profiles/workspaces without explicit maintainer authorization. Document unverified platforms, manual IME/screen-reader checks and performance gates honestly. Do not turn a past test result into evidence for a different source SHA.
