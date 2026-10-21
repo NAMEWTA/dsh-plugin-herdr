@@ -1,0 +1,35 @@
+name: Refactor reproducible workspace
+on:
+  push:
+    branches: [refactor/modular-workbench]
+    paths: [.github/workflows/refactor-snapshot.yml]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - name: Resolve new workbench development dependencies
+        run: |
+          pnpm add --save-exact @base-ui/react @tanstack/react-query lucide-react clsx tailwind-merge class-variance-authority
+          pnpm add --save-dev --save-exact tailwindcss @tailwindcss/cli vite vitest @testing-library/react @testing-library/dom @testing-library/user-event jsdom playwright @axe-core/playwright
+          mkdir -p .ci-runtime
+          cp "$(command -v node)" .ci-runtime/node
+          cp -a "$(dirname "$(dirname "$(realpath "$(command -v pnpm)")")")" .ci-runtime/pnpm
+          node -p 'JSON.stringify({node:process.version,platform:process.platform,arch:process.arch})' > .ci-runtime/versions.json
+      - name: Capture sources and installed dependencies (no git credentials)
+        run: tar --exclude=.git --exclude=.ci-workspace.tgz -czf "$RUNNER_TEMP/workspace.tgz" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: refactor-workspace
+          path: ${{ runner.temp }}/workspace.tgz
+          retention-days: 1
