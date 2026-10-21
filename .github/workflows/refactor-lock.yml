@@ -1,0 +1,63 @@
+name: Normalize refactor dependency lock
+on:
+  push:
+    branches: [refactor/modular-workbench]
+    paths: [.github/workflows/refactor-lock.yml]
+permissions:
+  contents: write
+jobs:
+  lock:
+    if: github.repository == 'NAMEWTA/dsh-plugin-herdr' && github.ref == 'refs/heads/refactor/modular-workbench'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.22.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      - name: Pin Zod to the actually resolved and previously tested version
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs'
+          const path='package.json',p=JSON.parse(fs.readFileSync(path,'utf8'))
+          if(p.devDependencies.zod!=='4.4.3')throw new Error('unexpected baseline')
+          p.devDependencies.zod='4.6.5'
+          fs.writeFileSync(path,JSON.stringify(p,null,2)+'\n')
+          JS
+          pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
+      - name: Create dependency fix tree (no refs or workflows changed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,json,pathlib,urllib.request,urllib.error
+          repo='NAMEWTA/dsh-plugin-herdr'
+          def api(path,data=None):
+              req=urllib.request.Request('https://api.github.com/repos/'+repo+'/'+path,data=None if data is None else json.dumps(data).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+              try:
+                  with urllib.request.urlopen(req,timeout=90) as r:return json.load(r)
+              except urllib.error.HTTPError as e: print(e.read().decode());raise
+          parent=os.environ['GITHUB_SHA']
+          assert api('git/ref/heads/refactor/modular-workbench')['object']['sha']==parent
+          base=api('git/commits/'+parent)['tree']['sha']
+          tree=api('git/trees',{'base_tree':base,'tree':[{'path':p,'mode':'100644','type':'blob','content':pathlib.Path(p).read_text()} for p in ['package.json','pnpm-lock.yaml']]})['sha']
+          print('LOCK_TREE='+tree,flush=True)
+          pathlib.Path('lock-summary.json').write_text(json.dumps({'tree':tree,'parent':parent},indent=2))
+          PY
+      - name: Verify reproducible clean install and full quality
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm quality
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: normalized-lock
+          path: |
+            lock-summary.json
+            pnpm-lock.yaml
+            package.json
+          if-no-files-found: error
+          retention-days: 7
