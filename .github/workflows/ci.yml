@@ -29,9 +29,9 @@ jobs:
           mkdir -p artifacts
           pnpm pack:plugin
           node tooling/check-package.mjs artifacts/*.tgz
-          (cd artifacts && sha256sum *.tgz > SHA256SUMS)
           cp apps/dsh-plugin/lib/build.json artifacts/build.json
           cp apps/dsh-plugin/lib/sbom.cdx.json artifacts/sbom.cdx.json
+          (cd artifacts && sha256sum *.tgz build.json sbom.cdx.json > SHA256SUMS)
           node tooling/check-package-name.mjs > artifacts/package-name.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -104,3 +104,63 @@ jobs:
           path: .evidence/
           include-hidden-files: true
           retention-days: 14
+  release:
+    name: Publish verified GitHub alpha (never npm)
+    if: github.repository == 'NAMEWTA/dsh-plugin-herdr' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [quality, integration, browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workbench-candidate
+          path: artifacts
+      - name: Verify tested artifact provenance and the authorized version
+        run: |
+          (cd artifacts && sha256sum --check SHA256SUMS)
+          python3 - <<'PY'
+          import json,os,pathlib,tarfile
+          expected='1.0.0-alpha.1'
+          root=json.loads(pathlib.Path('apps/dsh-plugin/package.json').read_text())
+          build=json.loads(pathlib.Path('artifacts/build.json').read_text())
+          assert root['version']==build['version']==expected, 'Another version needs explicit release authorization'
+          assert build['sha']==os.environ['GITHUB_SHA'], 'Candidate is not from this exact main commit'
+          archives=list(pathlib.Path('artifacts').glob('*.tgz'))
+          assert len(archives)==1
+          with tarfile.open(archives[0],'r:gz') as archive:
+              package=json.load(archive.extractfile('package/package.json'))
+              packaged_build=json.load(archive.extractfile('package/lib/build.json'))
+          assert package['name']=='@namewta/dsh-workbench' and package['version']==expected
+          assert packaged_build==build
+          PY
+      - name: Publish only the verified alpha; preserve every existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=v1.0.0-alpha.1
+          test "$(gh api "repos/$GH_REPO/branches/main" --jq .commit.sha)" = "$GITHUB_SHA"
+          # Read the full collection before writing, so API/auth failures are not mistaken for absence.
+          gh api --paginate "repos/$GH_REPO/releases?per_page=100" --jq '.[].tag_name' > existing-releases.txt
+          if grep -Fxq "$tag" existing-releases.txt; then
+            echo 'Release already exists. Preserving it; no files, notes or tags are overwritten.'
+            exit 0
+          fi
+          gh release create "$tag" artifacts/*.tgz artifacts/SHA256SUMS artifacts/build.json artifacts/sbom.cdx.json --target "$GITHUB_SHA" --draft --prerelease --title 'Workbench 1.0.0-alpha.1 — modular Herdr workbench' --notes-file docs/releases/1.0.0-alpha.1.md
+          gh release view "$tag" --json assets,isDraft,isPrerelease > release-check.json
+          python3 - <<'PY'
+          import json,pathlib
+          r=json.loads(pathlib.Path('release-check.json').read_text())
+          expected={p.name for p in pathlib.Path('artifacts').glob('*.tgz')}|{'SHA256SUMS','build.json','sbom.cdx.json'}
+          assert r['isDraft'] and r['isPrerelease']
+          assert {a['name'] for a in r['assets']}==expected
+          assert all(a['size']>0 for a in r['assets'])
+          PY
+          gh release edit "$tag" --draft=false --prerelease --latest=false
+          gh release view "$tag" --json url,tagName,isDraft,isPrerelease

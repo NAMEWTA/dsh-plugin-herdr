@@ -60,7 +60,15 @@
     "clsx": "2.1.1",
     "lucide-react": "1.60.0",
     "tailwind-merge": "3.7.0",
-    "zod": "4.4.3",
-    "postcss": "8.5.31"
+    "zod": "4.6.5",
+    "postcss": "8.5.31",
+    "@workbench/contracts": "workspace:*",
+    "@workbench/core": "workspace:*",
+    "@workbench/sdk": "workspace:*",
+    "@workbench/ui": "workspace:*",
+    "@workbench/shell": "workspace:*",
+    "@workbench/testkit": "workspace:*",
+    "@workbench/herdr": "workspace:*",
+    "@workbench/example-notes": "workspace:*"
   }
 }
