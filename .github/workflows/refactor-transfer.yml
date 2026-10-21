@@ -1,0 +1,75 @@
+name: Materialize verified refactor
+on:
+  push:
+    branches: [refactor/modular-workbench]
+    paths: [.github/workflows/refactor-transfer.yml]
+permissions:
+  contents: write
+jobs:
+  transfer:
+    if: github.repository == 'NAMEWTA/dsh-plugin-herdr' && github.ref == 'refs/heads/refactor/modular-workbench'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify every source byte and create an unattached commit (never update main or refs)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,hashlib,lzma,pathlib,urllib.request
+          repo='NAMEWTA/dsh-plugin-herdr'
+          parent=os.environ['GITHUB_SHA']
+          def api(path, data=None):
+              raw=None if data is None else json.dumps(data).encode()
+              req=urllib.request.Request('https://api.github.com/repos/'+repo+'/'+path, data=raw, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'})
+              with urllib.request.urlopen(req,timeout=90) as res: return json.load(res)
+          assert api('git/ref/heads/refactor/modular-workbench')['object']['sha']==parent, 'Branch moved; refuse transfer'
+          chunks='a4522f4101b3e5f4b44c74a793e6117627bbf649 f03192fa48d77f938e69f0296e707ccf8b3d1150 aca80b7b81cb8ffb58c09bfcf566b8c2217403cd 8f763f8baff0b56174bbbe67a4b15aacfc73d289 f6e4d7697c86d752ef42ba27c7ec02785b1920fe c9932ad855151113df951e223c9f86abb9f4708f 3bf918d06ef6f9a0d9b5bd6c9ac3c60db5b32ba7 634f9454951be9955eaf0c86a78e274705ade8bc fc8657784746af8ed62a33c32b2aeef6870e1b48 97c52c8414ccdec9669c223e1108f0116f2725bd eb29030f6f959b3c4bff465469892f712acc769c 1f6dbb787e0e59572350951a0da0ee8df8f9ed60 bc9aaf6bbbb03d36dd38421b50075907d0bb6361 91c834b6a4a38757fda5e84082ea24790fc71cbe 5940a7c243b72f548f8a0219aefa8ab2cb9829ca 8868bc853272a23b02629f7a02d2a86161c2243e 5b1ec9bee21ca01f65b007abc27295562e13751e'.split()
+          parts=[]
+          for i,sha in enumerate(chunks):
+              obj=api('git/blobs/'+sha)
+              part=base64.b64decode(obj['content'])
+              assert len(part)==(4316 if i==16 else 12000), 'Truncated chunk '+str(i)
+              assert hashlib.sha1(b'blob '+str(len(part)).encode()+b'\0'+part).hexdigest()==sha
+              parts.append(part)
+          data=b''.join(parts)
+          expected='1d2f4320cffb6e40a53c48f1f487420cb135b4b50169efda566c743b0dfb0931'
+          assert len(data)==196316 and hashlib.sha256(data).hexdigest()==expected, 'Snapshot integrity failed'
+          source=json.loads(lzma.decompress(data))
+          assert len(source['files'])==133 and len(source['delete'])==205
+          def safe(path):
+              p=pathlib.PurePosixPath(path)
+              assert not p.is_absolute() and '..' not in p.parts and '.git' not in p.parts
+              assert str(p)==path
+          for path in list(source['files'])+source['delete']: safe(path)
+          base=api('git/commits/'+parent)['tree']['sha']
+          original=api('git/trees/'+base+'?recursive=1')
+          assert not original.get('truncated')
+          entries={e['path']:e for e in original['tree'] if e['type']=='blob'}
+          changes=[{'path':path,'mode':'100644','type':'blob','content':content} for path,content in source['files'].items()]
+          removed=set(source['delete'])
+          removed.update(p for p in entries if p.startswith('.github/workflows/refactor-'))
+          for path in sorted(removed-set(source['files'])):
+              if path in entries: changes.append({'path':path,'mode':entries[path]['mode'],'type':'blob','sha':None})
+          changes.append({'path':'.github/workflows/ci.yml','mode':'100644','type':'blob','sha':'af3d0e9f729a29a5abc6b02a56400c394e21a78b'})
+          tree=api('git/trees',{'base_tree':base,'tree':changes})['sha']
+          commit=api('git/commits',{'message':'refactor!: introduce modular workbench with Herdr as first module\n\nReplace legacy interfaces with platform core, SDK, scoped UI and DSH adapter.\nSnapshot SHA256: '+expected,'tree':tree,'parents':[parent]})['sha']
+          final=api('git/trees/'+tree+'?recursive=1')
+          assert not final.get('truncated')
+          after={e['path']:e for e in final['tree'] if e['type']=='blob'}
+          for path,content in source['files'].items():
+              b=content.encode()
+              assert after[path]['sha']==hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest(), 'Source mismatch '+path
+          assert not any(p.startswith('.github/workflows/refactor-') for p in after)
+          assert after['.github/workflows/ci.yml']['sha']=='af3d0e9f729a29a5abc6b02a56400c394e21a78b'
+          summary={'parent':parent,'commit':commit,'tree':tree,'snapshot_sha256':expected,'verified_source_files':len(source['files']),'removed_paths':len(removed & set(entries)),'final_file_count':len(after),'ref_updated':False}
+          pathlib.Path('transfer-summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write('Verified source commit (ref not moved): `'+commit+'`\n\n```json\n'+json.dumps(summary,indent=2)+'\n```\n')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-transfer-summary
+          path: transfer-summary.json
+          retention-days: 7
+          if-no-files-found: error
