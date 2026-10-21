@@ -1,0 +1,33 @@
+name: Refactor real runtime fixtures
+on:
+  push:
+    branches: [refactor/modular-workbench]
+    paths: [.github/workflows/refactor-runtime.yml]
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install pinned public runtime in disposable directories
+        env:
+          HERDR_CI_VERSION: 0.9.3
+        run: |
+          bash scripts/install-herdr-ci.sh
+          mkdir -p "$RUNNER_TEMP/runtime"
+          npm install --prefix "$RUNNER_TEMP/runtime/dsh" --no-audit --no-fund @deepseek-ai/dsh@0.2.1-alpha.2
+          cp "$RUNNER_TEMP/herdr-bin/herdr" "$RUNNER_TEMP/runtime/herdr"
+          "$RUNNER_TEMP/runtime/herdr" api schema --json > "$RUNNER_TEMP/runtime/herdr-api.schema.json"
+          tar -czf "$RUNNER_TEMP/runtime.tgz" -C "$RUNNER_TEMP/runtime" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: refactor-runtime
+          path: ${{ runner.temp }}/runtime.tgz
+          retention-days: 1
