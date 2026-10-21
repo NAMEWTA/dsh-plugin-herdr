@@ -6,10 +6,10 @@ import {mkdtemp,mkdir,writeFile,rm,readFile} from 'node:fs/promises'
 import {createServer} from 'node:net'
 import {tmpdir} from 'node:os'
 import {join,resolve} from 'node:path'
-import {createRequire} from 'node:module'
 import {setTimeout as delay} from 'node:timers/promises'
 import {chromium} from 'playwright'
 import {readWebStartupUrl,redactLaunchTokens} from './startup-utils.mjs'
+import {refuseWebsocket} from './gateway-probe.mjs'
 const [cliArg,archiveArg]=process.argv.slice(2)
 assert.ok(cliArg&&archiveArg,'Usage: node tests/e2e/dsh.mjs <dsh/bin.js> <final-package.tgz>')
 const cli=resolve(cliArg),archive=resolve(archiveArg),binary=process.env.HERDR_TEST_BINARY
@@ -30,7 +30,6 @@ async function enter(p,url,first){p.on('pageerror',error=>errors.push(error.mess
   const key=p.getByRole('dialog',{name:'Add an API key to get started',exact:true});await key.getByRole('button',{name:'Configure later',exact:true}).click({timeout:30000});await key.waitFor({state:'hidden'});await icon.locator('xpath=ancestor::*[self::button or @role="button" or @role="tab"][1]').click();await p.locator('.wb-root').waitFor({timeout:30000});await p.getByRole('heading',{name:'Operations overview',exact:true}).waitFor({timeout:30000})}
 async function confirm(p){await p.getByRole('dialog').getByRole('button',{name:'Confirm',exact:true}).click()}
 async function terminalReady(p){await p.locator('[data-wb-terminal][data-ready="true"]').waitFor({timeout:30000})}
-async function refuseWebsocket(url,headers){const require=createRequire(import.meta.url),jsdomRequire=createRequire(require.resolve('jsdom/package.json')),WebSocket=jsdomRequire('ws');return new Promise((done,reject)=>{const ws=new WebSocket(url,{headers,handshakeTimeout:5000});let finished=false;const finish=(error,status)=>{if(finished)return;finished=true;clearTimeout(timer);ws.terminate();error?reject(error):done(status)};const timer=setTimeout(()=>finish(Error('Security probe timed out')),6000);ws.on('open',()=>finish(Error('Unauthenticated/foreign-Origin gateway upgrade was accepted')));ws.on('unexpected-response',(_req,res)=>{res.resume();[401,403].includes(res.statusCode)?finish(null,res.statusCode):finish(Error('Unexpected gateway rejection status '+res.statusCode))});ws.on('error',error=>{if(!finished)finish(error)})})}
 try{
  const version=command(['--version']).trim();assert.match(version,/0\.2\.1-alpha\.2/);assert.match(execFileSync(binary,['--version'],{encoding:'utf8'}),/0\.9\.3/)
  daemon=spawn(binary,['server'],{env,cwd:home,stdio:['ignore','pipe','pipe']});daemon.stdout.on('data',b=>daemonLog=(daemonLog+b).slice(-65536));daemon.stderr.on('data',b=>daemonLog=(daemonLog+b).slice(-65536))
