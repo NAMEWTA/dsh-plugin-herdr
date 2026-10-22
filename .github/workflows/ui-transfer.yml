@@ -1,0 +1,76 @@
+name: Verify UI implementation transfer
+on:
+  push:
+    branches: [feat/herdr-navigation-studio]
+    paths: [.github/workflows/ui-transfer.yml]
+permissions:
+  contents: write
+jobs:
+  transfer:
+    if: github.repository == 'NAMEWTA/dsh-plugin-herdr' && github.ref == 'refs/heads/feat/herdr-navigation-studio'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify patch and create source-only tree, without updating any ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,hashlib,lzma,pathlib,tempfile,subprocess,urllib.request
+          repo='NAMEWTA/dsh-plugin-herdr'
+          parent=os.environ['GITHUB_SHA']
+          def api(path,data=None):
+              req=urllib.request.Request('https://api.github.com/repos/'+repo+'/'+path,data=None if data is None else json.dumps(data).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+              with urllib.request.urlopen(req,timeout=90) as r:return json.load(r)
+          def blob(data): return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          assert api('git/ref/heads/feat/herdr-navigation-studio')['object']['sha']==parent
+          hashes='bc68d6a937d279413f25f6256b8345cc2c799a2f 53d86112b6a72953540329000f2740def0b35d3d 5e5a73372d71634f34f5ef5021bcd027b82f20ad 7b4234a523a18454d9def1c72165518f30eb28ee'.split()
+          parts=[]
+          for i,sha in enumerate(hashes):
+              data=base64.b64decode(api('git/blobs/'+sha)['content'])
+              assert len(data)==(2584 if i==3 else 12000) and blob(data)==sha
+              parts.append(data)
+          data=b''.join(parts)
+          expected='8a30a0263e729d2a1aa5f3977559fe163245eea82cbeb43c0b1f10bfb8555925'
+          assert len(data)==38584 and hashlib.sha256(data).hexdigest()==expected
+          source=json.loads(lzma.decompress(data))
+          assert len(source['expected'])==26 and len(source['files'])==5
+          for path in source['expected']:
+              p=pathlib.PurePosixPath(path)
+              assert not p.is_absolute() and '..' not in p.parts and '.git' not in p.parts and '.github' not in p.parts and str(p)==path
+          assert set(source['files']).issubset(source['expected'])
+          with tempfile.NamedTemporaryFile(mode='w',suffix='.patch') as f:
+              f.write(source['patch']);f.flush()
+              subprocess.run(['git','apply','--check',f.name],check=True)
+              subprocess.run(['git','apply',f.name],check=True)
+          for path,content in source['files'].items():
+              p=pathlib.Path(path)
+              assert not p.exists()
+              p.parent.mkdir(parents=True,exist_ok=True)
+              p.write_text(content)
+          changes=[]
+          for path,sha in source['expected'].items():
+              b=pathlib.Path(path).read_bytes()
+              assert blob(b)==sha, 'Source mismatch: '+path
+              changes.append({'path':path,'type':'blob','mode':'100644','content':b.decode()})
+          changed=set(subprocess.check_output(['git','diff','--name-only']).decode().splitlines())
+          assert changed==set(source['expected'])-set(source['files'])
+          base=api('git/commits/'+parent)['tree']['sha']
+          tree=api('git/trees',{'base_tree':base,'tree':changes})['sha']
+          final=api('git/trees/'+tree+'?recursive=1')
+          assert not final.get('truncated')
+          entries={e['path']:e for e in final['tree']}
+          for path,sha in source['expected'].items():assert entries[path]['sha']==sha,path
+          summary={'parent':parent,'tree':tree,'files':26,'snapshot_sha256':expected,'refs_updated':False}
+          pathlib.Path('transfer-summary.json').write_text(json.dumps(summary,indent=2))
+          print(json.dumps(summary,indent=2))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ui-verified-tree
+          path: transfer-summary.json
+          retention-days: 7
+          if-no-files-found: error
