@@ -19,7 +19,7 @@ function handle(run:(signal:AbortSignal,input:AsyncIterable<unknown>)=>AsyncIter
   return {send:(value:unknown)=>input.push(value),end:()=>input.close(),dispose(){abort.abort();input.close()},[Symbol.asyncIterator]:()=>run(abort.signal,input)[Symbol.asyncIterator]()}
 }
 const remote = {
-  connect:async()=>({ok:true,value:{clientId:'fixture-client-id-1234567890123456',capabilities:[]}}),
+  connect:async()=>({ok:true,value:{clientId:'f'.repeat(32),capabilities:[]}}),
   disconnect:async()=>({ok:true,value:{}}),
   request:async({envelope}:{envelope:RequestEnvelope})=>{operations.push({operation:envelope.operation,input:envelope.input});return {ok:true,value:await demo.client.request(envelope)}},
   events:()=>handle(signal=>demo.client.events(signal)),

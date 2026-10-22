@@ -5,7 +5,8 @@ import {readFile,mkdir,writeFile} from 'node:fs/promises'
 import {resolve} from 'node:path'
 import assert from 'node:assert/strict'
 import {chromium} from 'playwright'
-const out=resolve('.evidence/packaged-client');await mkdir(out,{recursive:true})
+const legacy=process.argv.includes('--expect-legacy-failure')
+const out=resolve('.evidence/packaged-client'+(legacy?'-before':''));await mkdir(out,{recursive:true})
 await build({config:false,entry:{host:'tests/e2e/packaged-client-host.tsx'},outDir:out,platform:'browser',format:['iife'],dts:false,minify:true,jsx:'automatic',target:'es2022',outputOptions:{codeSplitting:false},deps:{alwaysBundle:[/.*/]},define:{'process.env.NODE_ENV':'"production"'},logLevel:'error'})
 const host=await readFile(resolve(out,'host.iife.js')),client=process.argv[2]?execFileSync('tar',['-xOf',resolve(process.argv[2]),'package/lib/client.js']):await readFile('apps/dsh-plugin/lib/client.js')
 const legacyRequests=[],errors=[]
@@ -29,6 +30,12 @@ try{
   const operations=await page.evaluate(()=>window.terminalOperations)
   const alerts=await page.locator('.wb-page [role="alert"]').allTextContents()
   await writeFile(resolve(out,'result.json'),JSON.stringify({legacyRequests,alerts,errors,operations:operations.filter(x=>x.operation.startsWith('herdr.terminal')).map(x=>({operation:x.operation,mode:x.input.mode}))},null,2))
+  if(legacy){
+    assert.equal(legacyRequests.length,1);assert.ok(legacyRequests[0].endsWith('/terminal.js'))
+    assert.equal(alerts.length,1);assert.ok(alerts[0].includes('发生内部错误，请保留请求编号用于诊断。'))
+    assert.equal(operations.filter(x=>x.operation==='herdr.terminal.open').length,0)
+    console.log('Confirmed 1.0.1 renderer failure before any terminal lease request');
+  }else{
   assert.deepEqual(alerts,[],'Terminal initialization must not become a generic internal error')
   await page.getByText('观察中 · 不接收输入',{exact:true}).waitFor()
   assert.equal(operations.filter(x=>x.operation==='herdr.terminal.open').length,1)
@@ -36,4 +43,5 @@ try{
   assert.deepEqual(legacyRequests,[],'Published plugin must not require a separately proxied root asset route')
   assert.deepEqual(errors,[])
   console.log('Packaged-client terminal startup passed without private root asset route')
+  }
 }finally{await browser?.close();await new Promise(done=>server.close(done))}

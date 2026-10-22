@@ -87,5 +87,6 @@ export function Modal({open,onOpenChange,title,description,children,className}:{
 }
 export function ErrorNotice({error,retry}:{error:unknown;retry?:()=>void}){
   const {t}=useWorkbench(),code=error&&typeof error==='object'&&'code'in error&&typeof error.code==='string'?error.code:'INTERNAL_ERROR'
-  return <Notice tone="danger" title={t('errorTitle')}><p>{code in messages?t(code as MessageKey):t('INTERNAL_ERROR')}</p>{error instanceof RequestError&&<p className="wb-small">{t('requestId')}: <code>{error.requestId}</code></p>}{retry&&<Button onClick={retry}>{t('retry')}</Button>}</Notice>
+  const known=Object.hasOwn(messages,code),local=!(error instanceof RequestError)
+  return <Notice tone="danger" title={t('errorTitle')}><p>{local&&(!known||code==='INTERNAL_ERROR')?t('LOCAL_OPERATION_FAILED'):known?t(code as MessageKey):t('INTERNAL_ERROR')}</p>{local&&<p className="wb-small">{t('diagnosticCode')}: <code>{known?code:'LOCAL_OPERATION_FAILED'}</code></p>}{error instanceof RequestError&&<p className="wb-small">{t('requestId')}: <code>{error.requestId}</code></p>}{retry&&<Button onClick={retry}>{t('retry')}</Button>}</Notice>
 }

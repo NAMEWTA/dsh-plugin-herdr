@@ -1,6 +1,5 @@
 import { mountWorkbench, type WebContext } from '@workbench/dsh/web'
 import { herdrWeb, configureTerminalLoader } from '@workbench/herdr/web'
-import { BUILD } from './build.ts'
 import styles from './styles.generated.ts'
 // Synchronous injection is claimed and disposed by DSH's documented module loader.
 if (typeof document !== 'undefined' && !document.getElementById('namewta-workbench-styles')) {
@@ -8,7 +7,9 @@ if (typeof document !== 'undefined' && !document.getElementById('namewta-workben
 }
 export const inject = ['slots','locale','remote','sessions']
 export async function apply(ctx: WebContext) {
-  const reset=configureTerminalLoader(()=>import(/* @vite-ignore */ new URL('/_workbench/assets/'+BUILD.sha+'/terminal.js',window.location.origin).href))
+  // Inline this deferred module into the public DSH client artifact. No private root URL,
+  // extra proxy route, CDN request, blob evaluation or weakened CSP is required.
+  const reset=configureTerminalLoader(()=>import('./terminal-driver.ts'))
   ctx.effect(()=>reset)
   await mountWorkbench(ctx,[herdrWeb])
 }
