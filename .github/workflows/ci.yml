@@ -1,7 +1,7 @@
 name: Workbench acceptance
 on:
   push:
-    branches: [main, refactor/modular-workbench]
+    branches: [main]
   pull_request:
 permissions:
   contents: read
@@ -24,6 +24,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm quality
+      - run: python3 tooling/cleanup-branches.py --check
       - name: Build immutable candidate, never publish it
         run: |
           mkdir -p artifacts
@@ -125,7 +126,7 @@ jobs:
           (cd artifacts && sha256sum --check SHA256SUMS)
           python3 - <<'PY'
           import json,os,pathlib,tarfile
-          expected='1.0.0-alpha.1'
+          expected='1.0.1-alpha.1'
           root=json.loads(pathlib.Path('apps/dsh-plugin/package.json').read_text())
           build=json.loads(pathlib.Path('artifacts/build.json').read_text())
           assert root['version']==build['version']==expected, 'Another version needs explicit release authorization'
@@ -144,7 +145,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=v1.0.0-alpha.1
+          tag=v1.0.1-alpha.1
           test "$(gh api "repos/$GH_REPO/branches/main" --jq .commit.sha)" = "$GITHUB_SHA"
           # Read the full collection before writing, so API/auth failures are not mistaken for absence.
           gh api --paginate "repos/$GH_REPO/releases?per_page=100" --jq '.[].tag_name' > existing-releases.txt
@@ -152,7 +153,7 @@ jobs:
             echo 'Release already exists. Preserving it; no files, notes or tags are overwritten.'
             exit 0
           fi
-          gh release create "$tag" artifacts/*.tgz artifacts/SHA256SUMS artifacts/build.json artifacts/sbom.cdx.json --target "$GITHUB_SHA" --draft --prerelease --title 'Workbench 1.0.0-alpha.1 — modular Herdr workbench' --notes-file docs/releases/1.0.0-alpha.1.md
+          gh release create "$tag" artifacts/*.tgz artifacts/SHA256SUMS artifacts/build.json artifacts/sbom.cdx.json --target "$GITHUB_SHA" --draft --prerelease --title 'Workbench 1.0.1-alpha.1 — modular Herdr workbench' --notes-file docs/releases/1.0.1-alpha.1.md
           gh release view "$tag" --json assets,isDraft,isPrerelease > release-check.json
           python3 - <<'PY'
           import json,pathlib
@@ -164,3 +165,7 @@ jobs:
           PY
           gh release edit "$tag" --draft=false --prerelease --latest=false
           gh release view "$tag" --json url,tagName,isDraft,isPrerelease
+      - name: Clean only reviewed merged branches after verified publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tooling/cleanup-branches.py --execute

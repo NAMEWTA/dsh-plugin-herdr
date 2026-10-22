@@ -38,6 +38,15 @@ export const environmentSchema = z.object({
   replayBytes:z.number().int(),subscriptions:z.number().int(),closingProcesses:z.number().int(),
 }).strict()
 export type EnvironmentReport = z.infer<typeof environmentSchema>
+export const inspectorCommandSchema = z.object({
+  id:z.enum(['snapshot','pane','layout','process','output','agent']), command:z.string().max(16384),
+}).strict()
+export const paneInspectionSchema = z.object({
+  sampledAt:z.number(),pane:paneSchema,workspace:workspaceSchema,tab:tabSchema,
+  socketPath:z.string(),session:z.string(),binary:z.string().nullable(),
+  commands:z.array(inspectorCommandSchema).max(6),
+}).strict()
+export type PaneInspection = z.infer<typeof paneInspectionSchema>
 export const empty = z.object({}).strict()
 const label = z.string().trim().min(1).max(120).refine(v=> !/[\x00-\x1f\x7f]/.test(v), 'Control characters are not allowed')
 const confirmed = z.literal(true)
@@ -64,6 +73,7 @@ export type TerminalEvent = z.infer<typeof terminalEventSchema>
 export const bindingSchema = z.object({conversationId:z.string(),ref:resourceSchema.nullable()}).strict()
 export const catalog = {
   'herdr.snapshot': {kind:'query',capability:'herdr.read',input:empty,output:snapshotSchema},
+  'herdr.pane.inspect': {kind:'query',capability:'herdr.read',input:z.object({ref:resourceSchema}).strict(),output:paneInspectionSchema},
   'herdr.environment': {kind:'query',capability:'herdr.read',input:empty,output:environmentSchema},
   'herdr.server.start': {kind:'action',capability:'herdr.settings',input:z.object({confirmed}).strict(),output:environmentSchema},
   'herdr.workspace.create': {kind:'action',capability:'herdr.manage',input:z.object({label,cwd:z.string().min(1).max(4096)}).strict(),output:resourceSchema},

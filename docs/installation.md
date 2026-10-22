@@ -1,6 +1,6 @@
 # Workbench 安装与配置 / Installation
 
-这是新的独立包 `@namewta/dsh-workbench@1.0.0-alpha.1`，不是旧包的兼容更新。候选构件不等于已经发布到 npm。
+这是新的独立包 `@namewta/dsh-workbench@1.0.1-alpha.1`，不是旧包的兼容更新。候选构件不等于已经发布到 npm。
 
 ## 冻结环境
 
@@ -11,7 +11,7 @@ npm install --global pnpm@10.28.2
 npm install --global @deepseek-ai/dsh@0.2.1-alpha.2
 # 在候选包与 SHA256SUMS 所在目录检查校验值：
 sha256sum --check SHA256SUMS
-dsh plugin --profile web add /absolute/path/namewta-dsh-workbench-1.0.0-alpha.1.tgz
+dsh plugin --profile web add /absolute/path/namewta-dsh-workbench-1.0.1-alpha.1.tgz
 dsh web
 ```
 

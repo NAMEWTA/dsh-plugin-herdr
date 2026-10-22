@@ -5,6 +5,7 @@ import { memoryClient, testPrincipal } from '@workbench/testkit'
 import { notesModule, notesManifest } from '@workbench/example-notes'
 import { herdrManifest } from '@workbench/herdr/manifest'
 import { catalog, terminalAttachSchema, terminalEventSchema, terminalInputSchema, type HerdrSnapshot, type ResourceRef, type OperationId } from '@workbench/herdr/contracts'
+import { inspectPane } from '@workbench/herdr/inspection'
 import type { ModuleContext } from '@workbench/sdk'
 const ref = (kind:ResourceRef['kind'],id:string):ResourceRef => ({connectionId:'local',session:'demo',epoch:'fixture-epoch',kind,id,instance:'fixture-'+id})
 export function fixture(scenario='normal'): HerdrSnapshot {
@@ -18,7 +19,7 @@ export function fixture(scenario='normal'): HerdrSnapshot {
 }
 export async function createDemo(scenario: string): Promise<{client:WorkbenchClient;dispose:()=>Promise<void>}> {
   const storage = new MemoryStorage(),audit = new MemoryAudit(),runtime = new WorkbenchRuntime({storage,audit})
-  runtime.register(createPlatformModule(runtime,audit,{version:'1.0.0-alpha.1 · FIXTURE',sha:'development'}))
+  runtime.register(createPlatformModule(runtime,audit,{version:'1.0.1-alpha.1 · FIXTURE',sha:'development'}))
   let state = fixture(scenario),serial = 10
   const bindings=new Map<string,ResourceRef|null>();if(scenario==='bound')bindings.set('demo-conversation',ref('workspace','w1'))
   runtime.register({manifest:herdrManifest,start(ctx:ModuleContext){
@@ -28,7 +29,9 @@ export async function createDemo(scenario: string): Promise<{client:WorkbenchCli
         if (scenario==='loading') await new Promise(resolve=>setTimeout(resolve,10000))
         if (scenario==='forbidden') throw new WorkbenchError('FORBIDDEN')
         if (id==='herdr.snapshot') return state
-        if (id==='herdr.environment'||id==='herdr.server.start') return {process:{pid:1234,startedAt:Date.now()-100000,sampledAt:Date.now(),cpuPercent:null,rssBytes:64000000,source:'node-process'},replayBytes:0,subscriptions:0,closingProcesses:0,platform:'linux',arch:'x64',binary:'/demo/herdr',version:'herdr 0.9.3',installation:'installed',connected:true,verified:true,socketPath:'/demo/herdr.sock',session:'demo',rootDirectory:'/demo/workbench',streaming:true,supported:true,error:null,bridgeProcesses:0,observers:0,controllers:0,limits:{maxProcesses:16,maxObservers:8,maxControllers:2},agentKinds:['claude','codex']}
+        const environment = {process:{pid:1234,startedAt:Date.now()-100000,sampledAt:Date.now(),cpuPercent:null,rssBytes:64000000,source:'node-process'},replayBytes:0,subscriptions:0,closingProcesses:0,platform:'linux',arch:'x64',binary:'/demo/herdr',version:'herdr 0.9.3',installation:'installed',connected:true,verified:true,socketPath:'/demo/herdr.sock',session:'demo',rootDirectory:'/demo/workbench',streaming:true,supported:true,error:null,bridgeProcesses:0,observers:0,controllers:0,limits:{maxProcesses:16,maxObservers:8,maxControllers:2},agentKinds:['claude','codex']} as const
+        if (id==='herdr.environment'||id==='herdr.server.start') return environment
+        if (id==='herdr.pane.inspect') return inspectPane(state, {...environment,agentKinds:[...environment.agentKinds]}, (input as {ref:ResourceRef}).ref)
         const value = input as Record<string,unknown>
         if(id==='herdr.workspace.create'||id==='herdr.conversation.create'){
           const conversation=String(value.conversationId??'')
