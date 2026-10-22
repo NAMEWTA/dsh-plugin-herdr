@@ -91,6 +91,15 @@ jobs:
           name: workbench-candidate
           path: artifacts
       - run: cd artifacts && sha256sum --check SHA256SUMS
+      - name: Reproduce released failure and verify final client without a private root asset route
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .evidence/baseline
+          gh release download v1.0.1-alpha.1 --repo NAMEWTA/dsh-plugin-herdr --pattern 'namewta-dsh-workbench-1.0.1-alpha.1.tgz' --dir .evidence/baseline
+          echo 'a62ad41017071b3f068576836f81fadfd52f94001171ca47ecfc59cbfb4c8a94  .evidence/baseline/namewta-dsh-workbench-1.0.1-alpha.1.tgz' | sha256sum --check
+          node tests/e2e/packaged-client.mjs .evidence/baseline/*.tgz --expect-legacy-failure
+          node tests/e2e/packaged-client.mjs artifacts/*.tgz
       - run: bash tooling/install-herdr-ci.sh
       - name: Install exact published host, not a local substitute
         run: npm install --prefix "$RUNNER_TEMP/dsh" --no-audit --no-fund @deepseek-ai/dsh@0.2.1-alpha.2
@@ -126,7 +135,7 @@ jobs:
           (cd artifacts && sha256sum --check SHA256SUMS)
           python3 - <<'PY'
           import json,os,pathlib,tarfile
-          expected='1.0.1-alpha.1'
+          expected='1.0.2-alpha.1'
           root=json.loads(pathlib.Path('apps/dsh-plugin/package.json').read_text())
           build=json.loads(pathlib.Path('artifacts/build.json').read_text())
           assert root['version']==build['version']==expected, 'Another version needs explicit release authorization'
@@ -145,7 +154,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=v1.0.1-alpha.1
+          tag=v1.0.2-alpha.1
           test "$(gh api "repos/$GH_REPO/branches/main" --jq .commit.sha)" = "$GITHUB_SHA"
           # Read the full collection before writing, so API/auth failures are not mistaken for absence.
           gh api --paginate "repos/$GH_REPO/releases?per_page=100" --jq '.[].tag_name' > existing-releases.txt
@@ -153,7 +162,7 @@ jobs:
             echo 'Release already exists. Preserving it; no files, notes or tags are overwritten.'
             exit 0
           fi
-          gh release create "$tag" artifacts/*.tgz artifacts/SHA256SUMS artifacts/build.json artifacts/sbom.cdx.json --target "$GITHUB_SHA" --draft --prerelease --title 'Workbench 1.0.1-alpha.1 — modular Herdr workbench' --notes-file docs/releases/1.0.1-alpha.1.md
+          gh release create "$tag" artifacts/*.tgz artifacts/SHA256SUMS artifacts/build.json artifacts/sbom.cdx.json --target "$GITHUB_SHA" --draft --prerelease --title 'Workbench 1.0.2-alpha.1 — modular Herdr workbench' --notes-file docs/releases/1.0.2-alpha.1.md
           gh release view "$tag" --json assets,isDraft,isPrerelease > release-check.json
           python3 - <<'PY'
           import json,pathlib
@@ -165,7 +174,3 @@ jobs:
           PY
           gh release edit "$tag" --draft=false --prerelease --latest=false
           gh release view "$tag" --json url,tagName,isDraft,isPrerelease
-      - name: Clean only reviewed merged branches after verified publication
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 tooling/cleanup-branches.py --execute

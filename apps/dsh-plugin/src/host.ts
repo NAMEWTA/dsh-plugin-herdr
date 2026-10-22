@@ -1,7 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
 import { join } from 'node:path'
-import { readFile } from 'node:fs/promises'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { WorkbenchRuntime, createPlatformModule } from '@workbench/core'
 import { createHerdrModule, createHerdrToolBridge, herdrManifest } from '@workbench/herdr'
@@ -16,14 +15,6 @@ export const inject = ['profileContext','webServer']
 declare module '@deepseek-ai/cordis' { interface Context { profileContext: {name:string;dir:string} } }
 interface PresetRegistry { register(definition:{id:string;name:string;description:string;plugins:Array<{id:string;name:string;config:Record<string,unknown>}>}):Promise<()=>Promise<void>> }
 export async function apply(ctx: Context, input: HostConfig): Promise<void> {
-  const asset=await readFile(new URL('./terminal.js',import.meta.url))
-  const stopAsset=ctx.webServer.register({kind:'exact',path:'/_workbench/assets/'+BUILD.sha+'/terminal.js',handler:(req,res)=>{
-    if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405,{Allow:'GET, HEAD'});res.end();return}
-    // Public executable code only: this handler has no data or terminal authority.
-    res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','X-Content-Type-Options':'nosniff','Cross-Origin-Resource-Policy':'same-origin','Cache-Control':'public, max-age=31536000, immutable','Content-Length':asset.byteLength})
-    res.end(req.method==='HEAD'?undefined:asset)
-  }})
-  ctx.effect(()=>stopAsset)
   const profile = z.object({name:z.string(),dir:z.string()}).parse(ctx.profileContext)
   const config = resolveConfig(input,profile.dir)
   const storage = new FileStorage(config.dataDirectory), audit = new FileAudit(join(config.dataDirectory,'audit'))

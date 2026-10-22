@@ -1,4 +1,8 @@
 export const messages={
+  diagnosticCode:['诊断代码','Diagnostic code'],
+  LOCAL_OPERATION_FAILED:['浏览器端操作未完成。请重试；若持续失败，请提供诊断代码。','The browser operation could not finish. Retry; if it persists, report the diagnostic code.'],
+  TERMINAL_RENDERER_UNAVAILABLE:['终端显示组件未能加载。请刷新页面后重试，并确认浏览器与服务端安装的是同一版本。尚未申请终端控制权限。','The terminal renderer could not load. Refresh and ensure the browser and server use the same plugin version. No terminal control was requested.'],
+  TERMINAL_INITIALIZATION_FAILED:['终端显示组件初始化失败。请刷新页面或使用受支持的浏览器；连接已关闭，未自动重发输入。','The terminal renderer could not initialize. Refresh or use a supported browser. The connection was closed; input was not replayed.'],
   navigation:['功能导航','Feature navigation'], moduleRail:['功能模块','Feature modules'], systemArea:['工作台设置','Workbench settings'],
   expandNavigation:['展开导航','Expand navigation'], collapseNavigation:['收起导航','Collapse navigation'],
   moduleNavigation:['模块导航','Module navigation'], preferencesArea:['偏好与管理','Preferences and administration'],

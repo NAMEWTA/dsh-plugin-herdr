@@ -4,7 +4,7 @@
 
 `@namewta/dsh-workbench` 替换旧插件架构：统一 React 界面、第一方模块 SDK、服务端授权、明确的资源归属和受控终端。没有旧 API、旧配置、旧导出或旧预设兼容层。旧插件不被自动卸载，已有工作区和 Agent 不被迁移或删除。
 
-> 当前版本为 `1.0.1-alpha.1` 预览版；GitHub 构件仅在 main 验收通过后发布，不发布 npm。GitHub 仓库仍位于原 fork 网络；代码重构不等于完成管理员侧的脱离操作。[发布说明](docs/releases/1.0.1-alpha.1.md)与[验收边界](docs/acceptance.md)列明未完成项。
+> 当前版本为 `1.0.2-alpha.1` 预览版；GitHub 构件仅在 main 验收通过后发布，不发布 npm。GitHub 仓库仍位于原 fork 网络；代码重构不等于完成管理员侧的脱离操作。[发布说明](docs/releases/1.0.2-alpha.1.md)与[验收边界](docs/acceptance.md)列明未完成项。
 
 ## 产品结构
 
