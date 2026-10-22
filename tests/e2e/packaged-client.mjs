@@ -8,7 +8,7 @@ import {chromium} from 'playwright'
 const legacy=process.argv.includes('--expect-legacy-failure')
 const out=resolve('.evidence/packaged-client'+(legacy?'-before':''));await mkdir(out,{recursive:true})
 await build({config:false,entry:{host:'tests/e2e/packaged-client-host.tsx'},outDir:out,platform:'browser',format:['iife'],dts:false,minify:true,jsx:'automatic',target:'es2022',outputOptions:{codeSplitting:false},deps:{alwaysBundle:[/.*/]},define:{'process.env.NODE_ENV':'"production"'},logLevel:'error'})
-const host=await readFile(resolve(out,'host.iife.js')),client=process.argv[2]?execFileSync('tar',['-xOf',resolve(process.argv[2]),'package/lib/client.js']):await readFile('apps/dsh-plugin/lib/client.js')
+const host=await readFile(resolve(out,'host.iife.js')),client=process.argv[2]?execFileSync('tar',['-xOf',resolve(process.argv[2]),'package/lib/client.js'],{maxBuffer:8*1024*1024,timeout:15000}):await readFile('apps/dsh-plugin/lib/client.js')
 const legacyRequests=[],errors=[]
 const server=createServer((req,res)=>{
   if(req.url?.startsWith('/_workbench/')){legacyRequests.push(req.url);res.writeHead(404);res.end('No private root route');return}
