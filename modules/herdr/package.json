@@ -1,6 +1,6 @@
 {
   "name": "@workbench/herdr",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.1-alpha.1",
   "private": true,
   "type": "module",
   "exports": {
@@ -8,7 +8,8 @@
     "./contracts": "./src/contracts/index.ts",
     "./web": "./src/web/index.tsx",
     "./manifest": "./src/manifest.ts",
-    "./contracts/config": "./src/contracts/config.ts"
+    "./contracts/config": "./src/contracts/config.ts",
+    "./inspection": "./src/domain/inspector.ts"
   },
   "devDependencies": {
     "@workbench/contracts": "workspace:*",

@@ -6,6 +6,7 @@ import { herdrManifest } from './manifest.ts'
 import { catalog, terminalAttachSchema, terminalEventSchema, terminalInputSchema, resourceSchema, type ResourceRef } from './contracts/index.ts'
 import { connectionConfigSchema, type ConnectionConfig } from './contracts/config.ts'
 import { LocalHerdrClient, type HerdrPort } from './infrastructure/herdr-api/client.ts'
+import { inspectPane } from './domain/inspector.ts'
 import { HerdrReadModel } from './application/read-model.ts'
 import { TerminalLeases } from './application/terminals.ts'
 import { TerminalSessionManager } from './infrastructure/terminal/manager.ts'
@@ -47,6 +48,15 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
       await port.request(method,params,context.signal,true);await model.refresh();return {}
     }
     register({...catalog['herdr.snapshot'],id:'herdr.snapshot',run:(_input,c)=>{connection(c.principal);return model.snapshot()}})
+    register({...catalog['herdr.pane.inspect'],id:'herdr.pane.inspect',run:async(input,c)=>{
+      connection(c.principal)
+      if(input.ref.kind!=='pane')throw new WorkbenchError('INVALID_REQUEST')
+      await model.assert(input.ref)
+      const report=await environment.read()
+      await model.assert(input.ref) // Revalidate after executable probing and daemon refresh.
+      if(c.signal.aborted)throw new WorkbenchError('CANCELLED')
+      return inspectPane(model.snapshot(),report,input.ref)
+    }})
     register({...catalog['herdr.environment'],id:'herdr.environment',run:(_input,c)=>{connection(c.principal);return environment.read()}})
     register({...catalog['herdr.server.start'],id:'herdr.server.start',run:(_input,c)=>{connection(c.principal);return environment.start(c.signal)}})
     const createWorkspace=async(input:{label:string;cwd:string},c:OperationContext)=>{
