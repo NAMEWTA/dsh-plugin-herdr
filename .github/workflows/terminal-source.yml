@@ -1,22 +1,30 @@
-name: Terminal regression baseline
+name: Terminal regression reproduction
 on:
   push:
     branches: [fix/terminal-initialization]
-    paths: [.github/workflows/terminal-source.yml]
 permissions:
   contents: read
 jobs:
-  source:
+  reproduce:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Archive tracked public repository source only
-        run: git archive --format=tar.gz --output=terminal-source.tar.gz HEAD
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          name: terminal-source
-          path: terminal-source.tar.gz
-          retention-days: 2
+          node-version: 24.22.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: node tests/e2e/packaged-client.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: terminal-reproduction
+          path: .evidence/packaged-client/
+          retention-days: 14
           if-no-files-found: error
