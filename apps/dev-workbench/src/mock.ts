@@ -9,18 +9,18 @@ import type { ModuleContext } from '@workbench/sdk'
 const ref = (kind:ResourceRef['kind'],id:string):ResourceRef => ({connectionId:'local',session:'demo',epoch:'fixture-epoch',kind,id,instance:'fixture-'+id})
 export function fixture(scenario='normal'): HerdrSnapshot {
   const states = ['blocked','working','done','idle','working','unknown'] as const
-  const panes = Array.from({length:scenario==='large'?1000:6},(_,i)=>({ref:ref('pane','w'+(i%3+1)+':p'+(i+1)),workspaceId:'w'+(i%3+1),tabId:'w'+(i%3+1)+':t1',terminalId:'fixture-terminal-'+i,label:['API · 请求校验','UI · 组件系统','测试 · 终端回归','文档 · 架构说明','修复 · 租约边界','交互 Shell'][i%6]!,title:'Fixture',agent:i%6===5?null:['claude','codex'][i%2]!,state:states[i%6]!,stateSequence:3,cwd:'/demo/workbench',revision:10,ownership:'created' as const}))
+  const panes = Array.from({length:scenario==='large'?1000:6},(_,i)=>({ref:ref('pane','w'+(i%3+1)+':p'+(i+1)),workspaceId:'w'+(i%3+1),tabId:'w'+(i%3+1)+':t1',terminalId:'fixture-terminal-'+i,label:['API · 请求校验','UI · 组件系统','测试 · 终端回归','文档 · 架构说明','修复 · 租约边界','交互 Shell'][i%6]!,title:'Fixture',agent:i%6===5?null:['claude','codex'][i%2]!,state:states[i%6]!,stateSequence:3,cwd:'/demo/workbench',revision:10,ownership:scenario==='external'?'external' as const:'created' as const}))
   const empty = scenario==='empty'
   return {connectionId:'local',session:'demo',epoch:'fixture-epoch',revision:12,sampledAt:Date.now(),receivedAt:Date.now(),connection:scenario==='offline'?'offline':scenario==='unsupported'?'incompatible':'online',stale:['stale','offline','unsupported'].includes(scenario),eventStream:scenario==='stale'?'polling':'connected',eventGap:scenario==='stale',version:'0.9.3',protocol:scenario==='unsupported'?99:22,error:scenario==='offline'?'CONNECTION_UNAVAILABLE':null,
-    workspaces:empty?[]:['Workbench','服务端控制面','文档与验证'].map((label,i)=>({ref:ref('workspace','w'+(i+1)),label,paneCount:panes.filter(p=>p.workspaceId==='w'+(i+1)).length,tabCount:1,ownership:'created' as const})),
-    tabs:empty?[]:[1,2,3].map(i=>({ref:ref('tab','w'+i+':t1'),workspaceId:'w'+i,label:'Main',ownership:'created' as const})),panes:empty?[]:panes,
+    workspaces:empty?[]:['Workbench','服务端控制面','文档与验证'].map((label,i)=>({ref:ref('workspace','w'+(i+1)),label,paneCount:panes.filter(p=>p.workspaceId==='w'+(i+1)).length,tabCount:1,ownership:scenario==='external'?'external' as const:'created' as const})),
+    tabs:empty?[]:[1,2,3].map(i=>({ref:ref('tab','w'+i+':t1'),workspaceId:'w'+i,label:'Main',ownership:scenario==='external'?'external' as const:'created' as const})),panes:empty?[]:panes,
     activity:empty?[]:[{id:'event-2',at:Date.now()-30000,type:'pane_updated',resourceId:'w1:p1'},{id:'event-1',at:Date.now()-60000,type:'workspace_created',resourceId:'w2'}]}
 }
 export async function createDemo(scenario: string): Promise<{client:WorkbenchClient;dispose:()=>Promise<void>}> {
   const storage = new MemoryStorage(),audit = new MemoryAudit(),runtime = new WorkbenchRuntime({storage,audit})
   runtime.register(createPlatformModule(runtime,audit,{version:'1.0.0-alpha.1 · FIXTURE',sha:'development'}))
   let state = fixture(scenario),serial = 10
-  const binding = {conversationId:'demo-conversation',ref:null as ResourceRef|null}
+  const bindings=new Map<string,ResourceRef|null>();if(scenario==='bound')bindings.set('demo-conversation',ref('workspace','w1'))
   runtime.register({manifest:herdrManifest,start(ctx:ModuleContext){
     for (const c of herdrManifest.contributions) ctx.contribution(c)
     for (const [id,definition] of Object.entries(catalog)) {
@@ -30,11 +30,19 @@ export async function createDemo(scenario: string): Promise<{client:WorkbenchCli
         if (id==='herdr.snapshot') return state
         if (id==='herdr.environment'||id==='herdr.server.start') return {process:{pid:1234,startedAt:Date.now()-100000,sampledAt:Date.now(),cpuPercent:null,rssBytes:64000000,source:'node-process'},replayBytes:0,subscriptions:0,closingProcesses:0,platform:'linux',arch:'x64',binary:'/demo/herdr',version:'herdr 0.9.3',installation:'installed',connected:true,verified:true,socketPath:'/demo/herdr.sock',session:'demo',rootDirectory:'/demo/workbench',streaming:true,supported:true,error:null,bridgeProcesses:0,observers:0,controllers:0,limits:{maxProcesses:16,maxObservers:8,maxControllers:2},agentKinds:['claude','codex']}
         const value = input as Record<string,unknown>
-        if (id==='herdr.workspace.create') { const r=ref('workspace','w'+(++serial));state={...state,workspaces:[...state.workspaces,{ref:r,label:String(value.label),paneCount:0,tabCount:0,ownership:'created'}]};ctx.emit({type:'invalidate'});return r }
+        if(id==='herdr.workspace.create'||id==='herdr.conversation.create'){
+          const conversation=String(value.conversationId??'')
+          if(id==='herdr.conversation.create'&&bindings.get(conversation))throw new WorkbenchError('MODULE_CONFLICT')
+          const r=ref('workspace','w'+(++serial)),pane=ref('pane',r.id+':p1'),tab=ref('tab',r.id+':t1')
+          state={...state,workspaces:[...state.workspaces,{ref:r,label:String(value.label),paneCount:1,tabCount:1,ownership:'created'}],tabs:[...state.tabs,{ref:tab,workspaceId:r.id,label:'Main',ownership:'created'}],panes:[...state.panes,{ref:pane,workspaceId:r.id,tabId:tab.id,terminalId:'fixture-'+r.id,label:'Shell',title:'Shell',agent:null,state:'idle',stateSequence:1,cwd:String(value.cwd),revision:1,ownership:'created'}]}
+          ctx.emit({type:'invalidate'})
+          if(id==='herdr.conversation.create'){bindings.set(conversation,r);return {conversationId:conversation,ref:r}}
+          return r
+        }
         if (id==='herdr.resource.rename') { const target=value.ref as ResourceRef;state={...state,workspaces:state.workspaces.map(w=>w.ref.id===target.id?{...w,label:String(value.label)}:w),panes:state.panes.map(p=>p.ref.id===target.id?{...p,label:String(value.label)}:p)};ctx.emit({type:'invalidate'});return {} }
         if (id==='herdr.resource.close') { const target=value.ref as ResourceRef;state={...state,workspaces:state.workspaces.filter(w=>w.ref.id!==target.id),panes:state.panes.filter(p=>p.ref.id!==target.id&&p.workspaceId!==target.id)};ctx.emit({type:'invalidate'});return {} }
-        if (id==='herdr.binding.get') return binding
-        if (id==='herdr.binding.set') {binding.ref=value.ref as ResourceRef|null;return binding}
+        if (id==='herdr.binding.get') return {conversationId:value.conversationId,ref:bindings.get(String(value.conversationId))??null}
+        if (id==='herdr.binding.set') {bindings.set(String(value.conversationId),value.ref as ResourceRef|null);return {conversationId:value.conversationId,ref:value.ref}}
         if (id==='herdr.terminal.open') return {leaseId:'fixture-lease-12345678',sessionId:'fixture-session',mode:value.mode,generation:1,ref:value.ref,expiresAt:Date.now()+3600000}
         if (id==='herdr.tab.create') return ref('tab','w1:t'+(++serial))
         if (id==='herdr.pane.split') return ref('pane','w1:p'+(++serial))

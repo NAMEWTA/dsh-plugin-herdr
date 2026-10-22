@@ -1,5 +1,21 @@
 import { useWorkbench } from '@workbench/ui'
 const messages={
+  herdrNavigation:['Herdr 功能','Herdr features'],navOverview:['概览','Overview'],navAttention:['需要关注','Attention'],
+  thisConversation:['当前会话','This conversation'],linkWorkspace:['关联工作区','Link a workspace'],
+  createFromNavigation:['从导航新建工作区','Create workspace from navigation'],searchTree:['搜索工作区与面板','Find workspace or pane'],
+  workspaceTree:['工作区与面板','Workspaces and panes'],expandWorkspace:['展开工作区','Expand workspace'],collapseWorkspace:['收起工作区','Collapse workspace'],
+  viewPane:['查看面板','View pane'],controlPane:['控制面板','Control pane'],noPanes:['暂无面板','No panes yet'],emptyTree:['工作区将在这里显示','Your workspaces will appear here'],
+  connectionSettings:['Herdr 连接','Herdr connection'],workspaceStudio:['你的 Agent 工作室','Your agent workspace'],
+  studioHint:['打开工作区，接续正在进行的工作。面板默认只读，控制由你决定。','Pick up where you left off. Panes open read-only; you decide when to take control.'],
+  liveWork:['正在进行','Live work'],openWorkspace:['打开工作区','Open workspace'],allWorkspaces:['全部工作区','All workspaces'],
+  viewFirst:['点击面板即可查看 · 控制需单独确认','Click a pane to view · Control is a separate action'],
+  view:['查看','View'],controlShort:['控制','Control'],workspaceDetails:['工作区详情','Workspace details'],
+  managePane:['管理面板','Manage pane'],newPaneHint:['在这里组织你的终端和 Agent','Organize your terminals and agents here'],
+  controlExternalBody:['此面板由外部创建。确认后仅接管此面板的管理权限并申请控制租约，不会接管其他面板，也不会自动输入命令。','This pane was created externally. Confirm to adopt only this pane and request a control lease. Other panes are untouched; no command is typed automatically.'],
+  createBound:['为当前会话新建','Create for this conversation'],createBoundHint:['创建初始面板，并绑定到当前 DSH 会话。已有绑定不会被覆盖。','Create an initial pane and bind the workspace to this DSH conversation. An existing binding is never replaced.'],
+  sessionWork:['当前会话的工作区','Workspace for this conversation'],chooseBinding:['选择要关联的工作区','Choose a workspace to link'],
+  resourceMenu:['资源操作','Resource actions'],scopeSession:['当前会话','This conversation'],scopeAll:['全部工作区','All workspaces'],
+
   buffer:['回放缓冲','Replay buffer'],subscriptions:['终端订阅','Terminal subscriptions'],closing:['清理中','Closing'],
   overview:['运行总览','Operations overview'],overviewHint:['先处理需要关注的事项，再查看工作区与 Agent。','Address what needs attention, then explore workspaces and agents.'],local:['本机连接','Local connection'],online:['已连接','Connected'],offline:['未连接','Disconnected'],incompatible:['协议不支持','Unsupported protocol'],connecting:['正在连接','Connecting'],readAt:['采样于','Sampled at'],scope:['当前范围','Current scope'],stream:['事件推送','Event stream'],polling:['轮询回退','Polling fallback'],gap:['事件存在缺口；当前画面来自重新读取的权威快照。','An event gap occurred. This view uses a newly read authoritative snapshot.'],
   workspaces:['工作区','Workspaces'],panes:['窗格','Panes'],agents:['Agent','Agents'],working:['工作中','Working'],blocked:['等待介入','Needs input'],idle:['空闲','Idle'],done:['回合结束','Turn ended'],unknown:['未知','Unknown'],attention:['待处理事项','Attention inbox'],attentionHint:['blocked 需要查看原始终端；done 仅表示回合结束，不代表任务成功。','Blocked items need inspection in the original terminal. Done means a turn ended, not that the task succeeded.'],

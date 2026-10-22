@@ -1,6 +1,6 @@
-import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from 'react'
+import { Component, useEffect, useMemo, useState, useRef, useId, type ErrorInfo, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Blocks, ChevronRight, Command, Home, Layers3, Menu, Search, Settings, ShieldCheck, X } from 'lucide-react'
+import { ArrowRight, Blocks, ChevronRight, Command, Home, Layers3, Menu, Search, Settings, ShieldCheck, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import type { Locale, RouteLocation, WorkbenchClient } from '@workbench/contracts'
 import { platformSnapshotSchema, preferencesSchema, type Preferences } from '@workbench/contracts/schemas'
 import { Badge, Button, Card, DataTable, EmptyState, ErrorNotice, Field, Input, Modal, PageHeader, Select, Skeleton, UiProvider, request, useWorkbench, type MessageKey, type WebModule } from '@workbench/ui'
@@ -9,9 +9,11 @@ function readPreferences(locale:Locale):Preferences{
   try{return preferencesSchema.parse(JSON.parse(localStorage.getItem(preferenceKey)??'null'))}
   catch{return {version:1,locale,theme:'system',density:'comfortable'}}
 }
-function readRoute(fallback:string):RouteLocation{
+function readRoute(fallback:string,conversationId?:string):RouteLocation{
   if(typeof window==='undefined')return {id:fallback,params:{}}
-  const query=new URL(window.location.href).searchParams,id=query.get('wb.route')??fallback
+  const query=new URL(window.location.href).searchParams
+  if(query.has('wb.context')&&query.get('wb.context')!==(conversationId??'global'))return {id:fallback,params:{}}
+  const id=query.get('wb.route')??fallback
   const params:Record<string,string>={}
   for(const [key,value]of query)if(key.startsWith('wb.')&&key!=='wb.route'&&key.length<80&&value.length<1024)params[key.slice(3)]=value
   return {id,params}
@@ -19,14 +21,14 @@ function readRoute(fallback:string):RouteLocation{
 export function Workbench({client,modules,initialRoute,locale='zh',conversationId}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale?:Locale;conversationId?:string}){
   const [queries]=useState(()=>new QueryClient({defaultOptions:{queries:{staleTime:2000,gcTime:60_000,retry:1,refetchOnWindowFocus:true},mutations:{retry:false}}}))
   useEffect(()=>()=>{queries.clear()},[queries])
-  return <QueryClientProvider client={queries}><Shell client={client} modules={modules} initialRoute={initialRoute} locale={locale} conversationId={conversationId}/></QueryClientProvider>
+  return <QueryClientProvider client={queries}><Shell key={conversationId??'global'} client={client} modules={modules} initialRoute={initialRoute} locale={locale} conversationId={conversationId}/></QueryClientProvider>
 }
 function Shell({client,modules,initialRoute,locale,conversationId}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale:Locale;conversationId?:string}){
-  const cache=useQueryClient(),[prefs,setPrefs]=useState(()=>readPreferences(locale)),[route,setRoute]=useState(()=>readRoute(initialRoute)),[systemDark,setSystemDark]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-color-scheme: dark)').matches)
+  const cache=useQueryClient(),[prefs,setPrefs]=useState(()=>readPreferences(locale)),[route,setRoute]=useState(()=>readRoute(initialRoute,conversationId)),[systemDark,setSystemDark]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-color-scheme: dark)').matches)
   const platform=useQuery({queryKey:['platform','snapshot'],queryFn:async({signal})=>platformSnapshotSchema.parse(await request(client,'platform.snapshot',{},signal)),refetchInterval:10000})
   const capabilities=useMemo(()=>new Set(platform.data?.capabilities??[]),[platform.data?.capabilities])
   useEffect(()=>{const media=matchMedia('(prefers-color-scheme: dark)'),change=()=>setSystemDark(media.matches);media.addEventListener('change',change);return()=>media.removeEventListener('change',change)},[])
-  useEffect(()=>{const change=()=>setRoute(readRoute(initialRoute));window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[initialRoute])
+  useEffect(()=>{const change=()=>setRoute(readRoute(initialRoute,conversationId));window.addEventListener('popstate',change);return()=>window.removeEventListener('popstate',change)},[initialRoute,conversationId])
   useEffect(()=>{
     const abort=new AbortController();
     const run=async()=>{
@@ -42,7 +44,7 @@ function Shell({client,modules,initialRoute,locale,conversationId}:{client:Workb
   const navigate=(id:string,params:Record<string,string>={})=>{
     const url=new URL(window.location.href)
     for(const name of [...url.searchParams.keys()])if(name.startsWith('wb.'))url.searchParams.delete(name)
-    url.searchParams.set('wb.route',id);for(const [name,value]of Object.entries(params))url.searchParams.set('wb.'+name,value)
+    url.searchParams.set('wb.context',conversationId??'global');url.searchParams.set('wb.route',id);for(const [name,value]of Object.entries(params))url.searchParams.set('wb.'+name,value)
     if(window.location.protocol==='http:'||window.location.protocol==='https:')window.history.pushState({},'',url);setRoute({id,params})
   }
   const setPreferences=(partial:Partial<Preferences>)=>setPrefs(current=>{const next=preferencesSchema.parse({...current,...partial});try{localStorage.setItem(preferenceKey,JSON.stringify(next))}catch{/* private mode: keep preferences in memory */}return next})
@@ -55,36 +57,64 @@ function Shell({client,modules,initialRoute,locale,conversationId}:{client:Workb
 }
 type Platform=ReturnType<typeof platformSnapshotSchema.parse>
 function Chrome({modules,platform,loading,error,retry}:{modules:readonly WebModule[];platform:Platform|undefined;loading:boolean;error:unknown;retry:()=>void}){
-  const ui=useWorkbench(),{t,route,navigate,localize,capabilities}=ui,[menu,setMenu]=useState(false),[palette,setPalette]=useState(false),[search,setSearch]=useState('')
+  const ui=useWorkbench(),{t,route,navigate,localize,capabilities}=ui
+  const [section,setSection]=useState(route.id.startsWith('platform.')?'platform':route.id.split('.')[0]!)
+  const [expanded,setExpanded]=useState(true),[narrow,setNarrow]=useState(false)
+  const [palette,setPalette]=useState(false),[search,setSearch]=useState('')
+  const root=useRef<HTMLDivElement>(null),navigationId=useId()
   const contributions=platform?.contributions??[]
   const active=new Set(platform?.modules.filter(m=>m.state==='active').map(m=>m.manifest.id)??[])
+  const available=modules.filter(m=>active.has(m.manifest.id)&&m.manifest.contributions.some(c=>capabilities.has(c.capability)))
+  const module=available.find(m=>m.manifest.contributions.some(c=>c.id===route.id)),View=module?.pages[route.id]
+  const browsing=available.find(m=>m.manifest.id===section),Navigation=browsing?.navigation
   const selected=contributions.find(c=>c.id===route.id)
-  const module=modules.find(m=>active.has(m.manifest.id)&&m.manifest.contributions.some(c=>c.id===route.id)),View=module?.pages[route.id]
-  const go=(id:string)=>{navigate(id);setMenu(false)}
+  const routeTitle=selected?localize(selected.title):route.id==='platform.modules'?t('modules'):route.id==='platform.settings'?t('settings'):route.id==='platform.audit'?t('audit'):t('home')
+  useEffect(()=>{
+    const element=root.current;if(!element)return
+    let previous:boolean|undefined
+    const measure=()=>{const next=(element.clientWidth||window.innerWidth)<980;if(next!==previous){previous=next;setNarrow(next);setExpanded(!next)}}
+    measure();const observer=new ResizeObserver(measure);observer.observe(element);return()=>observer.disconnect()
+  },[])
+  useEffect(()=>{
+    setSection(route.id.startsWith('platform.')?'platform':route.id.split('.')[0]!)
+    if(narrow)setExpanded(false)
+  },[route.id,JSON.stringify(route.params)])
   useEffect(()=>{const key=(e:KeyboardEvent)=>{
     if(e.target instanceof Element&&e.target.closest('[data-wb-terminal]'))return
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(open=>!open)}
-    if(e.key==='Escape')setMenu(false)
   };window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[])
+  const chooseSection=(id:string)=>{setSection(id);setExpanded(current=>id===section?!current:true)}
+  const go=(id:string)=>{navigate(id);if(narrow)setExpanded(false)}
   const nav=(id:string,label:string,icon:ReactNode)=><button key={id} className="wb-nav-link" aria-current={route.id===id?'page':undefined} onClick={()=>go(id)}>{icon}<span>{label}</span></button>
-  return <div className="wb-shell">
-    <aside className="wb-sidebar" data-open={menu} aria-label={t('workbench')}>
-      <div className="wb-brand"><span className="wb-brand-mark"><Layers3 size={19}/></span>Workbench<Button className="wb-mobile-menu" size="icon" variant="ghost" aria-label={t('close')} onClick={()=>setMenu(false)}><X size={16}/></Button></div>
-      <nav className="wb-nav-group">{nav('platform.home',t('home'),<Home size={16}/>)}</nav>
-      {modules.filter(m=>active.has(m.manifest.id)).map(m=><nav className="wb-nav-group" key={m.manifest.id} aria-label={localize(m.manifest.title)}><div className="wb-nav-label">{localize(m.manifest.title)}</div>{contributions.filter(c=>c.id.startsWith(m.manifest.id+'.')&&(c.kind==='route'||c.kind==='settings')).map(c=>nav(c.id,localize(c.title),<span aria-hidden="true" className="wb-small">{c.kind==='settings'?<Settings size={15}/>:<ChevronRight size={15}/>}</span>))}</nav>)}
-      <nav className="wb-nav-group" aria-label={t('settings')}><div className="wb-nav-label">{t('workbench')}</div>{nav('platform.modules',t('modules'),<Blocks size={16}/>)}{nav('platform.settings',t('settings'),<Settings size={16}/>)}{capabilities.has('platform.manage')&&nav('platform.audit',t('audit'),<ShieldCheck size={16}/>)}</nav>
-      <div className="wb-sidebar-footer"><div>Workbench {platform?.build.version??'—'}</div><div>{platform?.build.sha.slice(0,8)??'—'}</div></div>
-    </aside>
+  const sidebar=<>
+    <div className="wb-sidebar-heading"><div><span className="wb-eyebrow">{section==='platform'?'WORKBENCH':'WORKSPACE STUDIO'}</span><h2>{browsing?localize(browsing.manifest.title):t('systemArea')}</h2></div><Button variant="ghost" size="icon" aria-label={t('collapseNavigation')} onClick={()=>setExpanded(false)}><PanelLeftClose size={17}/></Button></div>
+    {section==='platform'?<nav className="wb-nav-group" aria-label={t('preferencesArea')}>
+      {nav('platform.settings',t('settings'),<Settings size={17}/>)}
+      {nav('platform.modules',t('modules'),<Blocks size={17}/>)}
+      {capabilities.has('platform.manage')&&nav('platform.audit',t('audit'),<ShieldCheck size={17}/>)}
+    </nav>:Navigation?<PageBoundary key={section} fallback={<ErrorNotice error={new Error('navigation')}/>}><Navigation/></PageBoundary>:<nav className="wb-nav-group" aria-label={t('moduleNavigation')}>
+      {browsing?.manifest.contributions.filter(c=>(c.kind==='route'||c.kind==='settings')&&capabilities.has(c.capability)).map(c=>nav(c.id,localize(c.title),<ChevronRight size={16}/>))}
+    </nav>}
+    <div className="wb-sidebar-footer"><span>Workbench</span><span>{platform?.build.version??'—'}</span></div>
+  </>
+  return <div ref={root} className="wb-shell" data-secondary-open={expanded&&!narrow}>
+    <nav className="wb-rail" aria-label={t('moduleRail')}>
+      <div className="wb-rail-brand" title="Workbench"><Layers3 size={23}/></div>
+      <div className="wb-rail-modules">{available.map(m=>{const Icon=m.icon??Blocks;return <button key={m.manifest.id} className="wb-rail-button" title={localize(m.manifest.title)} aria-label={localize(m.manifest.title)} aria-pressed={section===m.manifest.id} aria-expanded={section===m.manifest.id&&expanded} aria-controls={navigationId} onClick={()=>chooseSection(m.manifest.id)}><Icon size={21}/><span className="wb-rail-indicator"/></button>})}</div>
+      <div className="wb-rail-bottom"><button className="wb-rail-button" title={t('commands')} aria-label={t('commands')} onClick={()=>setPalette(true)}><Search size={20}/></button><button className="wb-rail-button" title={t('systemArea')} aria-label={t('systemArea')} aria-pressed={section==='platform'} aria-expanded={section==='platform'&&expanded} aria-controls={navigationId} onClick={()=>chooseSection('platform')}><Settings size={21}/></button></div>
+    </nav>
+    {!narrow&&<aside id={navigationId} hidden={!expanded} className="wb-sidebar" aria-label={t('navigation')}>{sidebar}</aside>}
+    {narrow&&<Modal open={expanded} onOpenChange={setExpanded} title={t('navigation')} className="wb-navigation-dialog"><div id={navigationId} className="wb-sidebar wb-drawer-content">{sidebar}</div></Modal>}
     <main className="wb-main">
-      <div className="wb-topbar"><div className="wb-breadcrumb"><Button className="wb-mobile-menu" size="icon" variant="ghost" aria-label={t('modules')} aria-expanded={menu} onClick={()=>setMenu(!menu)}><Menu size={18}/></Button><span>Workbench</span><ChevronRight size={14}/>{module&&<><span>{localize(module.manifest.title)}</span><ChevronRight size={14}/></>}<span>{selected?localize(selected.title):route.id==='platform.modules'?t('modules'):route.id==='platform.settings'?t('settings'):route.id==='platform.audit'?t('audit'):t('home')}</span></div>
-        <Button size="sm" onClick={()=>setPalette(true)}><Search size={14}/><span>{t('commands')}</span><kbd className="wb-muted">⌘ K</kbd></Button></div>
+      <div className="wb-topbar"><div className="wb-breadcrumb"><Button size="icon" variant="ghost" aria-label={t(expanded?'collapseNavigation':'expandNavigation')} aria-expanded={expanded} aria-controls={navigationId} onClick={()=>setExpanded(!expanded)}><PanelLeftOpen size={18}/></Button><span>{module?localize(module.manifest.title):t('systemArea')}</span><ChevronRight size={13}/><strong>{routeTitle}</strong></div>
+        <Button size="sm" variant="ghost" onClick={()=>setPalette(true)}><Search size={15}/><span className="wb-command-label">{t('commands')}</span><kbd className="wb-muted">⌘ K</kbd></Button></div>
       <div className="wb-page">
-        {loading?<Skeleton/>:error?<ErrorNotice error={error} retry={retry}/>:route.id==='platform.home'?<HomePage modules={modules} active={active}/>:route.id==='platform.modules'?<ModulesPage platform={platform}/>:route.id==='platform.settings'?<SettingsPage platform={platform}/>:route.id==='platform.audit'&&capabilities.has('platform.manage')?<AuditPage/>:View&&selected&&capabilities.has(selected.capability)?<PageBoundary key={route.id+'-'+platform?.modules.find(m=>m.manifest.id===module?.manifest.id)?.state} fallback={<ErrorNotice error={new Error('page')}/>}><View route={route}/></PageBoundary>:<EmptyState title={t('notAvailable')} description={t('moduleHelp')} action={<Button onClick={()=>navigate('platform.modules')}>{t('modules')}</Button>}/>}
+        {loading?<Skeleton/>:error?<ErrorNotice error={error} retry={retry}/>:route.id==='platform.home'?<HomePage modules={modules} active={active}/>:route.id==='platform.modules'?<ModulesPage platform={platform}/>:route.id==='platform.settings'?<SettingsPage platform={platform}/>:route.id==='platform.audit'&&capabilities.has('platform.manage')?<AuditPage/>:View&&selected&&capabilities.has(selected.capability)?<PageBoundary key={route.id+'-'+platform?.modules.find(m=>m.manifest.id===module?.manifest.id)?.state} fallback={<ErrorNotice error={new Error('page')}/>}><View route={route}/></PageBoundary>:<EmptyState title={t('notAvailable')} description={t('moduleHelp')} action={<Button onClick={()=>go('platform.modules')}>{t('modules')}</Button>}/>}
       </div>
     </main>
     <Modal open={palette} onOpenChange={setPalette} title={t('commands')}>
       <Field label={t('search')}><Input data-wb-initial-focus value={search} onChange={e=>setSearch(e.target.value)}/></Field>
-      <div className="wb-command-list">{contributions.filter(c=>c.kind!=='widget'&&localize(c.title).toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(c=><Button key={c.id} variant="ghost" onClick={()=>{setPalette(false);setSearch('');if(c.kind==='command'){modules.find(m=>m.commands?.[c.id])?.commands?.[c.id]?.(ui)}else navigate(c.id)}}><Command size={15}/>{localize(c.title)}</Button>)}</div>
+      <div className="wb-command-list">{contributions.filter(c=>c.kind!=='widget'&&capabilities.has(c.capability)&&localize(c.title).toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(c=><Button key={c.id} variant="ghost" onClick={()=>{setPalette(false);setSearch('');if(c.kind==='command'){modules.find(m=>m.commands?.[c.id])?.commands?.[c.id]?.(ui)}else go(c.id)}}><Command size={15}/>{localize(c.title)}</Button>)}</div>
       <div className="wb-dialog-footer"><Button onClick={()=>setPalette(false)}>{t('close')}</Button></div>
     </Modal>
   </div>

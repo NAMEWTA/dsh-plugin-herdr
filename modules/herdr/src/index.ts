@@ -49,7 +49,7 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
     register({...catalog['herdr.snapshot'],id:'herdr.snapshot',run:(_input,c)=>{connection(c.principal);return model.snapshot()}})
     register({...catalog['herdr.environment'],id:'herdr.environment',run:(_input,c)=>{connection(c.principal);return environment.read()}})
     register({...catalog['herdr.server.start'],id:'herdr.server.start',run:(_input,c)=>{connection(c.principal);return environment.start(c.signal)}})
-    register({...catalog['herdr.workspace.create'],id:'herdr.workspace.create',run:async(input,c)=>{
+    const createWorkspace=async(input:{label:string;cwd:string},c:OperationContext)=>{
       connection(c.principal)
       const cwd=await workspaceDirectory(config.rootDirectory,input.cwd)
       if((await model.refresh()).connection!=='online')throw new WorkbenchError('CONNECTION_UNAVAILABLE')
@@ -60,7 +60,8 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
       model.mark(ref,'created');model.mark(model.find('pane',parsed.data.root_pane.pane_id),'created')
       for(const t of model.snapshot().tabs.filter(t=>t.workspaceId===ref.id))model.mark(t.ref,'created')
       await model.refresh();return ref
-    }})
+    }
+    register({...catalog['herdr.workspace.create'],id:'herdr.workspace.create',run:createWorkspace})
     register({...catalog['herdr.tab.create'],id:'herdr.tab.create',run:async(input,c)=>{
       connection(c.principal);if(input.ref.kind!=='workspace')throw new WorkbenchError('INVALID_REQUEST')
       await model.assert(input.ref,true)
@@ -89,6 +90,28 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
     register({...catalog['herdr.terminal.release'],id:'herdr.terminal.release',run:async(input,c)=>{connection(c.principal);await terminal.release(input.leaseId,c.principal);return {}}})
     ctx.stream({id:'herdr.terminal.frames',capability:'herdr.observe',input:terminalAttachSchema,output:terminalEventSchema,uplink:terminalInputSchema,run:(input,c,uplink)=>{connection(c.principal);return terminal.stream(input,c,uplink)}})
     const bindingKey=(principal:Principal,id:string)=>'binding-'+createHash('sha256').update(id).digest('hex')
+    // Serialize per-conversation create-and-bind, without adopting a focused/external workspace.
+    const creatingBindings=new Set<string>()
+    register({...catalog['herdr.conversation.create'],id:'herdr.conversation.create',run:async(input,c)=>{
+      connection(c.principal)
+      if(c.principal.conversationId&&c.principal.conversationId!==input.conversationId)throw new WorkbenchError('FORBIDDEN')
+      const key=bindingKey(c.principal,input.conversationId)
+      if(creatingBindings.has(key))throw new WorkbenchError('MODULE_CONFLICT')
+      creatingBindings.add(key)
+      try{
+        const stored=await ctx.storage.read<Json>(key)
+        const current=resourceSchema.nullable().safeParse(stored?.value??null)
+        if(!current.success)throw new WorkbenchError('STORAGE_UNAVAILABLE')
+        if(current.data)throw new WorkbenchError('MODULE_CONFLICT')
+        const ref=await createWorkspace(input,c)
+        try{
+          if(c.signal.aborted)throw new Error('cancelled after creation')
+          await ctx.storage.write(key,ref,stored?.version??null)
+        }catch{throw new WorkbenchError('OPERATION_OUTCOME_UNKNOWN')}
+        ctx.emit({type:'invalidate'})
+        return {conversationId:input.conversationId,ref}
+      }finally{creatingBindings.delete(key)}
+    }})
     register({...catalog['herdr.binding.get'],id:'herdr.binding.get',run:async(input,c)=>{
       connection(c.principal)
       const stored=await ctx.storage.read<Json>(bindingKey(c.principal,input.conversationId))
