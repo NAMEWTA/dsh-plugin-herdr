@@ -24,6 +24,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm quality
+      - run: python3 tooling/cleanup-branches.py --check
       - name: Build immutable candidate, never publish it
         run: |
           mkdir -p artifacts
@@ -164,3 +165,7 @@ jobs:
           PY
           gh release edit "$tag" --draft=false --prerelease --latest=false
           gh release view "$tag" --json url,tagName,isDraft,isPrerelease
+      - name: Clean only reviewed merged branches after verified publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tooling/cleanup-branches.py --execute
