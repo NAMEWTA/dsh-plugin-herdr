@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 const offline=process.argv.includes('--offline'),out=resolve('.evidence/browser')
 await mkdir(out,{recursive:true})
 let server,browser,htmlScript,css
-const results=[],errors=[]
+const results=[],errors=[],accessibilityFailures=[]
 try{
  if(offline){
    await build({config:false,entry:{fixture:'tests/e2e/offline-entry.tsx'},outDir:'.evidence/offline',platform:'browser',format:['iife'],dts:false,clean:true,minify:true,jsx:'automatic',target:'es2022',outputOptions:{codeSplitting:false},deps:{alwaysBundle:[/.*/]},define:{'process.env.NODE_ENV':'"production"'},logLevel:'error'})
@@ -33,7 +33,7 @@ try{
    if(await rail.getAttribute('aria-expanded')!=='true')await rail.click()
    await page.locator('.wb-sidebar:visible').getByRole('button',{name,exact:true}).click()
  }
- async function audit(page,name){const report=await new AxeBuilder({page}).include('.wb-root').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();await writeFile(resolve(out,name+'-axe.json'),JSON.stringify(report,null,2));assert.deepEqual(report.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],name+' accessibility violations')}
+ async function audit(page,name){const report=await new AxeBuilder({page}).include('.wb-root').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();await writeFile(resolve(out,name+'-axe.json'),JSON.stringify(report,null,2));if(report.violations.length)accessibilityFailures.push({case:name,violations:report.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))})}
  for(const width of [375,768,1280,1920])for(const theme of ['light','dark'])for(const density of ['comfortable','compact']){
    const page=await open('normal','platform.settings',width),name=`${width}-${theme}-${density}`
    await page.getByLabel('Theme',{exact:true}).selectOption(theme);await page.getByLabel('Density',{exact:true}).selectOption(density);await go(page,'Overview');await page.getByRole('heading',{name:'Your agent workspace',exact:true}).waitFor();await page.locator('.wb-page').getByRole('button',{name:'View pane API · 请求校验',exact:true}).waitFor()
@@ -85,7 +85,8 @@ try{
  await mobile.keyboard.press('Escape');await mobile.getByRole('dialog').waitFor({state:'hidden'})
  assert.equal(await entry.evaluate(el=>el===document.activeElement),true,'Navigation drawer restores module trigger focus')
  results.push({case:'mobile-secondary-menu-focus-and-escape',passed:true});await mobile.close()
+ assert.deepEqual(accessibilityFailures,[],'Accessibility violations across tested layouts')
  assert.deepEqual(errors,[],'Unhandled browser exceptions')
  await writeFile(resolve(out,'results.json'),JSON.stringify({mode:offline?'offline component rendering; no HTTP/gateway verification':'HTTP fixture browser',results,errors},null,2))
  console.log('Browser checks passed:',results.length,offline?'offline component mode':'HTTP fixture mode')
-}finally{await browser?.close();server?.kill('SIGTERM')}
+}finally{await writeFile(resolve(out,'results.json'),JSON.stringify({mode:offline?'offline component rendering; no HTTP/gateway verification':'HTTP fixture browser',results,errors,accessibilityFailures},null,2));await browser?.close();server?.kill('SIGTERM')}
