@@ -37,6 +37,10 @@ jobs:
           source=json.loads(lzma.decompress(data))
           assert len(source['updates'])==35 and len(source['files'])==6 and len(source['expected'])==41
           assert set(source['updates'])|set(source['files'])==set(source['expected'])
+          # build.mjs generates this package-local copy from docs/installation.md.
+          generated='apps/dsh-plugin/README.md'
+          assert not pathlib.Path(generated).exists()
+          del source['updates'][generated];del source['expected'][generated]
           for path in source['expected']:
               p=pathlib.PurePosixPath(path)
               assert not p.is_absolute() and not {'.git','.github','..'}&set(p.parts) and str(p)==path
@@ -61,5 +65,5 @@ jobs:
           assert not final.get('truncated')
           hashes={e['path']:e['sha'] for e in final['tree']}
           for path,sha in source['expected'].items():assert hashes[path]==sha,path
-          print(json.dumps({'parent':parent,'tree':tree,'files':41,'sha256':expected,'refs_updated':False},indent=2))
+          print(json.dumps({'parent':parent,'tree':tree,'files':40,'sha256':expected,'refs_updated':False},indent=2))
           PY
