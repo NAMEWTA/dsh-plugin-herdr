@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { WorkbenchError, type Json, type Principal } from '@workbench/contracts'
 import type { WorkbenchRuntime } from '@workbench/core'
-import { bindingSchema, snapshotSchema, resourceSchema } from './contracts/index.ts'
+import { bindingSchema, snapshotSchema, resourceSchema, catalog } from './contracts/index.ts'
 import { sameResource } from './domain/selectors.ts'
 /** Shared workspace boundary for all model-initiated operations; no current-focus fallback. */
 export function createHerdrToolBridge(runtime: WorkbenchRuntime) {
   async function bound(conversationId: string, principal: Principal) {
+    if(principal.conversationId&&principal.conversationId!==conversationId)throw new WorkbenchError('FORBIDDEN')
     const binding = await runtime.invoke({operation:'herdr.binding.get',requestId:randomUUID(),input:{conversationId}},principal)
     if (!binding.ok) throw new WorkbenchError(binding.error.code)
     const {ref} = bindingSchema.parse(binding.data)
@@ -21,6 +22,13 @@ export function createHerdrToolBridge(runtime: WorkbenchRuntime) {
   return {
     async inspect(conversationId: string, principal: Principal): Promise<Json> { return await bound(conversationId,principal) as Json },
     async action(conversationId: string, operation: string, input: Json, principal: Principal, requestId: string): Promise<Json> {
+      if(principal.conversationId&&principal.conversationId!==conversationId)throw new WorkbenchError('FORBIDDEN')
+      if(operation==='herdr.workspace.create'){
+        const parsed=catalog['herdr.workspace.create'].input.parse(input)
+        const result=await runtime.invoke({operation:'herdr.conversation.create',requestId,input:{...parsed,conversationId,confirmed:true}},principal)
+        if(!result.ok)throw new WorkbenchError(result.error.code)
+        return result.data as Json
+      }
       if (!['herdr.resource.rename','herdr.resource.close','herdr.pane.split','herdr.tab.create','herdr.agent.start'].includes(operation)) throw new WorkbenchError('FORBIDDEN')
       const scope = await bound(conversationId,principal)
       if (!input || typeof input !== 'object' || Array.isArray(input) || !('ref' in input)) throw new WorkbenchError('INVALID_REQUEST')

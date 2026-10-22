@@ -67,6 +67,7 @@ export const catalog = {
   'herdr.environment': {kind:'query',capability:'herdr.read',input:empty,output:environmentSchema},
   'herdr.server.start': {kind:'action',capability:'herdr.settings',input:z.object({confirmed}).strict(),output:environmentSchema},
   'herdr.workspace.create': {kind:'action',capability:'herdr.manage',input:z.object({label,cwd:z.string().min(1).max(4096)}).strict(),output:resourceSchema},
+  'herdr.conversation.create': {kind:'action',capability:'herdr.manage',input:z.object({conversationId:z.string().min(1).max(128),label,cwd:z.string().min(1).max(4096),confirmed}).strict(),output:bindingSchema},
   'herdr.tab.create': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,label}).strict(),output:resourceSchema},
   'herdr.resource.rename': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,label}).strict(),output:empty},
   'herdr.resource.close': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,confirmed}).strict(),output:empty},

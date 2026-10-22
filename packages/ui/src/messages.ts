@@ -1,4 +1,8 @@
 export const messages={
+  navigation:['功能导航','Feature navigation'], moduleRail:['功能模块','Feature modules'], systemArea:['工作台设置','Workbench settings'],
+  expandNavigation:['展开导航','Expand navigation'], collapseNavigation:['收起导航','Collapse navigation'],
+  moduleNavigation:['模块导航','Module navigation'], preferencesArea:['偏好与管理','Preferences and administration'],
+
   pagination: ['分页','Pagination'], previousPage: ['上一页','Previous page'], nextPage: ['下一页','Next page'],
   workbench:['工作台','Workbench'],home:['首页','Home'],modules:['模块管理','Modules'],settings:['外观设置','Appearance'],audit:['操作审计','Audit log'],search:['搜索','Search'],commands:['命令面板','Command palette'],
   loading:['正在加载…','Loading…'],retry:['重试','Retry'],refresh:['刷新','Refresh'],cancel:['取消','Cancel'],confirm:['确认','Confirm'],close:['关闭','Close'],save:['保存','Save'],saved:['已保存','Saved'],

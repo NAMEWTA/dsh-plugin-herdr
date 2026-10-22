@@ -54,7 +54,7 @@ interface WorkbenchUi {
 const UiContext=createContext<WorkbenchUi|null>(null)
 export function useWorkbench():WorkbenchUi{const value=useContext(UiContext);if(!value)throw new Error('Workbench UI provider missing');return value}
 export interface PageProps{route:RouteLocation}
-export interface WebModule {manifest:ModuleManifest;pages:Readonly<Record<string,ComponentType<PageProps>>>;widgets?:Readonly<Record<string,ComponentType>>;commands?:Readonly<Record<string,(ui:WorkbenchUi)=>void>>}
+export interface WebModule {navigation?:ComponentType;icon?:ComponentType<{size?:number}>;manifest:ModuleManifest;pages:Readonly<Record<string,ComponentType<PageProps>>>;widgets?:Readonly<Record<string,ComponentType>>;commands?:Readonly<Record<string,(ui:WorkbenchUi)=>void>>}
 export function UiProvider({children,value}:{children:ReactNode;value:Omit<WorkbenchUi,'t'|'localize'|'confirm'|'notify'|'portal'>}){
   const [portal,setPortal]=useState<HTMLDivElement|null>(null)
   const [confirm,setConfirm]=useState<ConfirmOptions|null>(null),pending=useRef<((ok:boolean)=>void)|null>(null)
@@ -72,14 +72,14 @@ export function UiProvider({children,value}:{children:ReactNode;value:Omit<Workb
     </Modal>
   </UiContext.Provider>
 }
-export function Modal({open,onOpenChange,title,description,children}:{open:boolean;onOpenChange:(open:boolean)=>void;title:string;description?:string;children:ReactNode}){
+export function Modal({open,onOpenChange,title,description,children,className}:{open:boolean;onOpenChange:(open:boolean)=>void;title:string;description?:string;children:ReactNode;className?:string}){
   const {portal}=useWorkbench(),restore=useRef<HTMLElement|null>(null)
   const previousOpen=useRef(false)
   if(open&&!previousOpen.current)restore.current=document.activeElement instanceof HTMLElement?document.activeElement:null
   previousOpen.current=open
   return <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}><DialogPrimitive.Portal container={portal??undefined}>
     <DialogPrimitive.Backdrop className="wb-backdrop"/>
-    <DialogPrimitive.Popup className="wb-dialog" initialFocus={()=>{const el=portal?.querySelector<HTMLElement>('[data-wb-initial-focus]');return el??true}} finalFocus={()=>restore.current??true}>
+    <DialogPrimitive.Popup className={cn("wb-dialog",className)} initialFocus={()=>{const el=portal?.querySelector<HTMLElement>('[data-wb-initial-focus]');return el??true}} finalFocus={()=>restore.current??true}>
       <DialogPrimitive.Title className="wb-dialog-title">{title}</DialogPrimitive.Title>
       {description&&<DialogPrimitive.Description className="wb-muted">{description}</DialogPrimitive.Description>}{children}
     </DialogPrimitive.Popup>
