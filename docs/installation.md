@@ -1,5 +1,7 @@
 # Workbench 安装与配置 / Installation
 
+> 本次问题修复将源码的唯一 DSH 基线升级为 `0.2.1-rc.2`。既有 `v1.0.2-alpha.1` Release 和附件保持不变，仍是旧 `alpha.2` 宿主构件；不要将旧附件当成 rc.2 修复包。本次不新增发行版本，使用对应 CI 的候选 tarball，并核对 `build.json` 中的源码 SHA 与 `dsh` 字段。
+
 这是新的独立包 `@namewta/dsh-workbench@1.0.2-alpha.1`，不是旧包的兼容更新。候选构件不等于已经发布到 npm。
 
 ## 冻结环境
