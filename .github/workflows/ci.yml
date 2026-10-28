@@ -102,7 +102,7 @@ jobs:
           node tests/e2e/packaged-client.mjs artifacts/*.tgz
       - run: bash tooling/install-herdr-ci.sh
       - name: Install exact published host, not a local substitute
-        run: npm install --prefix "$RUNNER_TEMP/dsh" --no-audit --no-fund @deepseek-ai/dsh@0.2.1-alpha.2
+        run: npm install --prefix "$RUNNER_TEMP/dsh" --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.2
       - name: Install final candidate, exercise authenticated gateway, terminal and uninstall
         env:
           HERDR_TEST_BINARY: ${{ runner.temp }}/herdr-bin/herdr
@@ -174,3 +174,4 @@ jobs:
           PY
           gh release edit "$tag" --draft=false --prerelease --latest=false
           gh release view "$tag" --json url,tagName,isDraft,isPrerelease
+

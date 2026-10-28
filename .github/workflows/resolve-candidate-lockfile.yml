@@ -1,0 +1,40 @@
+name: Resolve candidate DSH lockfile (temporary)
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  lockfile:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix/reported-issues-oct28'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.22.0
+      - name: Resolve public registry metadata without executing package scripts
+        run: pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
+      - name: Record candidate lockfile for human and agent review
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs'
+          import { gzipSync } from 'node:zlib'
+          import { createHash } from 'node:crypto'
+          const bytes=readFileSync('pnpm-lock.yaml')
+          console.log('LOCKFILE_SHA256='+createHash('sha256').update(bytes).digest('hex'))
+          console.log('LOCKFILE_GZIP_BASE64_BEGIN')
+          const encoded=gzipSync(bytes).toString('base64')
+          for(let i=0;i<encoded.length;i+=1000)console.log(encoded.slice(i,i+1000))
+          console.log('LOCKFILE_GZIP_BASE64_END')
+          JS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: candidate-rc2-lockfile
+          path: pnpm-lock.yaml
+          retention-days: 3
+

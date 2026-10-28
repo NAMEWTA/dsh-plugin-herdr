@@ -12,7 +12,7 @@ export async function checkPackage(archive){
   try{
     execFileSync('tar',['-xzf',resolve(archive),'-C',dir]);const base=join(dir,'package'),pkg=JSON.parse(await readFile(join(base,'package.json'),'utf8'))
     assert.equal(pkg.name,'@namewta/dsh-workbench');assert.equal(pkg.dsh.manifestVersion,1)
-    assert.equal(pkg.engines.dsh,'0.2.1-alpha.2');assert.ok(!pkg.exports['./session-mode'])
+    assert.equal(pkg.engines.dsh,'0.2.1-rc.2');assert.ok(!pkg.exports['./session-mode'])
     for(const file of ['lib/host.js','lib/client.js','lib/contract.js','lib/typert.host.js','lib/build.json','lib/sbom.cdx.json','lib/THIRD-PARTY-LICENSES.txt','LICENSE','NOTICE','README.md','cordis.patch.yml','icon.svg'])assert.ok(names.includes('package/'+file),'Missing '+file)
     const build=JSON.parse(await readFile(join(base,'lib/build.json'),'utf8'));assert.equal(build.version,pkg.version)
     const checks=await readFile(join(base,'lib/SHA256SUMS'),'utf8'),hashed=new Set()
@@ -26,3 +26,4 @@ export async function checkPackage(archive){
   }finally{await rm(dir,{recursive:true,force:true})}
 }
 if(process.argv[1]?.endsWith('check-package.mjs')){if(!process.argv[2])throw Error('Usage: node tooling/check-package.mjs /absolute/package.tgz');await checkPackage(process.argv[2])}
+

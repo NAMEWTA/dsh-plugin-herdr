@@ -4,11 +4,11 @@
 
 ## 冻结环境
 
-Node 24.22.0、pnpm 10.28.2、DSH 0.2.1-alpha.2、Herdr 0.9.3/protocol 22。自动化验收目标为 Linux x86_64。macOS、原生 Windows 和其他版本不宣称已验证。浏览器和 Herdr 可以不在同一设备，但 DSH Host 与 Herdr 必须在同一 Linux 环境；WSL 也必须是同一发行版。
+Node 24.22.0、pnpm 10.28.2、DSH 0.2.1-rc.2、Herdr 0.9.3/protocol 22。自动化验收目标为 Linux x86_64。macOS、原生 Windows 和其他版本不宣称已验证。浏览器和 Herdr 可以不在同一设备，但 DSH Host 与 Herdr 必须在同一 Linux 环境；WSL 也必须是同一发行版。
 
 ```sh
 npm install --global pnpm@10.28.2
-npm install --global @deepseek-ai/dsh@0.2.1-alpha.2
+npm install --global @deepseek-ai/dsh@0.2.1-rc.2
 # 在候选包与 SHA256SUMS 所在目录检查校验值：
 sha256sum --check SHA256SUMS
 dsh plugin --profile web add /absolute/path/namewta-dsh-workbench-1.0.2-alpha.1.tgz
@@ -56,3 +56,4 @@ dsh plugin --profile web remove @namewta/dsh-workbench
 ```
 
 随后重启 profile。不会关闭外部 Agent 或删除工作区。新数据目录保留给管理员决定如何备份/删除。回退到旧产品必须显式安装旧构件；没有新旧格式双写或自动降级。
+

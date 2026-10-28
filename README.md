@@ -43,7 +43,7 @@ node tooling/check-package.mjs artifacts/*.tgz
 HERDR_TEST_BINARY=/absolute/path/to/herdr-0.9.3 node tests/e2e/dsh.mjs /absolute/path/to/dsh/lib/bin.js artifacts/*.tgz
 ```
 
-集成环境缺失会失败，不会跳过后报告通过。CI 固定 Linux x86_64、Herdr 0.9.3/protocol 22 和 DSH 0.2.1-alpha.2。PR 只生成候选包；main 必须重新通过全部质量、真实集成和浏览器检查，才将同次运行的构件发布为已授权的 GitHub alpha。既有 Release 不覆盖，npm 不发布。
+集成环境缺失会失败，不会跳过后报告通过。CI 固定 Linux x86_64、Herdr 0.9.3/protocol 22 和 DSH 0.2.1-rc.2。PR 只生成候选包；main 必须重新通过全部质量、真实集成和浏览器检查，才将同次运行的构件发布为已授权的 GitHub alpha。既有 Release 不覆盖，npm 不发布。
 
 ## 安装和使用
 
@@ -58,3 +58,4 @@ HERDR_TEST_BINARY=/absolute/path/to/herdr-0.9.3 node tests/e2e/dsh.mjs /absolute
 ## 许可证
 
 MIT。保留 NAMEWTA 与 sunny0826 的必要版权通知。发行包包含 `NOTICE`、实际打包依赖的许可证、CycloneDX SBOM、源码 SHA 和构件校验清单。独立维护不抹去保留代码的来源。
+
