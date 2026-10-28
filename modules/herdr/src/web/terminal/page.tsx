@@ -43,7 +43,7 @@ function PaneSession({pane,stale,initialMode}:{pane:Pane;stale:boolean;initialMo
     if(stale||!ui.capabilities.has(mode==='control'?'herdr.control':'herdr.observe')||(mode==='control'&&pane.ownership==='external'&&!ui.capabilities.has('herdr.manage')))return
     inFlight.current=true;const before=epoch.current;setBusy(true);setError(null)
     if(mode==='control'){
-      const confirmed=await ui.confirm({title:h(takeover?'takeoverTitle':'controlTitle'),description:h(takeover?'takeoverBody':pane.ownership==='external'?'controlExternalBody':'controlBody'),danger:true,target:pane.label||pane.ref.id})
+      const confirmed=await ui.confirm({title:h(takeover?'takeoverTitle':'controlTitle'),description:[h(pane.ownership==='external'?'controlExternalBody':'controlBody'),...(takeover?[h('takeoverBody')]:[])].join(' '),danger:true,target:pane.label||pane.ref.id})
       if(!alive.current||before!==epoch.current)return
       if(!confirmed){inFlight.current=false;setBusy(false);return}
     }
