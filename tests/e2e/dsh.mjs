@@ -1,5 +1,5 @@
 // Exercise the actual published DSH CLI and FINAL tarball in an isolated home.
-// No credentials are supplied, no model is invoked and no existing user profile is touched.
+// Only a dummy localhost-fixture key is supplied; no external model or existing profile is used.
 import assert from 'node:assert/strict'
 import {execFileSync,spawn} from 'node:child_process'
 import {mkdtemp,mkdir,writeFile,rm,readFile} from 'node:fs/promises'
@@ -10,6 +10,8 @@ import {setTimeout as delay} from 'node:timers/promises'
 import {chromium} from 'playwright'
 import {readWebStartupUrl,redactLaunchTokens} from './startup-utils.mjs'
 import {refuseWebsocket} from './gateway-probe.mjs'
+import {startLocalModel,FIXTURE_KEY} from './local-model.mjs'
+import {exerciseNativeWorkspace} from './native-workspace.mjs'
 const [cliArg,archiveArg]=process.argv.slice(2)
 assert.ok(cliArg&&archiveArg,'Usage: node tests/e2e/dsh.mjs <dsh/bin.js> <final-package.tgz>')
 const cli=resolve(cliArg),archive=resolve(archiveArg),binary=process.env.HERDR_TEST_BINARY
@@ -18,8 +20,8 @@ const out=resolve('.evidence/dsh'),home=await mkdtemp(join(tmpdir(),'wb-dsh-'))
 await mkdir(out,{recursive:true});const paths={HOME:home,DSH_HOME:join(home,'dsh'),XDG_CONFIG_HOME:join(home,'config'),XDG_RUNTIME_DIR:join(home,'run'),XDG_DATA_HOME:join(home,'data'),XDG_STATE_HOME:join(home,'state'),XDG_CACHE_HOME:join(home,'cache')}
 for(const path of Object.values(paths))await mkdir(path,{recursive:true,mode:0o700})
 const socket=join(home,'herdr.sock'),env={...process.env,...paths,CI:'1',TERM:'xterm-256color',SHELL:'/bin/sh',HERDR_SOCKET_PATH:socket,HERDR_SESSION:'default',WORKBENCH_HERDR_SOCKET:socket,WORKBENCH_HERDR_BINARY:binary}
-let daemon,host,browser,page,context,hostLog='',daemonLog='',failure
-const errors=[],checks=[],legacyAssetRequests=[],packageName='@namewta/dsh-workbench'
+let daemon,host,browser,page,context,model,hostLog='',daemonLog='',failure
+const errors=[],checks=[],legacyAssetRequests=[],diagnostics=[],defaultWorkspaceWarnings=[],packageName='@namewta/dsh-workbench'
 const clean=value=>redactLaunchTokens(String(value)).replaceAll(home,'[isolated-home]')
 function command(args){try{return execFileSync(process.execPath,[cli,...args],{env,cwd:home,encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024})}catch(e){throw new Error(clean(String(e.stdout??'')+String(e.stderr??'')+e.message))}}
 async function stop(child){if(!child||child.exitCode!==null||child.signalCode)return;const exited=new Promise(done=>child.once('exit',done));child.kill('SIGTERM');await Promise.race([exited,delay(4000)]);if(child.exitCode===null&&!child.signalCode){child.kill('SIGKILL');await exited}}
@@ -30,13 +32,25 @@ async function nav(p,name){
  if(await rail.getAttribute('aria-expanded')!=='true')await rail.click()
  await p.locator('.wb-sidebar:visible').getByRole('button',{name,exact:true}).click()
 }
-async function enter(p,url,first){p.on('pageerror',error=>errors.push(error.message));await p.goto(url,{waitUntil:'domcontentloaded',timeout:60000});const icon=p.locator('[data-workbench-entry]').first();await icon.waitFor({state:'attached',timeout:60000});if(first){const notice=p.getByRole('dialog',{name:'Preview Notice',exact:true});await notice.getByRole('button',{name:'Continue',exact:true}).click({timeout:30000});await notice.waitFor({state:'hidden'})}
-  // The preview acknowledgement is persisted; skipping API-key setup is per window.
-  const key=p.getByRole('dialog',{name:'Add an API key to get started',exact:true});await key.getByRole('button',{name:'Configure later',exact:true}).click({timeout:30000});await key.waitFor({state:'hidden'});await icon.locator('xpath=ancestor::*[self::button or @role="button" or @role="tab"][1]').click();await p.locator('.wb-root').waitFor({timeout:30000});await p.getByRole('heading',{name:'Your agent workspace',exact:true}).waitFor({timeout:30000})}
+async function enter(p,url,first){
+ p.on('pageerror',error=>errors.push(error.message))
+ p.on('console',message=>{if(['warning','error'].includes(message.type())&&diagnostics.length<200)diagnostics.push({type:message.type(),text:clean(message.text()).slice(0,2000)})})
+ const address=url=>{try{const parsed=new URL(url);return parsed.origin+parsed.pathname}catch{return '[invalid-url]'}}
+ p.on('requestfailed',request=>{if(diagnostics.length<200)diagnostics.push({type:'requestfailed',url:address(request.url()),error:request.failure()?.errorText})})
+ p.on('response',response=>{if(response.status()>=400&&diagnostics.length<200)diagnostics.push({type:'http',url:address(response.url()),status:response.status()})})
+ // Observe the specific host warning without dismissing it or modifying host state.
+ await p.exposeFunction('recordDefaultWorkspaceWarning',()=>{defaultWorkspaceWarnings.push('DSH default workspace initialization failed; explicit native picker recovery is tested separately')})
+ await p.addInitScript(()=>{let seen=false;const scan=()=>{if(!seen&&document.body?.textContent?.includes('Unable to create default workspace. Use Choose workspace to select a folder.')){seen=true;void window.recordDefaultWorkspaceWarning()}};new MutationObserver(scan).observe(document,{subtree:true,childList:true,characterData:true})})
+await p.goto(url,{waitUntil:'domcontentloaded',timeout:60000});const icon=p.locator('[data-workbench-entry]').first();await icon.waitFor({state:'attached',timeout:60000});if(first){const notice=p.getByRole('dialog',{name:'Preview Notice',exact:true});await notice.getByRole('button',{name:'Continue',exact:true}).click({timeout:30000});await notice.waitFor({state:'hidden'})}
+  // The disposable host discovers the dummy key from its launch environment. No real credential UI is filled.
+  await icon.locator('xpath=ancestor::*[self::button or @role="button" or @role="tab"][1]').click();await p.locator('.wb-root').waitFor({timeout:30000});await p.getByRole('heading',{name:'Your agent workspace',exact:true}).waitFor({timeout:30000})}
 async function confirm(p){await p.getByRole('dialog').getByRole('button',{name:'Confirm',exact:true}).click()}
 async function terminalReady(p){await p.locator('[data-wb-terminal][data-ready="true"]').waitFor({timeout:30000})}
 try{
- const version=command(['--version']).trim();assert.match(version,/0\.2\.1-alpha\.2/);assert.match(execFileSync(binary,['--version'],{encoding:'utf8'}),/0\.9\.3/)
+ model=await startLocalModel();Object.assign(env,{DEEPSEEK_API_KEY:FIXTURE_KEY,DEEPSEEK_BASE_URL:model.baseURL,DSH_TELEMETRY_DISABLED:'1'})
+ // Diagnose the native host's documented Linux Documents prerequisite; never fabricate xdg-user-dir or suppress its toast.
+ try{const documents=execFileSync('xdg-user-dir',['DOCUMENTS'],{env,cwd:home,encoding:'utf8',timeout:10000}).trim();diagnostics.push({type:'documents-lookup',result:clean(documents),disabled:documents===home||documents===''})}catch(error){diagnostics.push({type:'documents-lookup',error:clean(error.message).slice(0,2000)})}
+ const version=command(['--version']).trim();assert.match(version,/0\.2\.1-rc\.2/);assert.match(execFileSync(binary,['--version'],{encoding:'utf8'}),/0\.9\.3/)
  daemon=spawn(binary,['server'],{env,cwd:home,stdio:['ignore','pipe','pipe']});daemon.stdout.on('data',b=>daemonLog=(daemonLog+b).slice(-65536));daemon.stderr.on('data',b=>daemonLog=(daemonLog+b).slice(-65536))
  let daemonReady=false;for(let i=0;i<100;i++){try{execFileSync(binary,['api','snapshot'],{env,cwd:home,stdio:'pipe',timeout:2000});daemonReady=true;break}catch{await delay(100)}}assert.ok(daemonReady,'Disposable Herdr server did not start: '+daemonLog)
  await writeFile(join(out,'install.log'),clean(command(['plugin','--profile','web','add',archive])));assert.ok(command(['plugin','--profile','web','list']).includes(packageName));await record('final tarball install/list')
@@ -68,9 +82,11 @@ try{
  const second=await context.newPage();await enter(second,origin,false);await nav(second,'Workspaces');await second.locator('.wb-page').getByRole('button',{name:/^View pane /}).first().click();await terminalReady(second);await second.getByText('Observing · Input disabled',{exact:true}).waitFor();await second.getByRole('button',{name:'Acquire control',exact:true}).click();await confirm(second);await second.getByText('The terminal has a controller. Explicit takeover is required.',{exact:true}).waitFor({timeout:30000});await record('two browser clients refuse implicit control takeover')
  await second.getByRole('button',{name:'Take over control',exact:true}).click();await confirm(second);await terminalReady(second);await page.locator('[data-wb-terminal]').waitFor({state:'detached',timeout:30000});await second.getByRole('button',{name:'Stop observing / release control',exact:true}).click();await second.locator('[data-wb-terminal]').waitFor({state:'detached'});await record('explicit takeover revokes old browser and release preserves workspace')
  await second.close()
+ await exerciseNativeWorkspace(page,{home,out,model,record})
  const wsUrl=origin.replace('http:','ws:')+'/api/remote.mux';await refuseWebsocket(wsUrl,{Origin:origin});const cookie=(await context.cookies(origin)).map(c=>c.name+'='+c.value).join('; ');assert.ok(cookie);await refuseWebsocket(wsUrl,{Origin:'https://untrusted.invalid',Cookie:cookie});await record('actual gateway rejects anonymous and foreign-Origin WebSocket upgrades')
  await nav(page,'Overview');await page.screenshot({path:join(out,'overview.png'),fullPage:true});assert.deepEqual(errors,[],'Unhandled real-browser errors')
  await browser.close();browser=null;await stop(host);await writeFile(join(out,'remove.log'),clean(command(['plugin','--profile','web','remove',packageName])));assert.ok(!command(['plugin','--profile','web','list']).includes(packageName));assert.equal(daemon.exitCode,null,'Unloading workbench stopped external daemon');await record('uninstall removes package without stopping external Herdr')
- await writeFile(join(out,'result.json'),JSON.stringify({dsh:version,herdr:'0.9.3',protocol:22,archive:archive.split('/').at(-1),checks,errors,hostReact:'provided by pinned DSH; see support matrix'},null,2))
+ await writeFile(join(out,'result.json'),JSON.stringify({dsh:version,herdr:'0.9.3',protocol:22,archive:archive.split('/').at(-1),checks,errors,defaultWorkspaceWarnings,modelEvidence:'localhost deterministic Messages fixture only; no external-model quality acceptance',hostReact:'provided by pinned DSH; see support matrix'},null,2))
 }catch(error){failure=error;for(const [index,p] of (context?.pages()??[]).entries()){if(p.isClosed())continue;await p.screenshot({path:join(out,`failure-${index}.png`),fullPage:true}).catch(()=>{});await writeFile(join(out,`failure-${index}.html`),clean(await p.content().catch(()=>'')))}await writeFile(join(out,'failure.log'),clean(error.stack??error));throw error}
-finally{await writeFile(join(out,'host.log'),clean(hostLog));await writeFile(join(out,'herdr.log'),clean(daemonLog));await writeFile(join(out,'browser-errors.json'),clean(JSON.stringify(errors)));await browser?.close().catch(()=>{});await stop(host);await stop(daemon);await rm(home,{recursive:true,force:true})}
+finally{await writeFile(join(out,'host-diagnostics.json'),clean(JSON.stringify({diagnostics,defaultWorkspaceWarnings},null,2)));await writeFile(join(out,'host.log'),clean(hostLog));await writeFile(join(out,'herdr.log'),clean(daemonLog));await writeFile(join(out,'browser-errors.json'),clean(JSON.stringify(errors)));await browser?.close().catch(()=>{});await stop(host);await stop(daemon);await model?.close();await rm(home,{recursive:true,force:true})}
+

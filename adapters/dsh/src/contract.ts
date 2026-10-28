@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import { requestSchema,resultSchema,platformEventSchema } from '@workbench/contracts/schemas'
 const client=z.string().regex(/^[a-zA-Z0-9_-]{32}$/)
 export const remoteDefinitions={
@@ -20,4 +21,5 @@ export const remoteDescriptors=remoteMethods.map(name=>({
   parameters:[{name:'request',wire:'request',source:'json' as const,codec:codec(name,'request')}],result:codec(name,'result'),
   sourceLocation:{file:'adapters/dsh/src/host/remote.ts',line:1,column:1},
 }))
-export const TYPERT_REMOTE={package:remotePackage,descriptors:remoteDescriptors}
+export const TYPERT_REMOTE={package:remotePackage,descriptors:remoteDescriptors} satisfies TypertRemoteContribution
+

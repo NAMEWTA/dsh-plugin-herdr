@@ -25,3 +25,15 @@ test('candidate is built and installed against one exact DSH rc.2 host contract'
   assert.ok(ci.includes('@deepseek-ai/dsh@'+plugin.engines.dsh),'final-package CI must install the declared host')
 })
 
+
+test('locked DSH dependency and peer graph contains only the declared host release',async()=>{
+  const plugin=await json('../../apps/dsh-plugin/package.json')
+  const lock=await readFile(new URL('../../pnpm-lock.yaml',import.meta.url),'utf8')
+  // Match package records AND nested snapshot peer identities. A correct root
+  // importer alone does not prove that pnpm discarded the former auto-peers.
+  const identities=[...lock.matchAll(/@deepseek-ai\/dsh-[a-z0-9-]+@([^()\s':]+)/g)]
+  assert.ok(identities.length>0,'lockfile must contain resolved DSH packages')
+  for(const match of identities){
+    assert.equal(match[1],plugin.engines.dsh,'mixed host identity: '+match[0])
+  }
+})
