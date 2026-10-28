@@ -11,6 +11,7 @@ import { HerdrReadModel } from './application/read-model.ts'
 import { TerminalLeases } from './application/terminals.ts'
 import { TerminalSessionManager } from './infrastructure/terminal/manager.ts'
 import { EnvironmentService, workspaceDirectory } from './infrastructure/environment/service.ts'
+import { assertSessionAccess, loadSessionTree, projectResources, recordSession } from './application/session-ledger.ts'
 export { herdrManifest } from './manifest.ts'
 export function createHerdrModule(configInput:ConnectionConfig,dependencies:{port?:HerdrPort;manager?:TerminalSessionManager}={}) {
   const config=connectionConfigSchema.parse(configInput)
@@ -94,7 +95,9 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
     }})
     register({...catalog['herdr.agent.start'],id:'herdr.agent.start',run:async(input,c)=>{
       if(input.ref.kind!=='pane'||!config.allowedAgentKinds.includes(input.kind))throw new WorkbenchError('FORBIDDEN')
-      return action(input.ref,c,'agent.start',{pane_id:input.ref.id,kind:input.kind,name:input.kind+'-'+input.ref.id.replace(/[^a-zA-Z0-9-]/g,'-'),args:[],timeout_ms:10000})
+      const name=input.kind+'-'+input.ref.id.replace(/[^a-zA-Z0-9-]/g,'-')
+      await action(input.ref,c,'agent.start',{pane_id:input.ref.id,kind:input.kind,name,args:[],timeout_ms:10000})
+      return {ref:input.ref,kind:input.kind,name}
     }})
     register({...catalog['herdr.terminal.open'],id:'herdr.terminal.open',run:(input,c)=>{connection(c.principal);return terminal.open(input,c)}})
     register({...catalog['herdr.terminal.release'],id:'herdr.terminal.release',run:async(input,c)=>{connection(c.principal);await terminal.release(input.leaseId,c.principal);return {}}})
@@ -135,6 +138,19 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
       const key=bindingKey(c.principal,input.conversationId),stored=await ctx.storage.read(key)
       await ctx.storage.write(key,input.ref,stored?.version??null)
       return {conversationId:input.conversationId,ref:input.ref}
+    }})
+    register({...catalog['herdr.session.resources'],id:'herdr.session.resources',run:async(input,c)=>{
+      connection(c.principal)
+      assertSessionAccess(c.principal,input.conversationId)
+      const ledgers=await loadSessionTree(ctx.storage,input.conversationId)
+      return projectResources(input.conversationId,ledgers,model.snapshot())
+    }})
+    register({...catalog['herdr.session.record'],id:'herdr.session.record',run:async(input,c)=>{
+      connection(c.principal)
+      assertSessionAccess(c.principal,input.conversationId)
+      const ledger=await recordSession(ctx.storage,{conversationId:input.conversationId,...input.parentConversationId?{parentConversationId:input.parentConversationId}:{},entries:input.entries},Date.now())
+      ctx.emit({type:'invalidate'})
+      return {conversationId:input.conversationId,count:ledger.entries.length}
     }})
   }})
 }

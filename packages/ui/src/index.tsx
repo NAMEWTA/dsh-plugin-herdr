@@ -54,7 +54,7 @@ interface WorkbenchUi {
 const UiContext=createContext<WorkbenchUi|null>(null)
 export function useWorkbench():WorkbenchUi{const value=useContext(UiContext);if(!value)throw new Error('Workbench UI provider missing');return value}
 export interface PageProps{route:RouteLocation}
-export interface WebModule {navigation?:ComponentType;icon?:ComponentType<{size?:number}>;manifest:ModuleManifest;pages:Readonly<Record<string,ComponentType<PageProps>>>;widgets?:Readonly<Record<string,ComponentType>>;commands?:Readonly<Record<string,(ui:WorkbenchUi)=>void>>}
+export interface WebModule {navigation?:ComponentType;icon?:ComponentType<{size?:number}>;sessionChrome?:ComponentType;manifest:ModuleManifest;pages:Readonly<Record<string,ComponentType<PageProps>>>;widgets?:Readonly<Record<string,ComponentType>>;commands?:Readonly<Record<string,(ui:WorkbenchUi)=>void>>}
 export function UiProvider({children,value}:{children:ReactNode;value:Omit<WorkbenchUi,'t'|'localize'|'confirm'|'notify'|'portal'>}){
   const [portal,setPortal]=useState<HTMLDivElement|null>(null)
   const [confirm,setConfirm]=useState<ConfirmOptions|null>(null),pending=useRef<((ok:boolean)=>void)|null>(null)

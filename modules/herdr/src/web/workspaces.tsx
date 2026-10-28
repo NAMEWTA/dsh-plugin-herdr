@@ -3,7 +3,7 @@ import { Folder, Plus, Terminal, Keyboard, ChevronDown } from 'lucide-react'
 import { Badge, Button, Card, DataTable, EmptyState, ErrorNotice, Field, Input, Modal, Notice, PageHeader, Select, Skeleton, useWorkbench, type PageProps } from '@workbench/ui'
 import { resourceKey, sameResource } from '../domain/selectors.ts'
 import { WorkspacePreview } from './workspace-preview.tsx'
-import { useAction, useBinding, useEnvironment, useSnapshot } from './api.ts'
+import { call, useAction, useBinding, useEnvironment, useSnapshot } from './api.ts'
 import { goToPane, Health, readTarget, ResourceActions, Status } from './parts.tsx'
 import { useHerdrText } from './messages.ts'
 import type { Pane, ResourceRef, HerdrSnapshot, Workspace } from '../contracts/index.ts'
@@ -25,7 +25,7 @@ export function CreateWorkspace({open,close}:{open:boolean;close:()=>void}){
   const canBind=!!ui.conversationId&&!binding.isLoading&&!binding.error&&!binding.data?.ref
   const busy=create.isPending||scoped.isPending
   const bindingUnavailable=!!ui.conversationId&&(binding.isLoading||!!binding.error)
-  const done=(ref:ResourceRef)=>{close();setName('');ui.navigate('herdr.workspaces',{target:JSON.stringify(ref)})}
+  const done=(ref:ResourceRef)=>{close();setName('');if(ui.conversationId)void rememberWorkspace(ui.client,ui.conversationId,ref.id,'ui').catch(()=>{});ui.navigate('herdr.workspaces',{target:JSON.stringify(ref)})}
   return <Modal open={open} onOpenChange={o=>{if(!o&&!busy)close()}} title={h('createWorkspace')} description={h('createHint')}><form className="wb-stack" onSubmit={e=>{e.preventDefault();if(bindingUnavailable||busy)return;const input={label:name,cwd:cwd||environment.data?.rootDirectory||''};if(canBind&&bindNew)scoped.mutate({...input,conversationId:ui.conversationId!,confirmed:true},{onSuccess:value=>{if(value.ref)done(value.ref)}});else create.mutate(input,{onSuccess:done})}}>
     <Field label={h('name')}><Input required maxLength={120} data-wb-initial-focus value={name} onChange={e=>setName(e.target.value)}/></Field>
     <Field label={h('directory')} hint={environment.data?.rootDirectory}><Input required value={cwd||environment.data?.rootDirectory||''} onChange={e=>setCwd(e.target.value)}/></Field>
@@ -64,9 +64,22 @@ function BindingBanner({snapshot}:{snapshot:HerdrSnapshot}){
   if(binding.error)return <ErrorNotice error={binding.error}/>
   const ref=binding.data?.ref,workspace=ref&&snapshot.workspaces.find(item=>sameResource(item.ref,ref))
   const pick=snapshot.workspaces.find(w=>resourceKey(w.ref)===chosen)
-  const bind=async(ref:ResourceRef|null)=>{if(await ui.confirm({title:h('bindingTitle'),description:h('bindingHint'),target:ui.conversationId+' → '+(ref?.id??'—')}))change.mutate({conversationId:ui.conversationId!,ref,confirmed:true})}
+  const bind=async(next:ResourceRef|null)=>{if(await ui.confirm({title:h('bindingTitle'),description:h('bindingHint'),target:ui.conversationId+' → '+(next?.id??'—')}))change.mutate({conversationId:ui.conversationId!,ref:next,confirmed:true},{onSuccess:()=>{if(next&&ui.conversationId)void rememberWorkspace(ui.client,ui.conversationId,next.id,'bound').catch(()=>{})}})}
   return <Card className="wb-binding-card"><div className="wb-section-header"><div><h2>{h('sessionWork')}</h2><p className="wb-small wb-muted">{ref?(workspace? h('bound')+' · '+(workspace.label||ref.id):h('targetChanged')):h('notBound')}</p></div>{workspace&&<Button variant="ghost" size="sm" onClick={()=>ui.navigate('herdr.workspaces',{target:JSON.stringify(workspace.ref)})}>{h('openWorkspace')}</Button>}</div>
     {ui.capabilities.has('herdr.manage')&&(ref?<Button size="sm" variant="ghost" disabled={change.isPending} onClick={()=>void bind(null)}>{h('unbind')}</Button>:<div className="wb-toolbar"><Field label={h('chooseBinding')}><Select value={chosen} onChange={e=>setChosen(e.target.value)}><option value="">{h('chooseBinding')}</option>{snapshot.workspaces.map(w=><option key={resourceKey(w.ref)} value={resourceKey(w.ref)}>{w.label||w.ref.id}</option>)}</Select></Field><Button disabled={!pick||snapshot.stale||change.isPending} onClick={()=>{if(pick)void bind(pick.ref)}}>{h('bind')}</Button></div>)}
     {change.error&&<ErrorNotice error={change.error}/>}<p className="wb-small wb-muted">{h('bindingHint')}</p>
   </Card>
+}
+export async function rememberWorkspace(client:Parameters<typeof call>[0],conversationId:string,workspaceId:string,origin:'ui'|'bound'){
+  const snapshot=await call(client,'herdr.snapshot',{})
+  const workspace=snapshot.workspaces.find(item=>item.ref.id===workspaceId)
+  if(!workspace)return
+  const tabs=snapshot.tabs.filter(item=>item.workspaceId===workspaceId)
+  const panes=snapshot.panes.filter(item=>item.workspaceId===workspaceId)
+  const stamp=()=>crypto.randomUUID()
+  await call(client,'herdr.session.record',{conversationId,entries:[
+    {ref:workspace.ref,role:'workspace' as const,origin,operation:origin==='bound'?'herdr.binding.set':'herdr.workspace.create',requestId:stamp(),label:workspace.label},
+    ...tabs.map(item=>({ref:item.ref,role:'tab' as const,origin,operation:'herdr.tab.create',requestId:stamp(),label:item.label})),
+    ...panes.map(item=>({ref:item.ref,role:(item.agent?'agent':'terminal') as 'agent'|'terminal',origin,operation:item.agent?'herdr.agent.start':'herdr.pane.split',requestId:stamp(),...item.agent?{agentKind:item.agent}:{},label:item.label})),
+  ].slice(0,24)})
 }

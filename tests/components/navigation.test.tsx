@@ -35,11 +35,10 @@ test('module rail is a disclosure; administration is separate from Herdr navigat
 test('workspace tree shows nested tabs and panes; clicking a pane only opens observation',async()=>{
   const d=await start();try{
     const sidebar=within(screen.getByRole('complementary'))
-    await userEvent.click(await sidebar.findByRole('button',{name:'Expand workspace Workbench'}))
-    const tree=within(sidebar.getByRole('navigation',{name:'Workspaces and panes'}))
-    expect(tree.getByText('Main')).toBeTruthy()
+    const tree=within(await sidebar.findByRole('navigation',{name:'Workspaces and panes'}))
     await userEvent.click(tree.getByRole('button',{name:'View pane API · 请求校验'}))
     await screen.findByTestId('terminal-renderer')
+    expect(screen.getByRole('tab',{name:'Main'})).toBeTruthy()
     const opens=d.request.mock.calls.filter(([r])=>r.operation==='herdr.terminal.open')
     expect(opens).toHaveLength(1);expect(opens[0]![0].input).toMatchObject({mode:'observe',confirmed:false,takeover:false})
     expect(d.request.mock.calls.some(([r])=>r.operation==='herdr.resource.adopt')).toBe(false)

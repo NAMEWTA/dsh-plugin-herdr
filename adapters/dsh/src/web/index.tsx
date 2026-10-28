@@ -28,11 +28,11 @@ export async function mountWorkbench(ctx: WebContext, modules: readonly WebModul
     const raw = scope.remote.workbench, locale = scope.locale
     const subscribeLocale = locale ? (listener: () => void) => locale.subscribe(listener) : noSubscribe
     const readLocale = locale ? () => locale.getSnapshot().active ?? 'zh' : defaultLocale
-    function Panel({ conversationId, settings = false }: {conversationId?:string;settings?:boolean}) {
-      const client = useMemo(() => new DshClient(raw), [conversationId])
+    function Panel({ conversationId, settings = false, entry = false }: {conversationId?:string;settings?:boolean;entry?:boolean}) {
+      const client = useMemo(() => new DshClient(raw, conversationId), [conversationId])
       const language = useSyncExternalStore(subscribeLocale, readLocale, defaultLocale)
       useEffect(() => () => client.close(), [client])
-      return <Workbench client={client} modules={modules} initialRoute={settings?'platform.settings':conversationId?'herdr.workspaces':'herdr.overview'} locale={language.startsWith('zh')?'zh':'en'} conversationId={conversationId}/>
+      return <Workbench client={client} modules={modules} presentation={entry?'entry':'app'} sessionEntry={entry||!conversationId} initialRoute={settings?'platform.settings':conversationId?'herdr.workspaces':'herdr.overview'} locale={language.startsWith('zh')?'zh':'en'} conversationId={conversationId}/>
     }
     function MissingSession() {
       const language=useSyncExternalStore(subscribeLocale,readLocale,defaultLocale)
@@ -43,5 +43,6 @@ export async function mountWorkbench(ctx: WebContext, modules: readonly WebModul
     scope.slots.inject('main', function* () { yield scope.slots.register({name:'main',key:'workbench'}, Panel) })
     scope.slots.inject('conversation.view', () => scope.slots.register({name:'conversation.view',id:'workbench',order:20,label:title}, ({sessionId}:{sessionId:string}) => sessionId?<Panel conversationId={sessionId}/>:<MissingSession/>))
     scope.slots.inject('settings.plugins.tab', () => scope.slots.register({name:'settings.plugins.tab',id:'workbench-settings',order:30,label:title}, () => <Panel settings/>))
+    scope.slots.inject('conversation.session.header.actions', () => scope.slots.register({name:'conversation.session.header.actions',id:'workbench-session-terminals',order:40}, ({sessionId}:{sessionId?:string}) => sessionId ? <Panel conversationId={sessionId} entry/> : null))
   })
 }

@@ -8,7 +8,7 @@ export class WorkbenchRemote extends TypertRemoteService {
   declare static readonly [Symbol.hasInstance]:(value:unknown)=>boolean
   constructor(ctx:Context,private readonly runtime:WorkbenchRuntime,private readonly clients:ClientSessions){super(ctx,'workbench',{namespace:'workbench'})}
   private invocation(){const invocation=this.ctx.invocation;if(!invocation?.peer?.id||invocation.signal.aborted)throw new WorkbenchError('AUTH_REQUIRED');return invocation}
-  connect(request:unknown){remoteDefinitions.connect.request.parse(request);return this.clients.connect(this.invocation().peer.id)}
+  connect(request:unknown){const parsed=remoteDefinitions.connect.request.parse(request);return this.clients.connect(this.invocation().peer.id,parsed.conversationId)}
   async request(request:unknown){
     const parsed=remoteDefinitions.request.request.parse(request)
     if(Buffer.byteLength(JSON.stringify(parsed))>1_048_576)throw new WorkbenchError('QUOTA_EXCEEDED')

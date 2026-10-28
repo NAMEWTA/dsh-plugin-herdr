@@ -10,7 +10,7 @@ Visual language: restrained neutral surfaces, subtle borders, roomy typography, 
 
 ## Workspaces → tabs → panes
 
-The Herdr sidebar contains overview, attention and agents, followed by a searchable expandable workspace/tab/pane hierarchy and connection settings at the bottom. Collapsed workspace children are not rendered. A bound conversation's workspace is prioritized and marked. Search matches names, IDs, agent kinds and working directories; an empty search result is not confused with a connection failure.
+The Herdr sidebar is a single studio surface: quiet links for overview, attention and the full agent table, then a searchable workspace list and an agent list. Each row shows a mark, title, subtitle and a status that uses both an icon and a color. Ready rows draw no status. Clicking an agent row opens that pane in place. Connection settings stay at the bottom. The resource command palette is `Ctrl/⌘+Shift+K`. A conversation with owned terminals shows a header count; conversations with none do not. Opening a row from that tree observes the terminal and closing it releases only the bridge. A bound conversation's workspace is prioritized and marked. Search matches names, IDs, agent kinds and working directories; an empty search result is not confused with a connection failure.
 
 The overview is a workspace studio rather than a grid of infrastructure metrics. Workspace cards show their panes directly with state and agent information. A pane's default click opens its real terminal in **read-only observation**, without requiring an extra Observe click. Workspace details preserve tab management, rename/close, pane split and agent start; less frequent actions live under **Manage pane**.
 
@@ -29,7 +29,7 @@ The human-approved `workbench_herdr_action` tool now accepts `herdr.workspace.cr
 ## References reviewed
 
 - Original upstream [`sunny0826/dsh-plugin-herdr`, `src/client-logic.ts`](https://github.com/sunny0826/dsh-plugin-herdr/blob/main/src/client-logic.ts): workspace/tab/pane grouping, natural ordering and truthful five-state presentation. Its public README describes session-scoped UI. This change reimplements the interaction in the new SDK; it does not restore old aliases, private Fiber/DOM patches or the old preset.
-- [`devswha/herdr-web-ui`](https://github.com/devswha/herdr-web-ui) and its [user guide](https://github.com/devswha/herdr-web-ui/blob/main/docs/guide.md): workspace/tab/pane hierarchy, direct terminal access and resource-local management. Used for workflow inspiration, not wholesale feature claims or copied code.
+- [`devswha/ovis`](https://github.com/devswha/ovis) (formerly `devswha/herdr-web-ui`) and its [user guide](https://github.com/devswha/ovis/blob/main/docs/guide.md): workspace/tab/pane hierarchy, direct terminal access and resource-local management. Used for workflow inspiration. Sidebar rows, status dual-encoding and the resource command palette are adapted under MIT; see `THIRD_PARTY_NOTICES.md`.
 - [Herdr concepts](https://herdr.dev/docs/concepts/): a workspace contains tabs and real terminal panes; observation must not terminate the underlying process.
 - Installed, pinned DSH declarations: `@deepseek-ai/dsh-client-ui-session/lib/types/client/index.d.ts` (`SessionStandardProps`), `@deepseek-ai/dsh-api-session-controller/lib/types/client/sessions/service.d.ts` (`SessionListState`), and `@deepseek-ai/dsh-agent/lib/types/types.d.ts` (agent ID is SessionId).
 

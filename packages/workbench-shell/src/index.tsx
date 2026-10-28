@@ -1,4 +1,4 @@
-import { Component, useEffect, useMemo, useState, useRef, useId, type ErrorInfo, type ReactNode } from 'react'
+import { Component, useEffect, useMemo, useState, useRef, useId, type CSSProperties, type ErrorInfo, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, Blocks, ChevronRight, Command, Home, Layers3, Menu, Search, Settings, ShieldCheck, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import type { Locale, RouteLocation, WorkbenchClient } from '@workbench/contracts'
@@ -18,12 +18,12 @@ function readRoute(fallback:string,conversationId?:string):RouteLocation{
   for(const [key,value]of query)if(key.startsWith('wb.')&&key!=='wb.route'&&key.length<80&&value.length<1024)params[key.slice(3)]=value
   return {id,params}
 }
-export function Workbench({client,modules,initialRoute,locale='zh',conversationId}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale?:Locale;conversationId?:string}){
+export function Workbench({client,modules,initialRoute,locale='zh',conversationId,sessionEntry=true,presentation='app'}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale?:Locale;conversationId?:string;sessionEntry?:boolean;presentation?:'app'|'entry'}){
   const [queries]=useState(()=>new QueryClient({defaultOptions:{queries:{staleTime:2000,gcTime:60_000,retry:1,refetchOnWindowFocus:true},mutations:{retry:false}}}))
   useEffect(()=>()=>{queries.clear()},[queries])
-  return <QueryClientProvider client={queries}><Shell key={conversationId??'global'} client={client} modules={modules} initialRoute={initialRoute} locale={locale} conversationId={conversationId}/></QueryClientProvider>
+  return <QueryClientProvider client={queries}><Shell key={(conversationId??'global')+presentation} client={client} modules={modules} initialRoute={initialRoute} locale={locale} conversationId={conversationId} sessionEntry={sessionEntry} presentation={presentation}/></QueryClientProvider>
 }
-function Shell({client,modules,initialRoute,locale,conversationId}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale:Locale;conversationId?:string}){
+function Shell({client,modules,initialRoute,locale,conversationId,sessionEntry,presentation}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale:Locale;conversationId?:string;sessionEntry:boolean;presentation:'app'|'entry'}){
   const cache=useQueryClient(),[prefs,setPrefs]=useState(()=>readPreferences(locale)),[route,setRoute]=useState(()=>readRoute(initialRoute,conversationId)),[systemDark,setSystemDark]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-color-scheme: dark)').matches)
   const platform=useQuery({queryKey:['platform','snapshot'],queryFn:async({signal})=>platformSnapshotSchema.parse(await request(client,'platform.snapshot',{},signal)),refetchInterval:10000})
   const capabilities=useMemo(()=>new Set(platform.data?.capabilities??[]),[platform.data?.capabilities])
@@ -51,15 +51,20 @@ function Shell({client,modules,initialRoute,locale,conversationId}:{client:Workb
   const theme=prefs.theme==='system'?(systemDark?'dark':'light'):prefs.theme
   return <div className="wb-root" data-theme={theme} data-density={prefs.density} lang={prefs.locale}>
     <UiProvider value={{client,locale:prefs.locale,preferences:prefs,setPreferences,route,navigate,capabilities,...conversationId?{conversationId}:{}}}>
-      <Chrome modules={modules} platform={platform.data} loading={platform.isLoading} error={platform.error} retry={()=>void platform.refetch()}/>
+      <Chrome modules={modules} platform={platform.data} loading={platform.isLoading} error={platform.error} retry={()=>void platform.refetch()} presentation={presentation} sessionEntry={sessionEntry}/>
     </UiProvider>
   </div>
 }
 type Platform=ReturnType<typeof platformSnapshotSchema.parse>
-function Chrome({modules,platform,loading,error,retry}:{modules:readonly WebModule[];platform:Platform|undefined;loading:boolean;error:unknown;retry:()=>void}){
+function SessionSlots({modules}:{modules:readonly WebModule[]}){
+  const ui=useWorkbench()
+  if(!ui.conversationId)return null
+  return <>{modules.map(module=>{const Chrome=module.sessionChrome;return Chrome?<Chrome key={module.manifest.id}/>:null})}</>
+}
+function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}:{modules:readonly WebModule[];platform:Platform|undefined;loading:boolean;error:unknown;retry:()=>void;presentation:'app'|'entry';sessionEntry:boolean}){
   const ui=useWorkbench(),{t,route,navigate,localize,capabilities}=ui
   const [section,setSection]=useState(route.id.startsWith('platform.')?'platform':route.id.split('.')[0]!)
-  const [expanded,setExpanded]=useState(true),[narrow,setNarrow]=useState(false)
+  const [expanded,setExpanded]=useState(true),[narrow,setNarrow]=useState(false),[side,setSide]=useState(280)
   const [palette,setPalette]=useState(false),[search,setSearch]=useState('')
   const root=useRef<HTMLDivElement>(null),navigationId=useId()
   const contributions=platform?.contributions??[]
@@ -81,7 +86,7 @@ function Chrome({modules,platform,loading,error,retry}:{modules:readonly WebModu
   },[route.id,JSON.stringify(route.params)])
   useEffect(()=>{const key=(e:KeyboardEvent)=>{
     if(e.target instanceof Element&&e.target.closest('[data-wb-terminal]'))return
-    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(open=>!open)}
+    if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(open=>!open)}
   };window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[])
   const chooseSection=(id:string)=>{setSection(id);setExpanded(current=>id===section?!current:true)}
   const go=(id:string)=>{navigate(id);if(narrow)setExpanded(false)}
@@ -97,16 +102,25 @@ function Chrome({modules,platform,loading,error,retry}:{modules:readonly WebModu
     </nav>}
     <div className="wb-sidebar-footer"><span>Workbench</span><span>{platform?.build.version??'—'}</span></div>
   </>
-  return <div ref={root} className="wb-shell" data-secondary-open={expanded&&!narrow}>
+  const resize=(event:ReactPointerEvent<HTMLDivElement>)=>{
+    if(narrow)return
+    const startX=event.clientX,start=side
+    const move=(e:PointerEvent)=>setSide(Math.min(520,Math.max(240,start+e.clientX-startX)))
+    const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)}
+    window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)
+  }
+  if(presentation==='entry')return <div className="wb-session-inline">{sessionEntry&&<SessionSlots modules={available}/>}</div>
+  return <div ref={root} className="wb-shell" data-secondary-open={expanded&&!narrow} style={{'--wb-side':side+'px'} as CSSProperties}>
     <nav className="wb-rail" aria-label={t('moduleRail')}>
       <div className="wb-rail-brand" title="Workbench"><Layers3 size={23}/></div>
       <div className="wb-rail-modules">{available.map(m=>{const Icon=m.icon??Blocks;return <button key={m.manifest.id} className="wb-rail-button" title={localize(m.manifest.title)} aria-label={localize(m.manifest.title)} aria-pressed={section===m.manifest.id} aria-expanded={section===m.manifest.id&&expanded} aria-controls={navigationId} onClick={()=>chooseSection(m.manifest.id)}><Icon size={21}/><span className="wb-rail-indicator"/></button>})}</div>
       <div className="wb-rail-bottom"><button className="wb-rail-button" title={t('commands')} aria-label={t('commands')} onClick={()=>setPalette(true)}><Search size={20}/></button><button className="wb-rail-button" title={t('systemArea')} aria-label={t('systemArea')} aria-pressed={section==='platform'} aria-expanded={section==='platform'&&expanded} aria-controls={navigationId} onClick={()=>chooseSection('platform')}><Settings size={21}/></button></div>
     </nav>
-    {!narrow&&<aside id={navigationId} hidden={!expanded} className="wb-sidebar" aria-label={t('navigation')}>{sidebar}</aside>}
+    {!narrow&&<aside id={navigationId} hidden={!expanded} className="wb-sidebar" aria-label={t('navigation')}>{sidebar}{expanded&&<div className="wb-side-resizer" role="separator" aria-orientation="vertical" aria-label={t('resizeSidebar')} onPointerDown={resize}/>}</aside>}
     {narrow&&<Modal open={expanded} onOpenChange={setExpanded} title={t('navigation')} className="wb-navigation-dialog"><div id={navigationId} className="wb-sidebar wb-drawer-content">{sidebar}</div></Modal>}
     <main className="wb-main">
       <div className="wb-topbar"><div className="wb-breadcrumb"><Button size="icon" variant="ghost" aria-label={t(expanded?'collapseNavigation':'expandNavigation')} aria-expanded={expanded} aria-controls={navigationId} onClick={()=>setExpanded(!expanded)}><PanelLeftOpen size={18}/></Button><span>{module?localize(module.manifest.title):t('systemArea')}</span><ChevronRight size={13}/><strong>{routeTitle}</strong></div>
+        {sessionEntry&&<div className="wb-topbar-session"><SessionSlots modules={available}/></div>}
         <Button size="sm" variant="ghost" aria-label={t('commands')} onClick={()=>setPalette(true)}><Search size={15}/><span className="wb-command-label">{t('commands')}</span><kbd className="wb-muted">⌘ K</kbd></Button></div>
       <div className="wb-page">
         {loading?<Skeleton/>:error?<ErrorNotice error={error} retry={retry}/>:route.id==='platform.home'?<HomePage modules={modules} active={active}/>:route.id==='platform.modules'?<ModulesPage platform={platform}/>:route.id==='platform.settings'?<SettingsPage platform={platform}/>:route.id==='platform.audit'&&capabilities.has('platform.manage')?<AuditPage/>:View&&selected&&capabilities.has(selected.capability)?<PageBoundary key={route.id+'-'+platform?.modules.find(m=>m.manifest.id===module?.manifest.id)?.state} fallback={<ErrorNotice error={new Error('page')}/>}><View route={route}/></PageBoundary>:<EmptyState title={t('notAvailable')} description={t('moduleHelp')} action={<Button onClick={()=>go('platform.modules')}>{t('modules')}</Button>}/>}
