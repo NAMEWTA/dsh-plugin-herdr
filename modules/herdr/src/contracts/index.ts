@@ -70,7 +70,7 @@ export const terminalEventSchema = z.discriminatedUnion('type',[
   z.object({type:z.literal('ack'),sequence:z.number().int().positive()}),
 ])
 export type TerminalEvent = z.infer<typeof terminalEventSchema>
-export const bindingSchema = z.object({conversationId:z.string(),ref:resourceSchema.nullable()}).strict()
+export const bindingSchema = z.object({conversationId:z.string(),ref:resourceSchema.nullable(),cwd:z.string().min(1).max(4096).nullable()}).strict()
 export const ledgerOriginSchema = z.enum(['tool','ui','bound'])
 export const ledgerRoleSchema = z.enum(['workspace','tab','terminal','agent'])
 export const ledgerPresenceSchema = z.enum(['running','exited','closed','missing'])

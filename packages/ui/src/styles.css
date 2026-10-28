@@ -33,6 +33,8 @@
 .wb-root a{color:var(--wb-info)}
 .wb-root .wb-shell{display:grid;grid-template-columns:64px minmax(0,1fr);min-height:640px;height:100%;max-height:100%;overflow:hidden;position:relative}
 .wb-root .wb-shell[data-secondary-open="true"]{grid-template-columns:64px var(--wb-side,280px) minmax(0,1fr)}
+.wb-root .wb-shell[data-rightbar="true"]{grid-template-columns:64px minmax(0,1fr) 340px}
+.wb-root .wb-shell[data-secondary-open="true"][data-rightbar="true"]{grid-template-columns:64px var(--wb-side,280px) minmax(0,1fr) 340px}
 .wb-root .wb-rail{display:flex;flex-direction:column;align-items:center;gap:30px;padding:20px 8px 14px;background:var(--wb-rail);border-right:1px solid var(--wb-border);z-index:10}
 .wb-root .wb-rail-brand{display:grid;place-items:center;width:42px;height:42px;color:var(--wb-text)}
 .wb-root .wb-rail-modules,.wb-root .wb-rail-bottom{display:flex;flex-direction:column;gap:12px;align-items:center}
@@ -288,5 +290,11 @@
 .wb-root .wb-session-dock>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px}
 .wb-root .wb-session-dock>header p{color:var(--wb-muted);font-size:12px;margin-top:4px}
 .wb-root .wb-session-inline{display:inline-flex}
+.wb-root .wb-rightbar-host{display:block;width:100%;height:100%}
+.wb-root .wb-rightbar{display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid var(--wb-border);background:var(--wb-sidebar);overflow:hidden}
+.wb-root .wb-rightbar-tab{padding:10px 14px;font-size:12px;font-weight:600;border-bottom:1px solid var(--wb-border);box-shadow:inset 0 -2px 0 var(--wb-brand)}
+.wb-root .wb-rightbar-body{display:flex;flex-direction:column;gap:10px;padding:12px;overflow:auto;min-height:0;flex:1}
+.wb-root .wb-rightbar-path{font-size:11px;color:var(--wb-muted);overflow-wrap:anywhere}
+.wb-root .wb-rightbar .wb-terminal-canvas .wb-terminal-screen{height:220px}
 .wb-root[data-density="compact"] .wb-resource-row{min-height:34px;padding-top:3px;padding-bottom:3px}
 @media(prefers-reduced-motion:reduce){.wb-root .wb-status-working{animation:none}}

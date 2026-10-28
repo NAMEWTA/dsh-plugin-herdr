@@ -103,6 +103,11 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
     register({...catalog['herdr.terminal.release'],id:'herdr.terminal.release',run:async(input,c)=>{connection(c.principal);await terminal.release(input.leaseId,c.principal);return {}}})
     ctx.stream({id:'herdr.terminal.frames',capability:'herdr.observe',input:terminalAttachSchema,output:terminalEventSchema,uplink:terminalInputSchema,run:(input,c,uplink)=>{connection(c.principal);return terminal.stream(input,c,uplink)}})
     const bindingKey=(principal:Principal,id:string)=>'binding-'+createHash('sha256').update(id).digest('hex')
+    const cwdKey=(principal:Principal,id:string)=>'cwd-'+createHash('sha256').update(id).digest('hex')
+    const readCwd=async(principal:Principal,id:string)=>{
+      const stored=await ctx.storage.read<Json>(cwdKey(principal,id))
+      return typeof stored?.value==='string'&&stored.value.length>0?stored.value:null
+    }
     // Serialize per-conversation create-and-bind, without adopting a focused/external workspace.
     const creatingBindings=new Set<string>()
     register({...catalog['herdr.conversation.create'],id:'herdr.conversation.create',run:async(input,c)=>{
@@ -120,9 +125,11 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
         try{
           if(c.signal.aborted)throw new Error('cancelled after creation')
           await ctx.storage.write(key,ref,stored?.version??null)
+          const path=await ctx.storage.read<Json>(cwdKey(c.principal,input.conversationId))
+          await ctx.storage.write(cwdKey(c.principal,input.conversationId),input.cwd,path?.version??null)
         }catch{throw new WorkbenchError('OPERATION_OUTCOME_UNKNOWN')}
         ctx.emit({type:'invalidate'})
-        return {conversationId:input.conversationId,ref}
+        return {conversationId:input.conversationId,ref,cwd:input.cwd}
       }finally{creatingBindings.delete(key)}
     }})
     register({...catalog['herdr.binding.get'],id:'herdr.binding.get',run:async(input,c)=>{
@@ -130,14 +137,14 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
       const stored=await ctx.storage.read<Json>(bindingKey(c.principal,input.conversationId))
       const parsed=resourceSchema.nullable().safeParse(stored?.value??null)
       if(!parsed.success)throw new WorkbenchError('STORAGE_UNAVAILABLE')
-      return {conversationId:input.conversationId,ref:parsed.data}
+      return {conversationId:input.conversationId,ref:parsed.data,cwd:await readCwd(c.principal,input.conversationId)}
     }})
     register({...catalog['herdr.binding.set'],id:'herdr.binding.set',run:async(input,c)=>{
       connection(c.principal)
       if(input.ref){if(input.ref.kind!=='workspace')throw new WorkbenchError('INVALID_REQUEST');await model.assert(input.ref)}
       const key=bindingKey(c.principal,input.conversationId),stored=await ctx.storage.read(key)
       await ctx.storage.write(key,input.ref,stored?.version??null)
-      return {conversationId:input.conversationId,ref:input.ref}
+      return {conversationId:input.conversationId,ref:input.ref,cwd:await readCwd(c.principal,input.conversationId)}
     }})
     register({...catalog['herdr.session.resources'],id:'herdr.session.resources',run:async(input,c)=>{
       connection(c.principal)

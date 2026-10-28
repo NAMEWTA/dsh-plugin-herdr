@@ -18,12 +18,12 @@ function readRoute(fallback:string,conversationId?:string):RouteLocation{
   for(const [key,value]of query)if(key.startsWith('wb.')&&key!=='wb.route'&&key.length<80&&value.length<1024)params[key.slice(3)]=value
   return {id,params}
 }
-export function Workbench({client,modules,initialRoute,locale='zh',conversationId,sessionEntry=true,presentation='app'}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale?:Locale;conversationId?:string;sessionEntry?:boolean;presentation?:'app'|'entry'}){
+export function Workbench({client,modules,initialRoute,locale='zh',conversationId,projectPath,sessionEntry=true,presentation='app'}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale?:Locale;conversationId?:string;projectPath?:string;sessionEntry?:boolean;presentation?:'app'|'entry'|'rail'}){
   const [queries]=useState(()=>new QueryClient({defaultOptions:{queries:{staleTime:2000,gcTime:60_000,retry:1,refetchOnWindowFocus:true},mutations:{retry:false}}}))
   useEffect(()=>()=>{queries.clear()},[queries])
-  return <QueryClientProvider client={queries}><Shell key={(conversationId??'global')+presentation} client={client} modules={modules} initialRoute={initialRoute} locale={locale} conversationId={conversationId} sessionEntry={sessionEntry} presentation={presentation}/></QueryClientProvider>
+  return <QueryClientProvider client={queries}><Shell key={(conversationId??'global')+presentation} client={client} modules={modules} initialRoute={initialRoute} locale={locale} conversationId={conversationId} projectPath={projectPath} sessionEntry={sessionEntry} presentation={presentation}/></QueryClientProvider>
 }
-function Shell({client,modules,initialRoute,locale,conversationId,sessionEntry,presentation}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale:Locale;conversationId?:string;sessionEntry:boolean;presentation:'app'|'entry'}){
+function Shell({client,modules,initialRoute,locale,conversationId,projectPath,sessionEntry,presentation}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale:Locale;conversationId?:string;projectPath?:string;sessionEntry:boolean;presentation:'app'|'entry'|'rail'}){
   const cache=useQueryClient(),[prefs,setPrefs]=useState(()=>readPreferences(locale)),[route,setRoute]=useState(()=>readRoute(initialRoute,conversationId)),[systemDark,setSystemDark]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-color-scheme: dark)').matches)
   const platform=useQuery({queryKey:['platform','snapshot'],queryFn:async({signal})=>platformSnapshotSchema.parse(await request(client,'platform.snapshot',{},signal)),refetchInterval:10000})
   const capabilities=useMemo(()=>new Set(platform.data?.capabilities??[]),[platform.data?.capabilities])
@@ -50,7 +50,7 @@ function Shell({client,modules,initialRoute,locale,conversationId,sessionEntry,p
   const setPreferences=(partial:Partial<Preferences>)=>setPrefs(current=>{const next=preferencesSchema.parse({...current,...partial});try{localStorage.setItem(preferenceKey,JSON.stringify(next))}catch{/* private mode: keep preferences in memory */}return next})
   const theme=prefs.theme==='system'?(systemDark?'dark':'light'):prefs.theme
   return <div className="wb-root" data-theme={theme} data-density={prefs.density} lang={prefs.locale}>
-    <UiProvider value={{client,locale:prefs.locale,preferences:prefs,setPreferences,route,navigate,capabilities,...conversationId?{conversationId}:{}}}>
+    <UiProvider value={{client,locale:prefs.locale,preferences:prefs,setPreferences,route,navigate,capabilities,...conversationId?{conversationId}:{},...projectPath?{projectPath}:{}}}>
       <Chrome modules={modules} platform={platform.data} loading={platform.isLoading} error={platform.error} retry={()=>void platform.refetch()} presentation={presentation} sessionEntry={sessionEntry}/>
     </UiProvider>
   </div>
@@ -61,7 +61,10 @@ function SessionSlots({modules}:{modules:readonly WebModule[]}){
   if(!ui.conversationId)return null
   return <>{modules.map(module=>{const Chrome=module.sessionChrome;return Chrome?<Chrome key={module.manifest.id}/>:null})}</>
 }
-function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}:{modules:readonly WebModule[];platform:Platform|undefined;loading:boolean;error:unknown;retry:()=>void;presentation:'app'|'entry';sessionEntry:boolean}){
+function RailSlots({modules}:{modules:readonly WebModule[]}){
+  return <>{modules.map(module=>{const Rail=module.sessionRail;return Rail?<Rail key={module.manifest.id}/>:null})}</>
+}
+function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}:{modules:readonly WebModule[];platform:Platform|undefined;loading:boolean;error:unknown;retry:()=>void;presentation:'app'|'entry'|'rail';sessionEntry:boolean}){
   const ui=useWorkbench(),{t,route,navigate,localize,capabilities}=ui
   const [section,setSection]=useState(route.id.startsWith('platform.')?'platform':route.id.split('.')[0]!)
   const [expanded,setExpanded]=useState(true),[narrow,setNarrow]=useState(false),[side,setSide]=useState(280)
@@ -110,7 +113,9 @@ function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}
     window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)
   }
   if(presentation==='entry')return <div className="wb-session-inline">{sessionEntry&&<SessionSlots modules={available}/>}</div>
-  return <div ref={root} className="wb-shell" data-secondary-open={expanded&&!narrow} style={{'--wb-side':side+'px'} as CSSProperties}>
+  if(presentation==='rail')return <div className="wb-session-inline wb-rightbar-host"><RailSlots modules={available}/></div>
+  const showRail=sessionEntry&&!!ui.conversationId&&!narrow
+  return <div ref={root} className="wb-shell" data-secondary-open={expanded&&!narrow} data-rightbar={showRail} style={{'--wb-side':side+'px'} as CSSProperties}>
     <nav className="wb-rail" aria-label={t('moduleRail')}>
       <div className="wb-rail-brand" title="Workbench"><Layers3 size={23}/></div>
       <div className="wb-rail-modules">{available.map(m=>{const Icon=m.icon??Blocks;return <button key={m.manifest.id} className="wb-rail-button" title={localize(m.manifest.title)} aria-label={localize(m.manifest.title)} aria-pressed={section===m.manifest.id} aria-expanded={section===m.manifest.id&&expanded} aria-controls={navigationId} onClick={()=>chooseSection(m.manifest.id)}><Icon size={21}/><span className="wb-rail-indicator"/></button>})}</div>
@@ -126,6 +131,7 @@ function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}
         {loading?<Skeleton/>:error?<ErrorNotice error={error} retry={retry}/>:route.id==='platform.home'?<HomePage modules={modules} active={active}/>:route.id==='platform.modules'?<ModulesPage platform={platform}/>:route.id==='platform.settings'?<SettingsPage platform={platform}/>:route.id==='platform.audit'&&capabilities.has('platform.manage')?<AuditPage/>:View&&selected&&capabilities.has(selected.capability)?<PageBoundary key={route.id+'-'+platform?.modules.find(m=>m.manifest.id===module?.manifest.id)?.state} fallback={<ErrorNotice error={new Error('page')}/>}><View route={route}/></PageBoundary>:<EmptyState title={t('notAvailable')} description={t('moduleHelp')} action={<Button onClick={()=>go('platform.modules')}>{t('modules')}</Button>}/>}
       </div>
     </main>
+    {showRail&&<div className="wb-rightbar" role="region" aria-label="Herdr"><div className="wb-rightbar-tab" aria-current="page">Herdr</div><RailSlots modules={available}/></div>}
     <Modal open={palette} onOpenChange={setPalette} title={t('commands')}>
       <Field label={t('search')}><Input data-wb-initial-focus value={search} onChange={e=>setSearch(e.target.value)}/></Field>
       <div className="wb-command-list">{contributions.filter(c=>c.kind!=='widget'&&capabilities.has(c.capability)&&localize(c.title).toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(c=><Button key={c.id} variant="ghost" onClick={()=>{setPalette(false);setSearch('');if(c.kind==='command'){modules.find(m=>m.commands?.[c.id])?.commands?.[c.id]?.(ui)}else go(c.id)}}><Command size={15}/>{localize(c.title)}</Button>)}</div>

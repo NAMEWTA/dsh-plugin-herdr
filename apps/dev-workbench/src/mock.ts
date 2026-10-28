@@ -22,6 +22,7 @@ export async function createDemo(scenario: string): Promise<{client:WorkbenchCli
   runtime.register(createPlatformModule(runtime,audit,{version:'1.0.2-alpha.1 · FIXTURE',sha:'development'}))
   let state = fixture(scenario),serial = 10
   const bindings=new Map<string,ResourceRef|null>();if(scenario==='bound')bindings.set('demo-conversation',ref('workspace','w1'))
+  const paths=new Map<string,string|null>();if(scenario==='bound')paths.set('demo-conversation','/demo/workbench')
   const ledgers=new Map<string,SessionLedger>()
   if(!['empty','forbidden','loading','unlinked','large'].includes(scenario)&&state.workspaces.length){
     const paneEntries=state.panes.filter(pane=>pane.workspaceId==='w1').map(pane=>({ref:pane.ref,role:pane.agent?'agent' as const:'terminal' as const,origin:'tool' as const,operation:'herdr.workspace.create',requestId:'seed-'+pane.ref.id,createdAt:Date.now(),...pane.agent?{agentKind:pane.agent}:{},label:pane.label}))
@@ -51,13 +52,13 @@ export async function createDemo(scenario: string): Promise<{client:WorkbenchCli
           const r=ref('workspace','w'+(++serial)),pane=ref('pane',r.id+':p1'),tab=ref('tab',r.id+':t1')
           state={...state,workspaces:[...state.workspaces,{ref:r,label:String(value.label),paneCount:1,tabCount:1,ownership:'created'}],tabs:[...state.tabs,{ref:tab,workspaceId:r.id,label:'Main',ownership:'created'}],panes:[...state.panes,{ref:pane,workspaceId:r.id,tabId:tab.id,terminalId:'fixture-'+r.id,label:'Shell',title:'Shell',agent:null,state:'idle',stateSequence:1,cwd:String(value.cwd),revision:1,ownership:'created'}]}
           ctx.emit({type:'invalidate'})
-          if(id==='herdr.conversation.create'){bindings.set(conversation,r);return {conversationId:conversation,ref:r}}
+          if(id==='herdr.conversation.create'){bindings.set(conversation,r);paths.set(conversation,String(value.cwd||''));return {conversationId:conversation,ref:r,cwd:String(value.cwd||'')||null}}
           return r
         }
         if (id==='herdr.resource.rename') { const target=value.ref as ResourceRef;state={...state,workspaces:state.workspaces.map(w=>w.ref.id===target.id?{...w,label:String(value.label)}:w),panes:state.panes.map(p=>p.ref.id===target.id?{...p,label:String(value.label)}:p)};ctx.emit({type:'invalidate'});return {} }
         if (id==='herdr.resource.close') { const target=value.ref as ResourceRef;state={...state,workspaces:state.workspaces.filter(w=>w.ref.id!==target.id),panes:state.panes.filter(p=>p.ref.id!==target.id&&p.workspaceId!==target.id)};ctx.emit({type:'invalidate'});return {} }
-        if (id==='herdr.binding.get') return {conversationId:value.conversationId,ref:bindings.get(String(value.conversationId))??null}
-        if (id==='herdr.binding.set') {bindings.set(String(value.conversationId),value.ref as ResourceRef|null);return {conversationId:value.conversationId,ref:value.ref}}
+        if (id==='herdr.binding.get') return {conversationId:value.conversationId,ref:bindings.get(String(value.conversationId))??null,cwd:paths.get(String(value.conversationId))??null}
+        if (id==='herdr.binding.set') {bindings.set(String(value.conversationId),value.ref as ResourceRef|null);return {conversationId:value.conversationId,ref:value.ref,cwd:paths.get(String(value.conversationId))??null}}
         if (id==='herdr.session.resources') {
           const conversationId=String(value.conversationId)
           const root=ledgers.get(conversationId)
