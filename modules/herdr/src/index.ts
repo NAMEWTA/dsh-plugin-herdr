@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { WorkbenchError, type Json, type Principal } from '@workbench/contracts'
 import { defineModule, type ModuleContext, type OperationContext, type Operation } from '@workbench/sdk'
@@ -11,6 +11,7 @@ import { HerdrReadModel } from './application/read-model.ts'
 import { TerminalLeases } from './application/terminals.ts'
 import { TerminalSessionManager } from './infrastructure/terminal/manager.ts'
 import { EnvironmentService, workspaceDirectory } from './infrastructure/environment/service.ts'
+import { assertSessionAccess, loadSessionTree, projectResources, recordSession } from './application/session-ledger.ts'
 export { herdrManifest } from './manifest.ts'
 export function createHerdrModule(configInput:ConnectionConfig,dependencies:{port?:HerdrPort;manager?:TerminalSessionManager}={}) {
   const config=connectionConfigSchema.parse(configInput)
@@ -94,12 +95,19 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
     }})
     register({...catalog['herdr.agent.start'],id:'herdr.agent.start',run:async(input,c)=>{
       if(input.ref.kind!=='pane'||!config.allowedAgentKinds.includes(input.kind))throw new WorkbenchError('FORBIDDEN')
-      return action(input.ref,c,'agent.start',{pane_id:input.ref.id,kind:input.kind,name:input.kind+'-'+input.ref.id.replace(/[^a-zA-Z0-9-]/g,'-'),args:[],timeout_ms:10000})
+      const name=input.kind+'-'+input.ref.id.replace(/[^a-zA-Z0-9-]/g,'-')
+      await action(input.ref,c,'agent.start',{pane_id:input.ref.id,kind:input.kind,name,args:[],timeout_ms:10000})
+      return {ref:input.ref,kind:input.kind,name}
     }})
     register({...catalog['herdr.terminal.open'],id:'herdr.terminal.open',run:(input,c)=>{connection(c.principal);return terminal.open(input,c)}})
     register({...catalog['herdr.terminal.release'],id:'herdr.terminal.release',run:async(input,c)=>{connection(c.principal);await terminal.release(input.leaseId,c.principal);return {}}})
     ctx.stream({id:'herdr.terminal.frames',capability:'herdr.observe',input:terminalAttachSchema,output:terminalEventSchema,uplink:terminalInputSchema,run:(input,c,uplink)=>{connection(c.principal);return terminal.stream(input,c,uplink)}})
     const bindingKey=(principal:Principal,id:string)=>'binding-'+createHash('sha256').update(id).digest('hex')
+    const cwdKey=(principal:Principal,id:string)=>'cwd-'+createHash('sha256').update(id).digest('hex')
+    const readCwd=async(principal:Principal,id:string)=>{
+      const stored=await ctx.storage.read<Json>(cwdKey(principal,id))
+      return typeof stored?.value==='string'&&stored.value.length>0?stored.value:null
+    }
     // Serialize per-conversation create-and-bind, without adopting a focused/external workspace.
     const creatingBindings=new Set<string>()
     register({...catalog['herdr.conversation.create'],id:'herdr.conversation.create',run:async(input,c)=>{
@@ -117,9 +125,29 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
         try{
           if(c.signal.aborted)throw new Error('cancelled after creation')
           await ctx.storage.write(key,ref,stored?.version??null)
+          const path=await ctx.storage.read<Json>(cwdKey(c.principal,input.conversationId))
+          await ctx.storage.write(cwdKey(c.principal,input.conversationId),input.cwd,path?.version??null)
         }catch{throw new WorkbenchError('OPERATION_OUTCOME_UNKNOWN')}
+        // Only the UI asks to be recorded here. A tool calls the same operation
+        // without origin and records `tool` afterwards; recording `ui` first would stick.
+        if(input.origin==='ui'){
+          try{
+            const snap=model.snapshot()
+            const workspace=snap.workspaces.find(item=>item.ref.id===ref.id)
+            if(workspace){
+              const tabs=snap.tabs.filter(item=>item.workspaceId===ref.id)
+              const panes=snap.panes.filter(item=>item.workspaceId===ref.id)
+              const requestId=()=>randomUUID()
+              await recordSession(ctx.storage,{conversationId:input.conversationId,entries:[
+                {ref:workspace.ref,role:'workspace' as const,origin:'ui' as const,operation:'herdr.conversation.create',requestId:requestId(),label:workspace.label},
+                ...tabs.map(item=>({ref:item.ref,role:'tab' as const,origin:'ui' as const,operation:'herdr.conversation.create',requestId:requestId(),label:item.label})),
+                ...panes.map(item=>({ref:item.ref,role:(item.agent?'agent':'terminal') as 'agent'|'terminal',origin:'ui' as const,operation:'herdr.conversation.create',requestId:requestId(),...item.agent?{agentKind:item.agent}:{},label:item.label})),
+              ].slice(0,24)})
+            }
+          }catch{/* The binding is already stored. The client records the same rows again. */}
+        }
         ctx.emit({type:'invalidate'})
-        return {conversationId:input.conversationId,ref}
+        return {conversationId:input.conversationId,ref,cwd:input.cwd}
       }finally{creatingBindings.delete(key)}
     }})
     register({...catalog['herdr.binding.get'],id:'herdr.binding.get',run:async(input,c)=>{
@@ -127,14 +155,27 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
       const stored=await ctx.storage.read<Json>(bindingKey(c.principal,input.conversationId))
       const parsed=resourceSchema.nullable().safeParse(stored?.value??null)
       if(!parsed.success)throw new WorkbenchError('STORAGE_UNAVAILABLE')
-      return {conversationId:input.conversationId,ref:parsed.data}
+      return {conversationId:input.conversationId,ref:parsed.data,cwd:await readCwd(c.principal,input.conversationId)}
     }})
     register({...catalog['herdr.binding.set'],id:'herdr.binding.set',run:async(input,c)=>{
       connection(c.principal)
       if(input.ref){if(input.ref.kind!=='workspace')throw new WorkbenchError('INVALID_REQUEST');await model.assert(input.ref)}
       const key=bindingKey(c.principal,input.conversationId),stored=await ctx.storage.read(key)
       await ctx.storage.write(key,input.ref,stored?.version??null)
-      return {conversationId:input.conversationId,ref:input.ref}
+      return {conversationId:input.conversationId,ref:input.ref,cwd:await readCwd(c.principal,input.conversationId)}
+    }})
+    register({...catalog['herdr.session.resources'],id:'herdr.session.resources',run:async(input,c)=>{
+      connection(c.principal)
+      assertSessionAccess(c.principal,input.conversationId)
+      const ledgers=await loadSessionTree(ctx.storage,input.conversationId)
+      return projectResources(input.conversationId,ledgers,model.snapshot())
+    }})
+    register({...catalog['herdr.session.record'],id:'herdr.session.record',run:async(input,c)=>{
+      connection(c.principal)
+      assertSessionAccess(c.principal,input.conversationId)
+      const ledger=await recordSession(ctx.storage,{conversationId:input.conversationId,...input.parentConversationId?{parentConversationId:input.parentConversationId}:{},entries:input.entries},Date.now())
+      ctx.emit({type:'invalidate'})
+      return {conversationId:input.conversationId,count:ledger.entries.length}
     }})
   }})
 }

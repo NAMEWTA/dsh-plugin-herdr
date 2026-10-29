@@ -12,3 +12,4 @@ export function useEnvironment(){const {client,capabilities}=useWorkbench();retu
 export function useAction<K extends OperationId>(operation:K){const {client}=useWorkbench(),cache=useQueryClient();return useMutation({mutationFn:(input:Input<K>)=>call(client,operation,input),retry:false,onSuccess:()=>cache.invalidateQueries({queryKey:['herdr']})})}
 
 export function useBinding(){const {client,conversationId}=useWorkbench();return useQuery({queryKey:['herdr','binding',conversationId],queryFn:({signal})=>call(client,'herdr.binding.get',{conversationId:conversationId!},signal),enabled:!!conversationId,refetchInterval:5000})}
+export function useSessionResources(){const {client,conversationId,capabilities}=useWorkbench();return useQuery({queryKey:['herdr','session',conversationId],queryFn:({signal})=>call(client,'herdr.session.resources',{conversationId:conversationId!},signal),enabled:!!conversationId&&capabilities.has('herdr.read'),refetchInterval:5000})}

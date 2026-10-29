@@ -6,7 +6,8 @@ import { HerdrError } from '../common/errors.ts'
 import type { SessionSnapshot } from './protocol.generated.ts'
 import type { ConnectionConfig } from '../../contracts/config.ts'
 import { z } from 'zod'
-const state=z.enum(['idle','working','blocked','done','unknown']).catch('unknown')
+import { canonicalizeStatus } from '../../domain/status.ts'
+const state=z.preprocess(value=>canonicalizeStatus(value), z.enum(['idle','working','blocked','done','unknown']))
 const rawPane=z.object({pane_id:z.string(),workspace_id:z.string(),tab_id:z.string(),terminal_id:z.string(),revision:z.number().int(),agent_status:state,agent:z.string().nullish(),label:z.string().nullish(),title:z.string().nullish(),terminal_title_stripped:z.string().nullish(),cwd:z.string().nullish(),foreground_cwd:z.string().nullish(),focused:z.boolean().default(false)}).passthrough()
 const rawAgent=rawPane.omit({label:true}).extend({name:z.string().nullish(),state_change_seq:z.number().int().optional()})
 const rawWorkspace=z.object({workspace_id:z.string(),label:z.string(),pane_count:z.number().int(),tab_count:z.number().int(),active_tab_id:z.string(),agent_status:state,focused:z.boolean(),number:z.number()}).passthrough()

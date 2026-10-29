@@ -3,9 +3,17 @@ import { Activity, Circle, CircleCheck, CircleHelp, PauseCircle, RefreshCw, Term
 import { Badge, Button, ErrorNotice, Field, Input, Modal, Notice, useWorkbench } from '@workbench/ui'
 import { resourceSchema, type AgentState, type HerdrSnapshot, type Pane, type ResourceRef } from '../contracts/index.ts'
 import { resourceKey } from '../domain/selectors.ts'
-import { useHerdrText } from './messages.ts'
+import { presentTerminal } from '../domain/status.ts'
+import { useHerdrText, type HerdrMessage } from './messages.ts'
 import { useAction } from './api.ts'
-export function Status({state}:{state:AgentState}){const h=useHerdrText(),Icon={working:Activity,blocked:PauseCircle,idle:Circle,done:CircleCheck,unknown:CircleHelp}[state];return <Badge tone={state==='blocked'?'warning':state==='working'?'info':state==='done'?'success':'neutral'}><Icon size={12}/>{h(state)}</Badge>}
+/** `raw` keeps Herdr's own word for the attention inbox and the agent filter. Everywhere else a plain unknown shell reads as idle. */
+export function Status({state, agent=null, raw=false}:{state:AgentState; agent?:string|null; raw?:boolean}){
+  const h=useHerdrText()
+  const face=raw?{mark:state, statusKey:state}:{...presentTerminal({state, agent})}
+  const key:HerdrMessage=face.statusKey==='statusUnreported'?'statusUnreported':face.statusKey
+  const Icon=face.mark==='working'?Activity:face.mark==='blocked'?PauseCircle:face.mark==='done'?CircleCheck:face.mark==='unknown'?CircleHelp:Circle
+  return <Badge tone={face.mark==='blocked'?'warning':face.mark==='working'?'info':face.mark==='done'?'success':'neutral'}><Icon size={12}/>{h(key)}</Badge>
+}
 export function Health({snapshot,onRefresh}:{snapshot:HerdrSnapshot;onRefresh:()=>void}){
   const h=useHerdrText(),{t,locale}=useWorkbench()
   return <><div className="wb-actions wb-small"><Badge tone={snapshot.connection==='online'?'success':snapshot.connection==='connecting'?'neutral':'warning'}>{h(snapshot.connection)}</Badge><span className="wb-muted">{h('local')} · {snapshot.session}</span><span className="wb-muted">{h('readAt')} {snapshot.sampledAt?new Date(snapshot.sampledAt).toLocaleTimeString(locale==='zh'?'zh-CN':'en-US'):'—'}</span><Badge>{h(snapshot.eventStream==='connected'?'stream':'polling')}</Badge><Button variant="ghost" size="sm" onClick={onRefresh}><RefreshCw size={13}/>{t('refresh')}</Button></div>{snapshot.stale&&<Notice tone="warning" title={snapshot.connection==='incompatible'?t('UNSUPPORTED_VERSION'):t('offline')}>{t('offlineHint')}</Notice>}{snapshot.eventGap&&<p className="wb-muted wb-small">{h('gap')}</p>}</>

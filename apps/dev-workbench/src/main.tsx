@@ -10,5 +10,5 @@ const scenario = new URLSearchParams(location.search).get('scenario') ?? 'normal
 const demo = await createDemo(scenario)
 const root = document.getElementById('root')
 if (!root) throw new Error('Root element missing')
-createRoot(root).render(<Workbench client={demo.client} modules={[herdrWeb,notesWeb]} initialRoute="herdr.overview" locale={new URLSearchParams(location.search).get('lang')==='en'?'en':'zh'} conversationId="demo-conversation"/>)
+createRoot(root).render(<Workbench client={demo.client} modules={[herdrWeb,notesWeb]} initialRoute="herdr.overview" locale={new URLSearchParams(location.search).get('lang')==='en'?'en':'zh'} conversationId="demo-conversation" projectPath="/demo/workbench"/>)
 window.addEventListener('pagehide',()=>void demo.dispose(),{once:true})

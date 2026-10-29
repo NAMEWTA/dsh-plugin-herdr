@@ -2,7 +2,7 @@ import type { Json, PlatformEvent, RequestEnvelope, Result, WorkbenchClient } fr
 import { remoteDefinitions } from '../contract.ts'
 interface Handle extends AsyncIterable<unknown> { send(value: unknown): void; end(): void; dispose(): void }
 export interface RemoteNamespace {
-  connect(request: Record<string, never>): Promise<unknown>
+  connect(request: {conversationId?: string}): Promise<unknown>
   request(request: { clientId: string; envelope: RequestEnvelope }): Promise<unknown>
   disconnect(request: { clientId: string }): Promise<unknown>
   events(request: { clientId: string }): Handle
@@ -20,10 +20,10 @@ export class DshClient implements WorkbenchClient {
   private id: string | undefined
   private closed = false
   private readonly handles = new Set<Handle>()
-  constructor(private readonly remote: RemoteNamespace) {}
+  constructor(private readonly remote: RemoteNamespace, private readonly conversationId?: string) {}
   private connect(): Promise<string> {
     if (this.closed) return Promise.reject(new GatewayError('AUTH_REQUIRED'))
-    if (!this.connection) this.connection = this.remote.connect({}).then(raw => {
+    if (!this.connection) this.connection = this.remote.connect(this.conversationId ? {conversationId: this.conversationId} : {}).then(raw => {
       const result = remoteDefinitions.connect.result.parse(unwrap(raw))
       if (this.closed) { void this.remote.disconnect({clientId:result.clientId}); throw new GatewayError('AUTH_REQUIRED') }
       this.id = result.clientId; return result.clientId

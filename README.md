@@ -1,12 +1,12 @@
 # Workbench
 
-> 本次问题修复将源码的唯一 DSH 基线升级为 `0.2.1-rc.2`。既有 `v1.0.2-alpha.1` Release 和附件保持不变，仍是旧 `alpha.2` 宿主构件；不要将旧附件当成 rc.2 修复包。本次不新增发行版本，使用对应 CI 的候选 tarball，并核对 `build.json` 中的源码 SHA 与 `dsh` 字段。
+> 当前预览版是 `1.0.3-alpha.1`，宿主基线是 DSH `0.2.1-rc.2`。已经发布的 `v1.0.2-alpha.1` 附件保持不变，那一版仍是旧 `0.2.1-alpha.2` 宿主构件，不要把它当成 rc.2 包。合并到 main 并通过三项验收后，CI 发布 `v1.0.3-alpha.1` prerelease，不覆盖旧 Release，不发布 npm。安装前核对 `build.json` 中的源码 SHA 与 `dsh` 字段。
 
 **独立维护、功能模块化的开发工作台。Herdr 是第一个模块，而不是整个平台。**
 
 `@namewta/dsh-workbench` 替换旧插件架构：统一 React 界面、第一方模块 SDK、服务端授权、明确的资源归属和受控终端。没有旧 API、旧配置、旧导出或旧预设兼容层。旧插件不被自动卸载，已有工作区和 Agent 不被迁移或删除。
 
-> 当前版本为 `1.0.2-alpha.1` 预览版；GitHub 构件仅在 main 验收通过后发布，不发布 npm。GitHub 仓库仍位于原 fork 网络；代码重构不等于完成管理员侧的脱离操作。[发布说明](docs/releases/1.0.2-alpha.1.md)与[验收边界](docs/acceptance.md)列明未完成项。
+> 当前版本为 `1.0.3-alpha.1` 预览版；GitHub 构件仅在 main 验收通过后发布，不发布 npm，也不覆盖 `v1.0.2-alpha.1`。GitHub 仓库仍位于原 fork 网络；代码重构不等于完成管理员侧的脱离操作。[发布说明](docs/releases/1.0.3-alpha.1.md)与[验收边界](docs/acceptance.md)列明未完成项。
 
 ## 产品结构
 
@@ -44,6 +44,8 @@ pnpm pack:plugin
 node tooling/check-package.mjs artifacts/*.tgz
 HERDR_TEST_BINARY=/absolute/path/to/herdr-0.9.3 node tests/e2e/dsh.mjs /absolute/path/to/dsh/lib/bin.js artifacts/*.tgz
 ```
+
+`pnpm pack:plugin` 会先执行 `pnpm build`（生成 `lib/sbom.cdx.json`、客户端样式和校验清单），再把 tarball 写到 `artifacts/`。不必在 pack 之前单独 build。安装的仍然是这个 tarball，不是源码目录。
 
 集成环境缺失会失败，不会跳过后报告通过。CI 固定 Linux x86_64、Herdr 0.9.3/protocol 22 和 DSH 0.2.1-rc.2。PR 只生成候选包；main 必须重新通过全部质量、真实集成和浏览器检查，才将同次运行的构件发布为已授权的 GitHub alpha。既有 Release 不覆盖，npm 不发布。
 

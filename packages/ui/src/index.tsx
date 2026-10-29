@@ -9,6 +9,7 @@ import type { Json, Locale, Localized, ModuleManifest, RouteLocation, WorkbenchC
 import type { Preferences } from '@workbench/contracts/schemas'
 import { messages, type MessageKey } from './messages.ts'
 export { messages, type MessageKey } from './messages.ts'
+export { WORKBENCH_STYLE_ID, bindWorkbenchStyles, installWorkbenchStyles, mountWorkbenchStyles, releaseWorkbenchStyles } from './style-host.ts'
 export const cn=(...values:ClassValue[])=>twMerge(clsx(values))
 export const buttonVariants=cva('wb-button',{variants:{variant:{primary:'wb-button-primary',secondary:'wb-button-secondary',ghost:'wb-button-ghost',danger:'wb-button-danger'},size:{default:'',sm:'wb-button-sm',icon:'wb-button-icon'}},defaultVariants:{variant:'secondary',size:'default'}})
 export function Button({className,variant,size,type='button',...props}:ComponentProps<typeof ButtonPrimitive>&VariantProps<typeof buttonVariants>){return <ButtonPrimitive type={type} className={cn(buttonVariants({variant,size}),className)} {...props}/>}
@@ -49,12 +50,12 @@ interface WorkbenchUi {
   route:RouteLocation;navigate:(id:string,params?:Record<string,string>)=>void;capabilities:ReadonlySet<string>;
   t:(key:MessageKey)=>string;localize:(text:Localized)=>string;
   confirm:(options:ConfirmOptions)=>Promise<boolean>;notify:(message:string,tone?:'success'|'danger')=>void;
-  portal:HTMLDivElement|null;conversationId?:string;
+  portal:HTMLDivElement|null;conversationId?:string;projectPath?:string;
 }
 const UiContext=createContext<WorkbenchUi|null>(null)
 export function useWorkbench():WorkbenchUi{const value=useContext(UiContext);if(!value)throw new Error('Workbench UI provider missing');return value}
 export interface PageProps{route:RouteLocation}
-export interface WebModule {navigation?:ComponentType;icon?:ComponentType<{size?:number}>;manifest:ModuleManifest;pages:Readonly<Record<string,ComponentType<PageProps>>>;widgets?:Readonly<Record<string,ComponentType>>;commands?:Readonly<Record<string,(ui:WorkbenchUi)=>void>>}
+export interface WebModule {navigation?:ComponentType;icon?:ComponentType<{size?:number}>;sessionChrome?:ComponentType;sessionRail?:ComponentType;manifest:ModuleManifest;pages:Readonly<Record<string,ComponentType<PageProps>>>;widgets?:Readonly<Record<string,ComponentType>>;commands?:Readonly<Record<string,(ui:WorkbenchUi)=>void>>}
 export function UiProvider({children,value}:{children:ReactNode;value:Omit<WorkbenchUi,'t'|'localize'|'confirm'|'notify'|'portal'>}){
   const [portal,setPortal]=useState<HTMLDivElement|null>(null)
   const [confirm,setConfirm]=useState<ConfirmOptions|null>(null),pending=useRef<((ok:boolean)=>void)|null>(null)

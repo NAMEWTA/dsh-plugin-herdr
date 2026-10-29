@@ -3,7 +3,7 @@ import { Folder, Plus, Terminal, Keyboard, ChevronDown } from 'lucide-react'
 import { Badge, Button, Card, DataTable, EmptyState, ErrorNotice, Field, Input, Modal, Notice, PageHeader, Select, Skeleton, useWorkbench, type PageProps } from '@workbench/ui'
 import { resourceKey, sameResource } from '../domain/selectors.ts'
 import { WorkspacePreview } from './workspace-preview.tsx'
-import { useAction, useBinding, useEnvironment, useSnapshot } from './api.ts'
+import { call, useAction, useBinding, useEnvironment, useSnapshot } from './api.ts'
 import { goToPane, Health, readTarget, ResourceActions, Status } from './parts.tsx'
 import { useHerdrText } from './messages.ts'
 import type { Pane, ResourceRef, HerdrSnapshot, Workspace } from '../contracts/index.ts'
@@ -25,8 +25,8 @@ export function CreateWorkspace({open,close}:{open:boolean;close:()=>void}){
   const canBind=!!ui.conversationId&&!binding.isLoading&&!binding.error&&!binding.data?.ref
   const busy=create.isPending||scoped.isPending
   const bindingUnavailable=!!ui.conversationId&&(binding.isLoading||!!binding.error)
-  const done=(ref:ResourceRef)=>{close();setName('');ui.navigate('herdr.workspaces',{target:JSON.stringify(ref)})}
-  return <Modal open={open} onOpenChange={o=>{if(!o&&!busy)close()}} title={h('createWorkspace')} description={h('createHint')}><form className="wb-stack" onSubmit={e=>{e.preventDefault();if(bindingUnavailable||busy)return;const input={label:name,cwd:cwd||environment.data?.rootDirectory||''};if(canBind&&bindNew)scoped.mutate({...input,conversationId:ui.conversationId!,confirmed:true},{onSuccess:value=>{if(value.ref)done(value.ref)}});else create.mutate(input,{onSuccess:done})}}>
+  const done=(ref:ResourceRef,operation:string)=>{close();setName('');if(ui.conversationId)void rememberWorkspace(ui.client,ui.conversationId,ref.id,'ui',operation).catch(()=>{});ui.navigate('herdr.workspaces',{target:JSON.stringify(ref)})}
+  return <Modal open={open} onOpenChange={o=>{if(!o&&!busy)close()}} title={h('createWorkspace')} description={h('createHint')}><form className="wb-stack" onSubmit={e=>{e.preventDefault();if(bindingUnavailable||busy)return;const input={label:name,cwd:cwd||environment.data?.rootDirectory||''};if(canBind&&bindNew)scoped.mutate({...input,conversationId:ui.conversationId!,confirmed:true,origin:'ui'},{onSuccess:value=>{if(value.ref)done(value.ref,'herdr.conversation.create')}});else create.mutate(input,{onSuccess:ref=>done(ref,'herdr.workspace.create')})}}>
     <Field label={h('name')}><Input required maxLength={120} data-wb-initial-focus value={name} onChange={e=>setName(e.target.value)}/></Field>
     <Field label={h('directory')} hint={environment.data?.rootDirectory}><Input required value={cwd||environment.data?.rootDirectory||''} onChange={e=>setCwd(e.target.value)}/></Field>
     {canBind&&<label className="wb-checkbox-row"><input type="checkbox" checked={bindNew} onChange={e=>setBindNew(e.target.checked)}/><span><strong>{h('createBound')}</strong><small>{h('createBoundHint')}</small></span></label>}
@@ -48,7 +48,7 @@ function WorkspaceDetail({workspace:w,snapshot:s}:{workspace:Workspace;snapshot:
 }
 export function PaneCard({pane:p,stale}:{pane:Pane;stale:boolean}){
   const ui=useWorkbench(),h=useHerdrText(),split=useAction('herdr.pane.split'),start=useAction('herdr.agent.start'),environment=useEnvironment(),[agent,setAgent]=useState('claude')
-  return <Card className="wb-pane-card"><button className="wb-pane-title" disabled={stale||!ui.capabilities.has('herdr.observe')} onClick={()=>goToPane(ui,p)} aria-label={h('viewPane')+' '+(p.label||p.ref.id)}><span className="wb-workspace-glyph"><Terminal size={20}/></span><span><strong>{p.label||p.ref.id}</strong><small>{p.agent??'Shell'} · {p.ref.id}</small></span></button><div className="wb-pane-meta"><Status state={p.state}/><span className="wb-small wb-muted wb-truncate" title={p.cwd??''}>{p.cwd??'—'}</span></div>
+  return <Card className="wb-pane-card"><button className="wb-pane-title" disabled={stale||!ui.capabilities.has('herdr.observe')} onClick={()=>goToPane(ui,p)} aria-label={h('viewPane')+' '+(p.label||p.ref.id)}><span className="wb-workspace-glyph"><Terminal size={20}/></span><span><strong>{p.label||p.ref.id}</strong><small>{p.agent??h('shellKind')} · {p.ref.id}</small></span></button><div className="wb-pane-meta"><Status state={p.state} agent={p.agent}/><span className="wb-small wb-muted wb-truncate" title={p.cwd??''}>{p.cwd??'—'}</span></div>
     <div className="wb-pane-card-actions"><Button variant="ghost" disabled={stale||!ui.capabilities.has('herdr.observe')} onClick={()=>goToPane(ui,p)}>{h('view')}</Button>{ui.capabilities.has('herdr.control')&&<Button disabled={stale||(p.ownership==='external'&&!ui.capabilities.has('herdr.manage'))} onClick={()=>goToPane(ui,p,'control')}><Keyboard size={15}/>{h('controlShort')}</Button>}</div>
     <details className="wb-resource-disclosure"><summary>{h('managePane')}<ChevronDown size={14}/></summary><div className="wb-stack"><ResourceActions refValue={p.ref} label={p.label} ownership={p.ownership} stale={stale}/>
       {ui.capabilities.has('herdr.manage')&&<Button disabled={stale||p.ownership==='external'||split.isPending} onClick={()=>void(async()=>{if(await ui.confirm({title:h('splitTitle'),description:h('splitBody'),target:p.ref.id}))split.mutate({ref:p.ref,direction:'horizontal'})})()}>{h('split')}</Button>}
@@ -64,9 +64,23 @@ function BindingBanner({snapshot}:{snapshot:HerdrSnapshot}){
   if(binding.error)return <ErrorNotice error={binding.error}/>
   const ref=binding.data?.ref,workspace=ref&&snapshot.workspaces.find(item=>sameResource(item.ref,ref))
   const pick=snapshot.workspaces.find(w=>resourceKey(w.ref)===chosen)
-  const bind=async(ref:ResourceRef|null)=>{if(await ui.confirm({title:h('bindingTitle'),description:h('bindingHint'),target:ui.conversationId+' → '+(ref?.id??'—')}))change.mutate({conversationId:ui.conversationId!,ref,confirmed:true})}
+  const bind=async(next:ResourceRef|null)=>{if(await ui.confirm({title:h('bindingTitle'),description:h('bindingHint'),target:ui.conversationId+' → '+(next?.id??'—')}))change.mutate({conversationId:ui.conversationId!,ref:next,confirmed:true},{onSuccess:()=>{if(next&&ui.conversationId)void rememberWorkspace(ui.client,ui.conversationId,next.id,'bound').catch(()=>{})}})}
   return <Card className="wb-binding-card"><div className="wb-section-header"><div><h2>{h('sessionWork')}</h2><p className="wb-small wb-muted">{ref?(workspace? h('bound')+' · '+(workspace.label||ref.id):h('targetChanged')):h('notBound')}</p></div>{workspace&&<Button variant="ghost" size="sm" onClick={()=>ui.navigate('herdr.workspaces',{target:JSON.stringify(workspace.ref)})}>{h('openWorkspace')}</Button>}</div>
     {ui.capabilities.has('herdr.manage')&&(ref?<Button size="sm" variant="ghost" disabled={change.isPending} onClick={()=>void bind(null)}>{h('unbind')}</Button>:<div className="wb-toolbar"><Field label={h('chooseBinding')}><Select value={chosen} onChange={e=>setChosen(e.target.value)}><option value="">{h('chooseBinding')}</option>{snapshot.workspaces.map(w=><option key={resourceKey(w.ref)} value={resourceKey(w.ref)}>{w.label||w.ref.id}</option>)}</Select></Field><Button disabled={!pick||snapshot.stale||change.isPending} onClick={()=>{if(pick)void bind(pick.ref)}}>{h('bind')}</Button></div>)}
     {change.error&&<ErrorNotice error={change.error}/>}<p className="wb-small wb-muted">{h('bindingHint')}</p>
   </Card>
+}
+export async function rememberWorkspace(client:Parameters<typeof call>[0],conversationId:string,workspaceId:string,origin:'ui'|'bound',operation?:string){
+  const snapshot=await call(client,'herdr.snapshot',{})
+  const workspace=snapshot.workspaces.find(item=>item.ref.id===workspaceId)
+  if(!workspace)return
+  const tabs=snapshot.tabs.filter(item=>item.workspaceId===workspaceId)
+  const panes=snapshot.panes.filter(item=>item.workspaceId===workspaceId)
+  const stamp=()=>crypto.randomUUID()
+  const workspaceOperation=operation??(origin==='bound'?'herdr.binding.set':'herdr.workspace.create')
+  await call(client,'herdr.session.record',{conversationId,entries:[
+    {ref:workspace.ref,role:'workspace' as const,origin,operation:workspaceOperation,requestId:stamp(),label:workspace.label},
+    ...tabs.map(item=>({ref:item.ref,role:'tab' as const,origin,operation:operation??'herdr.tab.create',requestId:stamp(),label:item.label})),
+    ...panes.map(item=>({ref:item.ref,role:(item.agent?'agent':'terminal') as 'agent'|'terminal',origin,operation:operation??(item.agent?'herdr.agent.start':'herdr.pane.split'),requestId:stamp(),...item.agent?{agentKind:item.agent}:{},label:item.label})),
+  ].slice(0,24)})
 }

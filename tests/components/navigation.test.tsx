@@ -15,6 +15,23 @@ async function start(scenario='normal',initialRoute='herdr.overview'){
   const view=render(<Workbench {...props}/>);await screen.findByRole('heading',{level:1})
   return {request,view,props,async close(){view.unmount();await demo.dispose()}}
 }
+test('one click collapses the feature sidebar',async()=>{
+  const d=await start();try{
+    const side=screen.getByRole('complementary',{name:'Feature navigation'})
+    await userEvent.click(within(side).getByRole('button',{name:'Collapse navigation'}))
+    expect(screen.queryByRole('complementary',{name:'Feature navigation'})).toBeNull()
+    expect(screen.getByRole('button',{name:'Expand navigation'})).toBeTruthy()
+  }finally{await d.close()}
+})
+test('the top bar toggle collapses on the first click and expands on the next',async()=>{
+  const d=await start();try{
+    const bar=within(screen.getByRole('main'))
+    await userEvent.click(bar.getByRole('button',{name:'Collapse navigation'}))
+    expect(screen.queryByRole('complementary',{name:'Feature navigation'})).toBeNull()
+    await userEvent.click(screen.getByRole('button',{name:'Expand navigation'}))
+    expect(screen.getByRole('complementary',{name:'Feature navigation'})).toBeTruthy()
+  }finally{await d.close()}
+})
 test('module rail is a disclosure; administration is separate from Herdr navigation',async()=>{
   const d=await start();try{
     const rail=screen.getByRole('navigation',{name:'Feature modules'})
@@ -35,11 +52,10 @@ test('module rail is a disclosure; administration is separate from Herdr navigat
 test('workspace tree shows nested tabs and panes; clicking a pane only opens observation',async()=>{
   const d=await start();try{
     const sidebar=within(screen.getByRole('complementary'))
-    await userEvent.click(await sidebar.findByRole('button',{name:'Expand workspace Workbench'}))
-    const tree=within(sidebar.getByRole('navigation',{name:'Workspaces and panes'}))
-    expect(tree.getByText('Main')).toBeTruthy()
+    const tree=within(await sidebar.findByRole('navigation',{name:'Workspaces and panes'}))
     await userEvent.click(tree.getByRole('button',{name:'View pane API · 请求校验'}))
     await screen.findByTestId('terminal-renderer')
+    expect(screen.getByRole('tab',{name:'Main'})).toBeTruthy()
     const opens=d.request.mock.calls.filter(([r])=>r.operation==='herdr.terminal.open')
     expect(opens).toHaveLength(1);expect(opens[0]![0].input).toMatchObject({mode:'observe',confirmed:false,takeover:false})
     expect(d.request.mock.calls.some(([r])=>r.operation==='herdr.resource.adopt')).toBe(false)
@@ -127,5 +143,21 @@ test('late observation response after navigating away is released, never attache
     deliver!()
     await waitFor(()=>expect(request.mock.calls.some(([r])=>r.operation==='herdr.terminal.release')).toBe(true))
     expect(screen.queryByTestId('terminal-renderer')).toBeNull()
+  }finally{view.unmount();await demo.dispose()}
+})
+test('chinese chrome translates the studio title, workbench label, shell kind and attention states',async()=>{
+  const demo=await createDemo('normal')
+  const view=render(<Workbench client={demo.client} modules={[herdrWeb]} initialRoute="herdr.overview" locale="zh" conversationId="demo-conversation"/>)
+  try{
+    await screen.findByRole('heading',{level:1,name:'你的 Agent 工作室'})
+    const side=screen.getByRole('complementary',{name:'功能导航'})
+    expect(side.querySelector('.wb-eyebrow')?.textContent).toBe('工作区工作室')
+    expect(side.querySelector('.wb-sidebar-footer')?.textContent).toContain('工作台')
+    expect(side.querySelector('.wb-sidebar-footer')?.textContent).not.toContain('Workbench')
+    expect(screen.getByTitle('工作台')).toBeTruthy()
+    expect(document.querySelector('.wb-studio-kicker')?.textContent?.replace(/\s+/g,' ')).toBe('Herdr / 工作区工作室')
+    expect(await screen.findByText('等待介入的事项需要查看原始终端；回合结束只表示一轮结束，不代表任务成功。')).toBeTruthy()
+    expect(screen.queryByText(/blocked|done/)).toBeNull()
+    expect(screen.getByText('终端 · 空闲')).toBeTruthy()
   }finally{view.unmount();await demo.dispose()}
 })

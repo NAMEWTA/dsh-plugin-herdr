@@ -109,7 +109,6 @@ try{
  await mobile.getByRole('heading',{level:1,name:'Your agent workspace'}).waitFor()
  const entry=mobile.locator('.wb-rail').getByRole('button',{name:'Herdr',exact:true})
  await entry.click();await mobile.getByRole('dialog',{name:'Feature navigation'}).waitFor()
- await mobile.locator('.wb-sidebar').getByRole('button',{name:'Expand workspace Workbench',exact:true}).click()
  await mobile.getByRole('navigation',{name:'Workspaces and panes'}).getByRole('button',{name:'View pane API · 请求校验',exact:true}).waitFor()
  await audit(mobile,'mobile-navigation');await mobile.screenshot({path:resolve(out,'mobile-navigation.png'),fullPage:true})
  await mobile.keyboard.press('Escape');await mobile.getByRole('dialog').waitFor({state:'hidden'})

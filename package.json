@@ -1,6 +1,6 @@
 {
   "name": "workbench-monorepo",
-  "version": "1.0.2-alpha.1",
+  "version": "1.0.3-alpha.1",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -16,7 +16,7 @@
     "gen:contracts:check": "node tooling/gen-remote.mjs --check",
     "test:unit": "node --experimental-transform-types --test \"tests/unit/*.test.ts\" \"modules/herdr/test/*.test.ts\"",
     "test:components": "vitest run --config vitest.config.ts",
-    "test:e2e": "node tests/e2e/run.mjs && node tests/e2e/inspector.mjs",
+    "test:e2e": "node tests/e2e/run.mjs && node tests/e2e/inspector.mjs && node tests/e2e/rail-shadow.mjs",
     "test:integration": "node --experimental-transform-types --test \"tests/integration/*.test.ts\"",
     "test:package": "node --test \"tests/packaging/*.test.mjs\"",
     "quality": "pnpm build && pnpm typecheck && pnpm check:architecture && pnpm gen:protocol:check && pnpm gen:contracts:check && pnpm test:unit && pnpm test:components && pnpm test:package",

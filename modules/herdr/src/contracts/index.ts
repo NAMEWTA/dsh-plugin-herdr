@@ -70,24 +70,75 @@ export const terminalEventSchema = z.discriminatedUnion('type',[
   z.object({type:z.literal('ack'),sequence:z.number().int().positive()}),
 ])
 export type TerminalEvent = z.infer<typeof terminalEventSchema>
-export const bindingSchema = z.object({conversationId:z.string(),ref:resourceSchema.nullable()}).strict()
+export const bindingSchema = z.object({conversationId:z.string(),ref:resourceSchema.nullable(),cwd:z.string().min(1).max(4096).nullable()}).strict()
+export const ledgerOriginSchema = z.enum(['tool','ui','bound'])
+export const ledgerRoleSchema = z.enum(['workspace','tab','terminal','agent'])
+export const ledgerPresenceSchema = z.enum(['running','exited','closed','missing'])
+export const ledgerEntrySchema = z.object({
+  ref: resourceSchema,
+  role: ledgerRoleSchema,
+  agentKind: z.string().min(1).max(64).optional(),
+  label: z.string().max(160).optional(),
+  origin: ledgerOriginSchema,
+  operation: z.string().min(1).max(80),
+  requestId: z.string().min(1).max(128),
+  toolCallId: z.string().min(1).max(128).optional(),
+  createdAt: z.number().int().nonnegative(),
+  lastSeen: z.object({status: ledgerPresenceSchema, at: z.number().int().nonnegative()}).strict().optional(),
+}).strict()
+export type LedgerEntry = z.infer<typeof ledgerEntrySchema>
+export const sessionLedgerSchema = z.object({
+  conversationId: z.string().min(1).max(128),
+  parentConversationId: z.string().min(1).max(128).optional(),
+  childConversationIds: z.array(z.string().min(1).max(128)).max(32),
+  entries: z.array(ledgerEntrySchema).max(240),
+}).strict()
+export type SessionLedger = z.infer<typeof sessionLedgerSchema>
+export const sessionEntryViewSchema = ledgerEntrySchema.extend({
+  presence: ledgerPresenceSchema,
+  state: stateSchema.nullable(),
+  agent: z.string().nullable(),
+  cwd: z.string().nullable(),
+  title: z.string(),
+  workspaceId: z.string().nullable(),
+  workspaceLabel: z.string().nullable(),
+  tabId: z.string().nullable(),
+}).strict()
+export const sessionNodeSchema = z.object({
+  conversationId: z.string().min(1).max(128),
+  parentConversationId: z.string().min(1).max(128).nullable(),
+  entries: z.array(sessionEntryViewSchema).max(240),
+}).strict()
+export const sessionResourcesSchema = z.object({
+  conversationId: z.string().min(1).max(128),
+  nodes: z.array(sessionNodeSchema).max(33),
+}).strict()
+export type SessionResources = z.infer<typeof sessionResourcesSchema>
+const ledgerDraftSchema = ledgerEntrySchema.omit({createdAt:true}).extend({createdAt: z.number().int().nonnegative().optional()}).strict()
+export const sessionRecordSchema = z.object({
+  conversationId: z.string().min(1).max(128),
+  parentConversationId: z.string().min(1).max(128).optional(),
+  entries: z.array(ledgerDraftSchema).min(1).max(24),
+}).strict()
 export const catalog = {
   'herdr.snapshot': {kind:'query',capability:'herdr.read',input:empty,output:snapshotSchema},
   'herdr.pane.inspect': {kind:'query',capability:'herdr.read',input:z.object({ref:resourceSchema}).strict(),output:paneInspectionSchema},
   'herdr.environment': {kind:'query',capability:'herdr.read',input:empty,output:environmentSchema},
   'herdr.server.start': {kind:'action',capability:'herdr.settings',input:z.object({confirmed}).strict(),output:environmentSchema},
   'herdr.workspace.create': {kind:'action',capability:'herdr.manage',input:z.object({label,cwd:z.string().min(1).max(4096)}).strict(),output:resourceSchema},
-  'herdr.conversation.create': {kind:'action',capability:'herdr.manage',input:z.object({conversationId:z.string().min(1).max(128),label,cwd:z.string().min(1).max(4096),confirmed}).strict(),output:bindingSchema},
+  'herdr.conversation.create': {kind:'action',capability:'herdr.manage',input:z.object({conversationId:z.string().min(1).max(128),label,cwd:z.string().min(1).max(4096),confirmed,origin:z.enum(['ui']).optional()}).strict(),output:bindingSchema},
   'herdr.tab.create': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,label}).strict(),output:resourceSchema},
   'herdr.resource.rename': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,label}).strict(),output:empty},
   'herdr.resource.close': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,confirmed}).strict(),output:empty},
   'herdr.resource.adopt': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,confirmed}).strict(),output:empty},
   'herdr.pane.split': {kind:'action',capability:'herdr.manage',input:z.object({ref:resourceSchema,direction:z.enum(['horizontal','vertical'])}).strict(),output:resourceSchema},
-  'herdr.agent.start': {kind:'action',capability:'herdr.control',input:z.object({ref:resourceSchema,kind:z.string().min(1).max(64),confirmed}).strict(),output:empty},
+  'herdr.agent.start': {kind:'action',capability:'herdr.control',input:z.object({ref:resourceSchema,kind:z.string().min(1).max(64),confirmed}).strict(),output:z.object({ref:resourceSchema,kind:z.string(),name:z.string()}).strict()},
   'herdr.terminal.open': {kind:'action',capability:'herdr.observe',input:terminalOpenSchema,output:terminalLeaseSchema},
   'herdr.terminal.release': {kind:'action',capability:'herdr.observe',input:z.object({leaseId:z.string().min(16).max(128)}).strict(),output:empty},
   'herdr.binding.get': {kind:'query',capability:'herdr.read',input:z.object({conversationId:z.string().min(1).max(128)}).strict(),output:bindingSchema},
   'herdr.binding.set': {kind:'action',capability:'herdr.manage',input:z.object({conversationId:z.string().min(1).max(128),ref:resourceSchema.nullable(),confirmed}).strict(),output:bindingSchema},
+  'herdr.session.resources': {kind:'query',capability:'herdr.read',input:z.object({conversationId:z.string().min(1).max(128)}).strict(),output:sessionResourcesSchema},
+  'herdr.session.record': {kind:'action',capability:'herdr.read',input:sessionRecordSchema,output:z.object({conversationId:z.string(),count:z.number().int().nonnegative()}).strict()},
 } as const
 export type OperationId = keyof typeof catalog
 export type Input<K extends OperationId> = z.input<(typeof catalog)[K]['input']>

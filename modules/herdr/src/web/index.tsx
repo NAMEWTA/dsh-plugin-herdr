@@ -9,6 +9,8 @@ import { WorkspacesPage } from './workspaces.tsx'
 import { AgentsPage } from './agents.tsx'
 import { EnvironmentPage } from './environment.tsx'
 import { TerminalPage } from './terminal/page.tsx'
-export const herdrWeb:WebModule={manifest:herdrManifest,navigation:HerdrNavigation,icon:PanelsTopLeft,pages:{'herdr.inspector':InspectorPage,'herdr.overview':OverviewPage,'herdr.attention':AttentionPage,'herdr.workspaces':WorkspacesPage,'herdr.agents':AgentsPage,'herdr.environment':EnvironmentPage,'herdr.terminal':TerminalPage},widgets:{'herdr.attention-widget':AttentionWidget},commands:{'herdr.create-workspace':ui=>ui.navigate('herdr.workspaces',{create:'1'})}}
+import { SessionChrome, SessionRail } from './session-panel.tsx'
+export const herdrWeb:WebModule={manifest:herdrManifest,navigation:HerdrNavigation,icon:PanelsTopLeft,sessionChrome:SessionChrome,sessionRail:SessionRail,pages:{'herdr.inspector':InspectorPage,'herdr.overview':OverviewPage,'herdr.attention':AttentionPage,'herdr.workspaces':WorkspacesPage,'herdr.agents':AgentsPage,'herdr.environment':EnvironmentPage,'herdr.terminal':TerminalPage},widgets:{'herdr.attention-widget':AttentionWidget},commands:{'herdr.create-workspace':ui=>ui.navigate('herdr.workspaces',{create:'1'})}}
 
 export { configureTerminalLoader } from './terminal/driver.ts'
+export { bindGlobalWorkbenchOpener, bindSessionRailOpener, bindSessionWorkbenchOpener } from './session-bridge.ts'

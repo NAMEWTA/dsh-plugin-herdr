@@ -1,22 +1,22 @@
 import { randomBytes } from 'node:crypto'
 import { WorkbenchError, type Principal } from '@workbench/contracts'
-interface Client { peer:string; controller:AbortController; expires:ReturnType<typeof setTimeout>|undefined; streams:number }
+interface Client { peer:string; controller:AbortController; expires:ReturnType<typeof setTimeout>|undefined; streams:number; conversationId?:string }
 /** DSH authenticates an operator, not an individual browser tab. Issue a separate ephemeral client capability. */
 export class ClientSessions {
   private readonly clients=new Map<string,Client>()
   private closed=false
   constructor(private readonly capabilities:readonly string[],private readonly graceMs=3000){}
-  connect(peer:string):{clientId:string;capabilities:string[]} {
+  connect(peer:string,conversationId?:string):{clientId:string;capabilities:string[]} {
     if(!peer||this.closed)throw new WorkbenchError('AUTH_REQUIRED')
     if(this.clients.size>=32)throw new WorkbenchError('QUOTA_EXCEEDED')
-    const clientId=randomBytes(24).toString('base64url'),client:Client={peer,controller:new AbortController(),expires:undefined,streams:0}
+    const clientId=randomBytes(24).toString('base64url'),client:Client={peer,controller:new AbortController(),expires:undefined,streams:0,...conversationId?{conversationId}:{}}
     this.clients.set(clientId,client);this.expire(clientId,client,10000)
     return {clientId,capabilities:[...this.capabilities]}
   }
   principal(id:string,peer:string):Principal {
     const client=this.clients.get(id)
     if(!peer||!client||client.peer!==peer||client.controller.signal.aborted)throw new WorkbenchError('AUTH_REQUIRED')
-    return {id:peer,clientId:id,signal:client.controller.signal,capabilities:new Set(this.capabilities),connectionIds:new Set(['local'])}
+    return {id:peer,clientId:id,signal:client.controller.signal,capabilities:new Set(this.capabilities),connectionIds:new Set(['local']),...client.conversationId?{conversationId:client.conversationId}:{}}
   }
   attach(id:string,peer:string):()=>void {
     this.principal(id,peer);const client=this.clients.get(id)!
