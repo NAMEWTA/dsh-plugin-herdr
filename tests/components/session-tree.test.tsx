@@ -54,10 +54,16 @@ test('the unbound right rail creates and binds a workspace for the session proje
     await userEvent.click(button)
     await waitFor(() => expect(d.request.mock.calls.filter(([call]) => call.operation === 'herdr.conversation.create')).toHaveLength(1))
     const created = d.request.mock.calls.filter(([call]) => call.operation === 'herdr.conversation.create')
-    expect(created[0]![0].input).toMatchObject({cwd: '/demo/workbench', confirmed: true, label: 'workbench', conversationId: 'demo-conversation'})
+    expect(created[0]![0].input).toMatchObject({cwd: '/demo/workbench', confirmed: true, label: 'workbench', conversationId: 'demo-conversation', origin: 'ui'})
     expect(d.request.mock.calls.filter(([call]) => call.operation === 'herdr.workspace.create')).toHaveLength(0)
-    await rail.findByRole('button', {name: /Shell/})
+    await rail.findByRole('button', {name: /Idle · Shell · Created in the UI/})
+    expect(rail.getByText('Tab 1')).toBeTruthy()
+    expect(rail.queryByText(/Unknown/)).toBeNull()
     await waitFor(() => expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.session.record')).toBe(true))
+    const recorded = d.request.mock.calls.filter(([call]) => call.operation === 'herdr.session.record')
+    const entries = recorded.at(-1)![0].input as {entries: Array<{role: string; origin: string}>}
+    expect(entries.entries.some(entry => entry.role === 'terminal' && entry.origin === 'ui')).toBe(true)
+    await waitFor(() => expect(screen.getByRole('button', {name: '1 terminals'})).toBeTruthy())
   } finally { await d.close() }
 })
 
@@ -72,6 +78,23 @@ test('the unbound right rail does not create a workspace without a project path'
     await userEvent.click(button)
     expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.conversation.create')).toBe(false)
   } finally { await d.close() }
+})
+
+test('the host locale replaces a stored language preference', async () => {
+  localStorage.setItem('namewta.workbench.preferences.v1', JSON.stringify({version: 1, locale: 'zh', theme: 'light', density: 'comfortable'}))
+  const demo = await createDemo('bound')
+  const view = render(<Workbench client={demo.client} modules={[herdrWeb]} initialRoute="herdr.overview" locale="en" conversationId="demo-conversation"/>)
+  try {
+    await screen.findByRole('heading', {name: 'Your agent workspace'})
+    expect(screen.queryByRole('heading', {name: '你的 Agent 工作室'})).toBeNull()
+    view.rerender(<Workbench client={demo.client} modules={[herdrWeb]} initialRoute="herdr.overview" locale="zh" conversationId="demo-conversation"/>)
+    await screen.findByRole('heading', {name: '你的 Agent 工作室'})
+    await waitFor(() => expect(within(screen.getByRole('region', {name: 'Herdr'})).getByText(/界面创建/)).toBeTruthy())
+  } finally {
+    view.unmount()
+    localStorage.removeItem('namewta.workbench.preferences.v1')
+    await demo.dispose()
+  }
 })
 
 test('the right rail opens the Workbench page without a tool call', async () => {

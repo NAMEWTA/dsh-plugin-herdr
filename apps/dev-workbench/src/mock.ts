@@ -50,7 +50,7 @@ export async function createDemo(scenario: string): Promise<{client:WorkbenchCli
           const conversation=String(value.conversationId??'')
           if(id==='herdr.conversation.create'&&bindings.get(conversation))throw new WorkbenchError('MODULE_CONFLICT')
           const r=ref('workspace','w'+(++serial)),pane=ref('pane',r.id+':p1'),tab=ref('tab',r.id+':t1')
-          state={...state,workspaces:[...state.workspaces,{ref:r,label:String(value.label),paneCount:1,tabCount:1,ownership:'created'}],tabs:[...state.tabs,{ref:tab,workspaceId:r.id,label:'Main',ownership:'created'}],panes:[...state.panes,{ref:pane,workspaceId:r.id,tabId:tab.id,terminalId:'fixture-'+r.id,label:'Shell',title:'Shell',agent:null,state:'idle',stateSequence:1,cwd:String(value.cwd),revision:1,ownership:'created'}]}
+          state={...state,workspaces:[...state.workspaces,{ref:r,label:String(value.label),paneCount:1,tabCount:1,ownership:'created'}],tabs:[...state.tabs,{ref:tab,workspaceId:r.id,label:'1',ownership:'created'}],panes:[...state.panes,{ref:pane,workspaceId:r.id,tabId:tab.id,terminalId:'fixture-'+r.id,label:'Shell',title:'Shell',agent:null,state:'unknown',stateSequence:1,cwd:String(value.cwd),revision:1,ownership:'created'}]}
           ctx.emit({type:'invalidate'})
           if(id==='herdr.conversation.create'){bindings.set(conversation,r);paths.set(conversation,String(value.cwd||''));return {conversationId:conversation,ref:r,cwd:String(value.cwd||'')||null}}
           return r

@@ -15,3 +15,22 @@ test('events_lost resets epoch and leaves a visible history gap',async()=>{const
 test('unverified protocol is visibly incompatible and writes fail closed',async()=>{const f=fixture(),value=raw();value.protocol=99;f.value=value;const a=await f.model.refresh();assert.equal(a.connection,'incompatible');assert.equal(a.stale,true);await assert.rejects(f.model.assert(a.panes[0]!.ref,true),{code:'STALE_SNAPSHOT'})})
 test('event during a read triggers a second authoritative read',async()=>{const f=fixture();let resolve!:()=>void;const wait=new Promise<void>(r=>resolve=r);let calls=0;f.port.snapshot=async()=>{if(++calls===1)await wait;return raw()};const first=f.model.refresh();await new Promise(r=>setImmediate(r));f.model.event({type:'pane.updated',pane_id:'w1:p1'});resolve();await first;assert.equal(calls,2)})
 test('aborted module cannot update its visible snapshot',async()=>{const f=fixture();f.abort.abort();await assert.rejects(f.model.refresh(),{code:'CANCELLED'});assert.equal(f.model.snapshot().sampledAt,0)})
+test('pane status maps Herdr aliases and keeps an unclassified shell unknown',async()=>{
+  const f=fixture(),value=raw()
+  const first=value.panes[0]!
+  value.panes=[{...first,display_agent:'claude',state_labels:{lifecycle:'needs_input'}},{...first,pane_id:'w1:p2',terminal_id:'terminal-b',agent_status:'unknown',label:'Shell',state_labels:{cwd:'/tmp'}}]
+  ;(value.panes[0] as {agent_status:string}).agent_status='running'
+  value.panes.push({...first,pane_id:'w1:p3',terminal_id:'terminal-c',agent_status:'unknown',label:'Shell'})
+  value.agents=[{pane_id:'w1:p3',agent_status:'unknown',launch_pending:true,agent_session:{agent:'codex',kind:'id',source:'fixture',value:'s'}}] as unknown as SessionSnapshot['agents']
+  value.panes.push({...first,pane_id:'w1:p4',terminal_id:'terminal-d',agent_status:'unknown',label:'Shell',agent:'bash'})
+  f.value=value
+  const next=await f.model.refresh()
+  assert.equal(next.panes[0]!.state,'working')
+  assert.equal(next.panes[0]!.agent,'claude')
+  assert.equal(next.panes[1]!.state,'unknown')
+  assert.equal(next.panes[1]!.agent,null)
+  assert.equal(next.panes[2]!.state,'working')
+  assert.equal(next.panes[2]!.agent,'codex')
+  assert.equal(next.panes[3]!.state,'unknown')
+  assert.equal(next.panes[3]!.agent,null)
+})

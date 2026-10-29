@@ -26,7 +26,7 @@ test('built client factory boots with browser globals and host React, without a 
   const style=dom.window.document.getElementById('namewta-workbench-styles')
   assert.equal(style?.getAttribute('data-plugin'),'@namewta/dsh-workbench')
   assert.match(style?.textContent??'',/\.wb-rightbar-empty/)
-  assert.match(style?.textContent??'',/\.wb-session-leaf/)
+  assert.match(style?.textContent??'',/\.wb-rail-group/)
   assert.ok(face.inject.includes('layout'))
   assert.ok(face.inject.includes('sidebarRight'))
   assert.equal(typeof dom.window.process,'undefined')

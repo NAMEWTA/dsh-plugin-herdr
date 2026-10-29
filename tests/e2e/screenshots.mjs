@@ -70,7 +70,13 @@ try {
   await shot(narrow, '09-narrow-drawer')
   const collapsed = await open({width: 1280})
   await collapsed.getByRole('navigation', {name: '工作区与面板'}).waitFor()
-  await collapsed.locator('.wb-sidebar').getByRole('button', {name: '收起导航', exact: true}).click()
+  const sidebar = collapsed.locator('.wb-sidebar')
+  await sidebar.getByRole('button', {name: '收起导航', exact: true}).click()
+  await sidebar.waitFor({state: 'hidden'})
+  await collapsed.getByRole('button', {name: '展开导航', exact: true}).click()
+  await sidebar.waitFor({state: 'visible'})
+  await sidebar.getByRole('button', {name: '收起导航', exact: true}).click()
+  await sidebar.waitFor({state: 'hidden'})
   await shot(collapsed, '10-sidebar-collapsed')
   const tree = await open({theme: 'light', scenario: 'bound'})
   await tree.getByRole('button', {name: /^终端 \d+/}).click()
@@ -105,6 +111,60 @@ try {
   await column.locator('[data-wb-terminal][data-ready="true"]').waitFor()
   await column.getByText('观察中 · 不接收输入').waitFor()
   await shot(rail, '16-rightbar-workspace')
+  const slim = await open({scenario: 'bound', width: 1440, height: 900})
+  const slimColumn = slim.getByRole('region', {name: 'Herdr'})
+  await slimColumn.getByText('项目路径 /demo/workbench').waitFor()
+  await slimColumn.getByRole('button', {name: /API · 请求校验/}).waitFor()
+  await slim.evaluate(() => {
+    const shell = document.querySelector('.wb-shell')
+    if (!(shell instanceof HTMLElement)) return
+    const open = shell.getAttribute('data-secondary-open') === 'true'
+    shell.style.gridTemplateColumns = open ? '64px 240px minmax(0,1fr) 220px' : '64px minmax(0,1fr) 220px'
+  })
+  await slimColumn.screenshot({path: resolve(out, '18-rightbar-narrow.png')})
+  saved.push('18-rightbar-narrow.png')
+  const shadowMetrics = await slim.evaluate(() => {
+    const region = document.querySelector('.wb-rightbar')
+    const host = document.createElement('div')
+    host.id = 'wb-shadow-rail'
+    host.style.cssText = 'position:fixed;top:0;left:0;width:220px;height:640px;z-index:1000;background:#fff'
+    document.body.appendChild(host)
+    const shadow = host.attachShadow({mode: 'open'})
+    const hostile = document.createElement('style')
+    hostile.textContent = 'button{font-size:10px !important;font-weight:800 !important;font-family:serif !important;color:red}'
+    let css = ''
+    for (const sheet of document.styleSheets) {
+      try { for (const rule of sheet.cssRules) css += rule.cssText + '\n' } catch { /* cross-origin sheet is not readable */ }
+    }
+    const style = document.createElement('style')
+    style.textContent = css
+    shadow.append(hostile, style)
+    const frame = document.createElement('div')
+    frame.className = 'wb-root'
+    frame.dataset.theme = 'light'
+    frame.style.cssText = 'width:220px;height:640px'
+    const clone = region.cloneNode(true)
+    if (clone instanceof HTMLElement) { clone.style.width = '220px'; clone.style.height = '640px'; clone.style.display = 'flex' }
+    frame.append(clone)
+    shadow.append(frame)
+    const button = shadow.querySelector('button.wb-resource-row')
+    const detail = shadow.querySelector('small')
+    const box = shadow.querySelector('.wb-rightbar-host')
+    const buttonStyle = getComputedStyle(button)
+    return {
+      buttonSize: buttonStyle.fontSize,
+      buttonWeight: buttonStyle.fontWeight,
+      detailSize: getComputedStyle(detail).fontSize,
+      overflow: box.scrollWidth - box.clientWidth,
+    }
+  })
+  assert.equal(shadowMetrics.buttonSize, '13px')
+  assert.equal(shadowMetrics.buttonWeight, '500')
+  assert.equal(shadowMetrics.detailSize, '11px')
+  assert.ok(shadowMetrics.overflow <= 1, 'narrow shadow rail overflows: ' + shadowMetrics.overflow)
+  await slim.locator('#wb-shadow-rail').screenshot({path: resolve(out, '19-rightbar-shadow.png')})
+  saved.push('19-rightbar-shadow.png')
+  await slim.context().close()
   const railEmpty = await open({scenario: 'unlinked', width: 1440})
   const emptyRegion = railEmpty.getByRole('region', {name: 'Herdr'})
   await emptyRegion.getByRole('heading', {name: '此会话还没有工作区'}).waitFor()

@@ -46,6 +46,8 @@ test('Herdr registers a right-sidebar page tab when the host provides the regist
   await mountWorkbench(ctx as WebContext,[])
   expect(registered.map(item=>item.kind)).toEqual(['herdr'])
   expect(registered[0]?.id).toBe('@namewta/dsh-workbench/herdr')
+  const guide=(registered[0] as {guide?:Array<{description?:()=>string}>}).guide
+  expect(guide?.[0]?.description?.()).toBe('Terminals and agents for this session')
   const Tab=slots.get('@namewta/dsh-workbench/herdr')!
   render(<Tab sessionId="conversation-a"/>)
   expect(screen.getByTestId('host-slot').getAttribute('data-session')).toBe('conversation-a')

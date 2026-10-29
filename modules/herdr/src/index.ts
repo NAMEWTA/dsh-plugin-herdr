@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { WorkbenchError, type Json, type Principal } from '@workbench/contracts'
 import { defineModule, type ModuleContext, type OperationContext, type Operation } from '@workbench/sdk'
@@ -128,6 +128,24 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
           const path=await ctx.storage.read<Json>(cwdKey(c.principal,input.conversationId))
           await ctx.storage.write(cwdKey(c.principal,input.conversationId),input.cwd,path?.version??null)
         }catch{throw new WorkbenchError('OPERATION_OUTCOME_UNKNOWN')}
+        // Only the UI asks to be recorded here. A tool calls the same operation
+        // without origin and records `tool` afterwards; recording `ui` first would stick.
+        if(input.origin==='ui'){
+          try{
+            const snap=model.snapshot()
+            const workspace=snap.workspaces.find(item=>item.ref.id===ref.id)
+            if(workspace){
+              const tabs=snap.tabs.filter(item=>item.workspaceId===ref.id)
+              const panes=snap.panes.filter(item=>item.workspaceId===ref.id)
+              const requestId=()=>randomUUID()
+              await recordSession(ctx.storage,{conversationId:input.conversationId,entries:[
+                {ref:workspace.ref,role:'workspace' as const,origin:'ui' as const,operation:'herdr.conversation.create',requestId:requestId(),label:workspace.label},
+                ...tabs.map(item=>({ref:item.ref,role:'tab' as const,origin:'ui' as const,operation:'herdr.conversation.create',requestId:requestId(),label:item.label})),
+                ...panes.map(item=>({ref:item.ref,role:(item.agent?'agent':'terminal') as 'agent'|'terminal',origin:'ui' as const,operation:'herdr.conversation.create',requestId:requestId(),...item.agent?{agentKind:item.agent}:{},label:item.label})),
+              ].slice(0,24)})
+            }
+          }catch{/* The binding is already stored. The client records the same rows again. */}
+        }
         ctx.emit({type:'invalidate'})
         return {conversationId:input.conversationId,ref,cwd:input.cwd}
       }finally{creatingBindings.delete(key)}

@@ -4,9 +4,11 @@
  * Ovis brand SVGs are not copied. See THIRD_PARTY_NOTICES.md.
  */
 import type { ReactNode } from 'react'
-import { AlertCircle, CircleCheck, CircleHelp, Layers, LoaderCircle } from 'lucide-react'
+import { AlertCircle, Circle, CircleCheck, CircleHelp, Layers, LoaderCircle } from 'lucide-react'
 import type { AgentState } from '../contracts/index.ts'
 import { useHerdrText } from './messages.ts'
+
+type MarkState = AgentState | 'unreported'
 
 const marks: Record<Exclude<AgentState,'idle'>, {icon: typeof LoaderCircle; className: string}> = {
   working: {icon: LoaderCircle, className: 'wb-status-working wb-spin'},
@@ -15,9 +17,13 @@ const marks: Record<Exclude<AgentState,'idle'>, {icon: typeof LoaderCircle; clas
   unknown: {icon: CircleHelp, className: 'wb-status-unknown'},
 }
 
-/** Ready/idle draws no status. Every other state has its own icon and color. */
-export function StatusMark({state}:{state?: AgentState | null}) {
+/** Ready/idle draws no status in the workspace tree. The session rail opts into a calm circle. */
+export function StatusMark({state, showIdle = false}:{state?: MarkState | null; showIdle?: boolean}) {
   const h = useHerdrText()
+  if (state === 'unreported' || ((!state || state === 'idle') && showIdle)) {
+    const text = state === 'unreported' ? h('statusUnreported') : h('idle')
+    return <span className="wb-status-mark wb-status-idle" title={text}><Circle size={11} aria-hidden="true"/><span className="wb-sr-only">{text}</span></span>
+  }
   if (!state || state === 'idle') return <span className="wb-sr-only">{h('idle')}</span>
   const mark = marks[state]
   const Icon = mark.icon
@@ -35,10 +41,10 @@ export function BackgroundCount({count}:{count: number}) {
   return <span className="wb-bg-count" title={h('backgroundTasks')}><Layers size={12} aria-hidden="true"/><span>{count}</span><span className="wb-sr-only">{h('backgroundTasks')}</span></span>
 }
 
-export function ResourceRow({icon,title,subtitle,state,count=0,selected=false,disabled=false,onClick,label}:{icon:ReactNode;title:string;subtitle:string;state?:AgentState|null;count?:number;selected?:boolean;disabled?:boolean;onClick:()=>void;label:string}) {
-  return <button type="button" className="wb-resource-row" aria-label={label} aria-current={selected ? 'page' : undefined} disabled={disabled} onClick={onClick}>
+export function ResourceRow({icon,title,subtitle,state,count=0,selected=false,disabled=false,showIdle=false,onClick,label}:{icon:ReactNode;title:string;subtitle:string;state?:MarkState|null;count?:number;selected?:boolean;disabled?:boolean;showIdle?:boolean;onClick:()=>void;label:string}) {
+  return <button type="button" className="wb-resource-row" aria-label={label} title={label} aria-current={selected ? 'page' : undefined} disabled={disabled} onClick={onClick}>
     {icon}
     <span className="wb-resource-copy"><strong>{title}</strong><small>{subtitle}</small></span>
-    <span className="wb-resource-end"><BackgroundCount count={count}/><StatusMark state={state}/></span>
+    <span className="wb-resource-end"><BackgroundCount count={count}/><StatusMark state={state} showIdle={showIdle}/></span>
   </button>
 }

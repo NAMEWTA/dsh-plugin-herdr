@@ -15,6 +15,23 @@ async function start(scenario='normal',initialRoute='herdr.overview'){
   const view=render(<Workbench {...props}/>);await screen.findByRole('heading',{level:1})
   return {request,view,props,async close(){view.unmount();await demo.dispose()}}
 }
+test('one click collapses the feature sidebar',async()=>{
+  const d=await start();try{
+    const side=screen.getByRole('complementary',{name:'Feature navigation'})
+    await userEvent.click(within(side).getByRole('button',{name:'Collapse navigation'}))
+    expect(screen.queryByRole('complementary',{name:'Feature navigation'})).toBeNull()
+    expect(screen.getByRole('button',{name:'Expand navigation'})).toBeTruthy()
+  }finally{await d.close()}
+})
+test('the top bar toggle collapses on the first click and expands on the next',async()=>{
+  const d=await start();try{
+    const bar=within(screen.getByRole('main'))
+    await userEvent.click(bar.getByRole('button',{name:'Collapse navigation'}))
+    expect(screen.queryByRole('complementary',{name:'Feature navigation'})).toBeNull()
+    await userEvent.click(screen.getByRole('button',{name:'Expand navigation'}))
+    expect(screen.getByRole('complementary',{name:'Feature navigation'})).toBeTruthy()
+  }finally{await d.close()}
+})
 test('module rail is a disclosure; administration is separate from Herdr navigation',async()=>{
   const d=await start();try{
     const rail=screen.getByRole('navigation',{name:'Feature modules'})

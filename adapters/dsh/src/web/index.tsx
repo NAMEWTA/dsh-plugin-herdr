@@ -34,19 +34,26 @@ const noSubscribe = () => () => {}
 const defaultLocale = () => 'zh'
 /** Register only documented slot contributions; never inspect or patch the host DOM. */
 const herdrTabId = '@namewta/dsh-workbench/herdr'
+let hostLocale: 'zh' | 'en' = 'en'
+function railGuide(): string {
+  return hostLocale === 'zh' ? '此会话的终端与 Agent' : 'Terminals and agents for this session'
+}
 export async function mountWorkbench(ctx: WebContext, modules: readonly WebModule[]): Promise<void> {
   let closed = false
   const unmount = await ctx.remote.$mount(TYPERT_REMOTE)
   ctx.effect(() => async () => { closed = true; await unmount() })
   if (ctx.sidebarRightTabs) ctx.effect(() => ctx.sidebarRightTabs!.register({
     id: herdrTabId, kind: 'herdr', priority: 'extension', title: () => 'Herdr',
-    guide: [{ id: 'workspace', order: 40, title: () => 'Herdr', description: () => 'Terminals and agents for this session' }],
+    guide: [{ id: 'workspace', order: 40, title: () => 'Herdr', description: () => railGuide() }],
   }))
   ctx.inject(['remote.workbench', 'locale'], scope => {
     if (closed) return
     const raw = scope.remote.workbench, locale = scope.locale
     const subscribeLocale = locale ? (listener: () => void) => locale.subscribe(listener) : noSubscribe
     const readLocale = locale ? () => locale.getSnapshot().active ?? 'zh' : defaultLocale
+    const applyHostLocale = () => { hostLocale = readLocale().startsWith('zh') ? 'zh' : 'en' }
+    applyHostLocale()
+    if (locale) ctx.effect(() => locale.subscribe(applyHostLocale))
     function projectPath(sessionId?: string) {
       return sessionId ? ctx.sessions?.list.getSnapshot().byId[sessionId]?.cwd : undefined
     }
@@ -66,6 +73,10 @@ export async function mountWorkbench(ctx: WebContext, modules: readonly WebModul
     scope.slots.inject('main', function* () { yield scope.slots.register({name:'main',key:'workbench'}, Panel) })
     scope.slots.inject('conversation.view', () => scope.slots.register({name:'conversation.view',id:'workbench',order:20,label:title}, ({sessionId}:{sessionId:string}) => sessionId?<Panel conversationId={sessionId}/>:<MissingSession/>))
     scope.slots.inject('settings.plugins.tab', () => scope.slots.register({name:'settings.plugins.tab',id:'workbench-settings',order:30,label:title}, () => <Panel settings/>))
+    // DSH mounts conversation.session.header.actions only after the session leaves
+    // the blank phase (Into the Unknown). A workspace created before the first
+    // message is visible in the right rail; the header count appears once DSH
+    // renders this slot. The corner slot stays with the host's expand button.
     function SessionHeader({sessionId, selectView, actions}:{sessionId?:string; selectView?:(view:string)=>void; actions?:{setView?:(view:string)=>void}}) {
       const choose = selectView ?? actions?.setView
       useEffect(() => {

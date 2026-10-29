@@ -34,6 +34,47 @@ async function invoke(runtime: WorkbenchRuntime, operation: 'herdr.snapshot' | '
   return catalog[operation].output.parse(response.data)
 }
 
+test('creating from the UI records the shell; a create without origin does not', async () => {
+  let created: string | null = null
+  const base = {version:'0.9.3', protocol:22, agents:[], layouts:[]}
+  const port: HerdrPort = {
+    identity: async () => 'socket-a',
+    snapshot: async () => ({...base, workspaces: created ? [{workspace_id:created, label:'demo', pane_count:1, tab_count:1}] : [], tabs: created ? [{workspace_id:created, tab_id:created+':t1', label:'1'}] : [], panes: created ? [{pane_id:created+':p1', workspace_id:created, tab_id:created+':t1', terminal_id:'term-ui', revision:1, agent_status:'unknown', label:'Shell', title:''}] : []}) as unknown as SessionSnapshot,
+    request: async method => {
+      if (method !== 'workspace.create') return {}
+      created = created === 'w-ui' ? 'w-tool' : 'w-ui'
+      return {workspace:{workspace_id:created}, root_pane:{pane_id:created+':p1'}}
+    },
+    subscribe: async () => () => {},
+  }
+  const runtime = new WorkbenchRuntime({storage: new MemoryStorage(), audit: new MemoryAudit()})
+  runtime.register(createHerdrModule(connectionConfigSchema.parse({socketPath:'/tmp/herdr.sock', rootDirectory:'/tmp', terminal:{enabled:false}}), {port}))
+  await runtime.startAll()
+  const ui = principal('session-ui', 'browser-ui')
+  const tool = principal('session-tool', 'agent-tool')
+  try {
+    const createdUi = await runtime.invoke({operation:'herdr.conversation.create', input:{conversationId:'session-ui', label:'demo', cwd:'/tmp', confirmed:true, origin:'ui'}, requestId:crypto.randomUUID()}, ui)
+    if (!createdUi.ok) throw new WorkbenchError(createdUi.error.code)
+    const resources = await runtime.invoke({operation:'herdr.session.resources', input:{conversationId:'session-ui'}, requestId:crypto.randomUUID()}, ui)
+    if (!resources.ok) throw new WorkbenchError(resources.error.code)
+    const tree = catalog['herdr.session.resources'].output.parse(resources.data)
+    const terminal = tree.nodes[0]!.entries.find(entry => entry.role === 'terminal')
+    assert.equal(terminal?.origin, 'ui')
+    assert.equal(terminal?.operation, 'herdr.conversation.create')
+    const snapshot = await runtime.invoke({operation:'herdr.snapshot', input:{}, requestId:crypto.randomUUID()}, ui)
+    if (!snapshot.ok) throw new WorkbenchError(snapshot.error.code)
+    const snap = catalog['herdr.snapshot'].output.parse(snapshot.data)
+    if (!('panes' in snap)) throw new Error('snapshot')
+    assert.equal(snap.panes[0]!.state, 'unknown')
+    const createdTool = await runtime.invoke({operation:'herdr.conversation.create', input:{conversationId:'session-tool', label:'demo', cwd:'/tmp', confirmed:true}, requestId:crypto.randomUUID()}, tool)
+    if (!createdTool.ok) throw new WorkbenchError(createdTool.error.code)
+    const plain = await runtime.invoke({operation:'herdr.session.resources', input:{conversationId:'session-tool'}, requestId:crypto.randomUUID()}, tool)
+    if (!plain.ok) throw new WorkbenchError(plain.error.code)
+    const untouched = catalog['herdr.session.resources'].output.parse(plain.data)
+    assert.equal(untouched.nodes[0]!.entries.length, 0)
+  } finally { await runtime.dispose() }
+})
+
 test('ledger keeps a bounded history and drops closed rows first', () => {
   const ref = (id: string): ResourceRef => ({connectionId:'local',session:'default',epoch:'e',kind:'pane',id,instance:'i'})
   const drafts = Array.from({length: 241}, (_, index) => ({ref: ref('p'+index), role: 'terminal' as const, origin: 'tool' as const, operation: 'herdr.pane.split', requestId: 'r'+index, ...index < 5 ? {lastSeen: {status: 'closed' as const, at: index}} : {}}))

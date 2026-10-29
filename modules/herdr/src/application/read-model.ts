@@ -4,6 +4,7 @@ import type { HerdrSnapshot, ResourceRef } from '../contracts/index.ts'
 import type { ConnectionConfig } from '../contracts/config.ts'
 import type { HerdrPort } from '../infrastructure/herdr-api/client.ts'
 import { resourceKey, sameResource } from '../domain/selectors.ts'
+import { agentName, refineLiveStatus, resolvePaneStatus, sessionAgentName } from '../domain/status.ts'
 export class HerdrReadModel {
   private snapshotValue:HerdrSnapshot
   private inFlight:Promise<HerdrSnapshot>|undefined
@@ -57,12 +58,13 @@ export class HerdrReadModel {
           const agents=new Map(raw.agents.map(a=>[a.pane_id,a]))
           const panes=raw.panes.map(p=>{
             const a=agents.get(p.pane_id),r=ref('pane',p.pane_id,p.terminal_id),key=resourceKey(r)
-            const state=a?.agent_status??p.agent_status??'unknown',prior=this.previousStates.get(key)
+            const labels={...p.state_labels,...a?.state_labels}
+            const state=refineLiveStatus(resolvePaneStatus(a?.agent_status??p.agent_status,labels),{launchPending:a?.launch_pending===true,interactiveReady:a?.interactive_ready===true}),prior=this.previousStates.get(key)
             const seq=a?.state_change_seq??(prior?prior.seq+(prior.state===state?0:1):0)
             this.previousStates.set(key,{state,seq})
             return {ref:r,workspaceId:p.workspace_id,tabId:p.tab_id,terminalId:p.terminal_id,
               label:p.label??a?.name??p.title??p.pane_id,title:p.terminal_title_stripped??p.title??'',
-              agent:a?.agent??p.agent??null,state,stateSequence:seq,cwd:p.foreground_cwd??p.cwd??null,revision:p.revision,
+              agent:agentName([a?.agent,p.agent,sessionAgentName(a?.agent_session),sessionAgentName(p.agent_session),a?.display_agent,p.display_agent]),state,stateSequence:seq,cwd:p.foreground_cwd??p.cwd??null,revision:p.revision,
               ownership:this.ownership.get(key)??'external' as const}
           })
           const paneKeys=new Set(panes.map(p=>resourceKey(p.ref)))

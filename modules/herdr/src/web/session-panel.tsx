@@ -3,15 +3,17 @@
  * Both read the same binding, snapshot and ledger.
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { ChevronRight, FolderPlus, Terminal } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { ChevronRight, Folder, FolderPlus, Terminal } from 'lucide-react'
 import { Button, ErrorNotice, useWorkbench } from '@workbench/ui'
 import type { Pane, ResourceRef, SessionResources } from '../contracts/index.ts'
 import { resourceKey, sameResource } from '../domain/selectors.ts'
+import { presentTerminal, tabHeading, terminalTitle } from '../domain/status.ts'
 import { useAction, useBinding, useSessionResources, useSnapshot } from './api.ts'
 import { useHerdrText, type HerdrMessage } from './messages.ts'
 import { openSessionRail, requestWorkbenchPage, workspaceLabelFromPath } from './session-bridge.ts'
 import { PaneSession } from './terminal/page.tsx'
-import { StatusMark } from './status-mark.tsx'
+import { AgentMark, ResourceRow } from './status-mark.tsx'
 import { rememberWorkspace } from './workspaces.tsx'
 
 type Entry = SessionResources['nodes'][number]['entries'][number]
@@ -68,22 +70,26 @@ export function SessionRail() {
 
 function useBoard() {
   const ui = useWorkbench(), binding = useBinding(), snapshot = useSnapshot(), resources = useSessionResources()
+  const nodes = resources.data?.nodes ?? []
   const workspace = snapshot.data?.workspaces.find(item => binding.data?.ref && sameResource(item.ref, binding.data.ref))
   const panes = workspace ? (snapshot.data?.panes ?? []).filter(pane => pane.workspaceId === workspace.ref.id) : []
   const tabs = workspace ? (snapshot.data?.tabs ?? []).filter(tab => tab.workspaceId === workspace.ref.id) : []
-  const childPanes = (resources.data?.nodes ?? []).filter(node => node.parentConversationId).flatMap(node => node.entries.filter(entry => (entry.role === 'terminal' || entry.role === 'agent') && entry.presence === 'running'))
-  const history = (resources.data?.nodes ?? []).flatMap(node => node.entries).filter(entry => (entry.role === 'terminal' || entry.role === 'agent') && entry.presence !== 'running' && !panes.some(pane => sameResource(pane.ref, entry.ref)))
-  return { projectPath: ui.projectPath ?? binding.data?.cwd ?? null, workspace, panes, tabs, children: (resources.data?.nodes ?? []).filter(node => node.parentConversationId), childPanes, history, snapshot: snapshot.data, broken: !!binding.error || !!snapshot.error, empty: !binding.isLoading && !binding.data?.ref }
+  const childPanes = nodes.filter(node => node.parentConversationId).flatMap(node => node.entries.filter(entry => (entry.role === 'terminal' || entry.role === 'agent') && entry.presence === 'running'))
+  const history = nodes.flatMap(node => node.entries).filter(entry => (entry.role === 'terminal' || entry.role === 'agent') && entry.presence !== 'running' && !panes.some(pane => sameResource(pane.ref, entry.ref)))
+  return { projectPath: ui.projectPath ?? binding.data?.cwd ?? null, workspace, panes, tabs, nodes, children: nodes.filter(node => node.parentConversationId), childPanes, history, snapshot: snapshot.data, broken: !!binding.error || !!snapshot.error, empty: !binding.isLoading && !binding.data?.ref }
 }
 
 function RailEmpty({ path, ready }: { path: string | null; ready: boolean }) {
-  const ui = useWorkbench(), h = useHerdrText(), create = useAction('herdr.conversation.create')
+  const ui = useWorkbench(), h = useHerdrText(), cache = useQueryClient(), create = useAction('herdr.conversation.create')
   const canCreate = ready && !!path && !!ui.conversationId && ui.capabilities.has('herdr.manage') && !create.isPending
   const onCreate = () => {
     if (!canCreate || !path || !ui.conversationId) return
     const conversationId = ui.conversationId
-    create.mutate({ conversationId, label: workspaceLabelFromPath(path, ui.locale === 'zh' ? '工作区' : 'workspace'), cwd: path, confirmed: true }, {
-      onSuccess: value => { if (value.ref) void rememberWorkspace(ui.client, conversationId, value.ref.id, 'ui').catch(() => {}) },
+    create.mutate({ conversationId, label: workspaceLabelFromPath(path, ui.locale === 'zh' ? '工作区' : 'workspace'), cwd: path, confirmed: true, origin: 'ui' }, {
+      onSuccess: async value => {
+        if (value.ref) await rememberWorkspace(ui.client, conversationId, value.ref.id, 'ui', 'herdr.conversation.create').catch(() => {})
+        await cache.invalidateQueries({queryKey: ['herdr', 'session', conversationId]})
+      },
     })
   }
   return <div className="wb-rightbar-empty">
@@ -100,28 +106,35 @@ function RailEmpty({ path, ready }: { path: string | null; ready: boolean }) {
 }
 
 function BoardView({ board, onOpen }: { board: ReturnType<typeof useBoard>; onOpen: (pane: Pane) => void }) {
-  const h = useHerdrText()
+  const h = useHerdrText(), selected = useSelectedPane()
   if (board.broken) return null
   if (board.empty || !board.workspace) return <RailEmpty path={board.projectPath} ready={board.empty}/>
-  const originFor = (pane: Pane) => board.children.flatMap(node => node.entries).find(entry => sameResource(entry.ref, pane.ref))?.origin
-  return <div>
+  const originFor = (pane: Pane) => board.nodes.flatMap(node => node.entries).find(entry => entry.ref.kind === 'pane' && sameResource(entry.ref, pane.ref))?.origin
+  const tabs = board.tabs.length ? board.tabs : [{ ref: { id: 'all' }, label: '' }]
+  return <div className="wb-rail-board">
     <p className="wb-rightbar-path">{h('projectPath')} {board.projectPath ?? board.panes.find(pane => pane.cwd)?.cwd ?? board.workspace.ref.id}</p>
-    <div className="wb-session-workspace"><strong>{board.workspace.label || board.workspace.ref.id}</strong></div>
-    {(board.tabs.length ? board.tabs : [{ ref: { id: 'all' }, label: '' }]).map(tab => <div key={tab.ref.id}>
-      {tab.label && <div className="wb-session-tab">{tab.label}</div>}
-      <ul className="wb-session-tree">{board.panes.filter(pane => !tab.label || pane.tabId === tab.ref.id).map(pane => <li key={resourceKey(pane.ref)}>
-        <button type="button" className="wb-session-leaf" onClick={() => onOpen(pane)}>
-          <StatusMark state={pane.state}/><span><strong>{pane.label || pane.ref.id}</strong><small>{(pane.agent ?? h('shellKind')) + (originFor(pane) ? ' · ' + h(origins[originFor(pane)!]) : '')}</small></span>
-        </button>
-      </li>)}</ul>
-    </div>)}
-    {board.children.map(node => <section key={node.conversationId}><p className="wb-session-child"><ChevronRight size={12}/>{h('childSession')} · {node.conversationId}</p>
-      <ul className="wb-session-tree">{node.entries.filter(entry => entry.role === 'terminal' || entry.role === 'agent').map(entry => <li key={entry.role + resourceKey(entry.ref)} data-presence={entry.presence}>
-        <button type="button" className="wb-session-leaf" disabled={entry.presence !== 'running' || entry.ref.kind !== 'pane'} onClick={() => { const pane = board.snapshot?.panes.find(item => sameResource(item.ref, entry.ref)); if (pane) onOpen(pane) }}>
-          <StatusMark state={entry.state}/><span><strong>{entry.title}</strong><small>{(entry.agent ?? 'shell') + ' · ' + h(origins[entry.origin]) + ' · ' + h(presences[entry.presence])}</small></span>
-        </button>
-      </li>)}</ul>
+    <div className="wb-rail-workspace"><span className="wb-rail-folder" aria-hidden="true"><Folder size={15}/></span><strong>{board.workspace.label || board.workspace.ref.id}</strong></div>
+    {tabs.map(tab => <section className="wb-rail-section" key={tab.ref.id}>
+      {tab.label && <h3 className="wb-rail-tab">{tabHeading(tab.label, h('tabWord'))}</h3>}
+      <ul className="wb-rail-group">{board.panes.filter(pane => !tab.label || pane.tabId === tab.ref.id).map(pane => {
+        const face = presentTerminal({state: pane.state, agent: pane.agent})
+        const title = terminalTitle({label: pane.label, title: pane.title, id: pane.ref.id}) ?? h('shellKind')
+        const origin = originFor(pane)
+        const subtitle = [h(face.statusKey), face.agent ?? h('shellKind'), origin ? h(origins[origin]) : ''].filter(Boolean).join(' · ')
+        return <li key={resourceKey(pane.ref)}><ResourceRow icon={<AgentMark kind={face.agent}/>} title={title} subtitle={subtitle} state={face.mark} showIdle selected={!!selected && sameResource(selected, pane.ref)} label={title + ' · ' + subtitle} onClick={() => onOpen(pane)}/></li>
+      })}</ul>
     </section>)}
-    {!!board.history.length && <section><div className="wb-session-tab">{h('ungrouped')}</div><ul className="wb-session-tree">{board.history.map(entry => <li key={resourceKey(entry.ref)} data-presence={entry.presence}><button type="button" className="wb-session-leaf" disabled><StatusMark state={entry.state}/><span><strong>{entry.title}</strong><small>{h(origins[entry.origin]) + ' · ' + h(presences[entry.presence])}</small></span></button></li>)}</ul></section>}
+    {board.children.map(node => <section className="wb-rail-section" key={node.conversationId}><p className="wb-session-child"><ChevronRight size={12}/>{h('childSession')} · {node.conversationId}</p>
+      <ul className="wb-rail-group">{node.entries.filter(entry => entry.role === 'terminal' || entry.role === 'agent').map(entry => {
+        const face = presentTerminal({state: entry.state ?? 'unknown', agent: entry.agent})
+        const subtitle = [h(face.statusKey), face.agent ?? h('shellKind'), h(origins[entry.origin]), h(presences[entry.presence])].join(' · ')
+        const open = () => { const pane = board.snapshot?.panes.find(item => sameResource(item.ref, entry.ref)); if (pane) onOpen(pane) }
+        return <li key={entry.role + resourceKey(entry.ref)} data-presence={entry.presence}><ResourceRow icon={<AgentMark kind={face.agent}/>} title={entry.title} subtitle={subtitle} state={face.mark} showIdle disabled={entry.presence !== 'running' || entry.ref.kind !== 'pane'} selected={!!selected && sameResource(selected, entry.ref)} label={entry.title + ' · ' + subtitle} onClick={open}/></li>
+      })}</ul>
+    </section>)}
+    {!!board.history.length && <section className="wb-rail-section"><h3 className="wb-rail-tab">{h('ungrouped')}</h3><ul className="wb-rail-group">{board.history.map(entry => {
+      const subtitle = h(origins[entry.origin]) + ' · ' + h(presences[entry.presence])
+      return <li key={resourceKey(entry.ref)} data-presence={entry.presence}><ResourceRow icon={<AgentMark kind={entry.agent}/>} title={entry.title} subtitle={subtitle} disabled label={entry.title + ' · ' + subtitle} onClick={() => {}}/></li>
+    })}</ul></section>}
   </div>
 }
