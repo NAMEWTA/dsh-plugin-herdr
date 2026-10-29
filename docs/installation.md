@@ -19,6 +19,19 @@ dsh web
 
 不要安装未构建的源码目录。旧包不被新包自动卸载。需要停止使用旧产品时，由管理员明确执行 `dsh plugin --profile web remove @namewta/dsh-plugin-herdr` 并重启对应 profile；不删除旧 profile、凭据、Herdr pane 或工作区。
 
+## 从源码生成安装包
+
+在源码根目录执行。`pnpm pack:plugin` 自己先运行 `pnpm build`，因此不必再手动补一次 build；缺了 `lib/sbom.cdx.json` 时也不需要分两步。
+
+```sh
+pnpm install --frozen-lockfile
+pnpm pack:plugin
+dsh plugin --profile web add "$(pwd)/artifacts/namewta-dsh-workbench-1.0.2-alpha.1.tgz"
+dsh web
+```
+
+`artifacts/` 里的 tarball 才是安装对象。源码目录不能 `dsh plugin add`。右侧栏 Herdr 页签在会话尚未绑定工作区时，可以直接为当前项目路径创建并绑定，不需要模型或工具调用。
+
 ## 新配置
 
 在 DSH 的插件配置中设置下列新键，修改后重启同一个 profile。所有路径必须是绝对路径。没有旧环境变量或旧字段回退。

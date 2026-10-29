@@ -34,7 +34,10 @@ const messages={
   sessionDock:['只读查看此终端','View this terminal read-only'],closeDock:['关闭查看','Close view'],dockHint:['关闭只释放这次观察，不会关掉 Herdr 里的窗格或 Agent。','Closing releases this observation only. The Herdr pane and agent keep running.'],
   shellKind:['终端','Shell'],noBackground:['没有后台任务','No background tasks'],ungrouped:['未归入工作区','Not in a workspace'],
   projectPath:['项目路径','Project path'],rightbarEmpty:['此会话还没有工作区','This session has no workspace yet'],
-  rightbarEmptyHint:['会话的项目路径对应一个 Herdr 工作区。让助手创建，或在 Workbench 里关联已有工作区。','The session project path maps to one Herdr workspace. Ask the assistant to create one, or link an existing workspace.'],
+  rightbarEmptyHint:['这个按钮会在下面的项目路径创建 Herdr 工作区，并绑定到当前会话。不需要模型，也不需要调用工具。','This button creates a Herdr workspace at the project path below and binds it to this session. No model and no tool call are required.'],
+  createForPath:['为此路径创建并绑定工作区','Create and bind a workspace for this path'],
+  openWorkbenchPage:['打开 Workbench 页','Open the Workbench page'],
+  rightbarNoPath:['当前会话没有项目路径，不能在这里创建工作区。','This session has no project path, so a workspace cannot be created here.'],
 } as const
 export type HerdrMessage=keyof typeof messages
 export function useHerdrText(){const {locale}=useWorkbench();return (key:HerdrMessage)=>messages[key][locale==='zh'?0:1]}

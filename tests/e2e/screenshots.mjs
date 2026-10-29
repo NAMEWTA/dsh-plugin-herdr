@@ -106,7 +106,10 @@ try {
   await column.getByText('观察中 · 不接收输入').waitFor()
   await shot(rail, '16-rightbar-workspace')
   const railEmpty = await open({scenario: 'unlinked', width: 1440})
-  await railEmpty.getByRole('region', {name: 'Herdr'}).getByText('此会话还没有工作区').waitFor()
+  const emptyRegion = railEmpty.getByRole('region', {name: 'Herdr'})
+  await emptyRegion.getByRole('heading', {name: '此会话还没有工作区'}).waitFor()
+  await emptyRegion.getByText('/demo/workbench').waitFor()
+  await emptyRegion.locator('button:not([disabled])', {hasText: '为此路径创建并绑定工作区'}).waitFor()
   await shot(railEmpty, '17-rightbar-empty')
   console.log('Saved screenshots:', saved.join(', '))
 } finally {

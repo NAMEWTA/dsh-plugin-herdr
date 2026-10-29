@@ -3,15 +3,16 @@
  * Both read the same binding, snapshot and ledger.
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { ChevronRight, Terminal } from 'lucide-react'
-import { useWorkbench } from '@workbench/ui'
+import { ChevronRight, FolderPlus, Terminal } from 'lucide-react'
+import { Button, ErrorNotice, useWorkbench } from '@workbench/ui'
 import type { Pane, ResourceRef, SessionResources } from '../contracts/index.ts'
 import { resourceKey, sameResource } from '../domain/selectors.ts'
-import { useBinding, useSessionResources, useSnapshot } from './api.ts'
+import { useAction, useBinding, useSessionResources, useSnapshot } from './api.ts'
 import { useHerdrText, type HerdrMessage } from './messages.ts'
-import { openSessionRail } from './session-bridge.ts'
+import { openSessionRail, requestWorkbenchPage, workspaceLabelFromPath } from './session-bridge.ts'
 import { PaneSession } from './terminal/page.tsx'
 import { StatusMark } from './status-mark.tsx'
+import { rememberWorkspace } from './workspaces.tsx'
 
 type Entry = SessionResources['nodes'][number]['entries'][number]
 const origins: Record<Entry['origin'], HerdrMessage> = {tool:'originTool', ui:'originUi', bound:'originBound'}
@@ -75,10 +76,33 @@ function useBoard() {
   return { projectPath: ui.projectPath ?? binding.data?.cwd ?? null, workspace, panes, tabs, children: (resources.data?.nodes ?? []).filter(node => node.parentConversationId), childPanes, history, snapshot: snapshot.data, broken: !!binding.error || !!snapshot.error, empty: !binding.isLoading && !binding.data?.ref }
 }
 
+function RailEmpty({ path, ready }: { path: string | null; ready: boolean }) {
+  const ui = useWorkbench(), h = useHerdrText(), create = useAction('herdr.conversation.create')
+  const canCreate = ready && !!path && !!ui.conversationId && ui.capabilities.has('herdr.manage') && !create.isPending
+  const onCreate = () => {
+    if (!canCreate || !path || !ui.conversationId) return
+    const conversationId = ui.conversationId
+    create.mutate({ conversationId, label: workspaceLabelFromPath(path, ui.locale === 'zh' ? '工作区' : 'workspace'), cwd: path, confirmed: true }, {
+      onSuccess: value => { if (value.ref) void rememberWorkspace(ui.client, conversationId, value.ref.id, 'ui').catch(() => {}) },
+    })
+  }
+  return <div className="wb-rightbar-empty">
+    <div className="wb-rightbar-empty-icon" aria-hidden="true"><FolderPlus size={22}/></div>
+    <h2>{h('rightbarEmpty')}</h2>
+    <p>{path ? h('rightbarEmptyHint') : h('rightbarNoPath')}</p>
+    {path && <code className="wb-rightbar-path">{path}</code>}
+    <div className="wb-actions">
+      <Button variant="primary" disabled={!canCreate} onClick={onCreate}><FolderPlus size={15} aria-hidden="true"/>{h('createForPath')}</Button>
+      <Button variant="ghost" onClick={() => { if (!requestWorkbenchPage(ui.conversationId)) ui.navigate('herdr.workspaces') }}>{h('openWorkbenchPage')}</Button>
+    </div>
+    {create.error && <ErrorNotice error={create.error}/>}
+  </div>
+}
+
 function BoardView({ board, onOpen }: { board: ReturnType<typeof useBoard>; onOpen: (pane: Pane) => void }) {
   const h = useHerdrText()
   if (board.broken) return null
-  if (board.empty || !board.workspace) return <div className="wb-rightbar-empty"><strong>{h('rightbarEmpty')}</strong><p>{board.projectPath ? h('projectPath') + ' ' + board.projectPath : h('rightbarEmptyHint')}</p></div>
+  if (board.empty || !board.workspace) return <RailEmpty path={board.projectPath} ready={board.empty}/>
   const originFor = (pane: Pane) => board.children.flatMap(node => node.entries).find(entry => sameResource(entry.ref, pane.ref))?.origin
   return <div>
     <p className="wb-rightbar-path">{h('projectPath')} {board.projectPath ?? board.panes.find(pane => pane.cwd)?.cwd ?? board.workspace.ref.id}</p>

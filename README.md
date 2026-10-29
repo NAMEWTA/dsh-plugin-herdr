@@ -45,6 +45,8 @@ node tooling/check-package.mjs artifacts/*.tgz
 HERDR_TEST_BINARY=/absolute/path/to/herdr-0.9.3 node tests/e2e/dsh.mjs /absolute/path/to/dsh/lib/bin.js artifacts/*.tgz
 ```
 
+`pnpm pack:plugin` 会先执行 `pnpm build`（生成 `lib/sbom.cdx.json`、客户端样式和校验清单），再把 tarball 写到 `artifacts/`。不必在 pack 之前单独 build。安装的仍然是这个 tarball，不是源码目录。
+
 集成环境缺失会失败，不会跳过后报告通过。CI 固定 Linux x86_64、Herdr 0.9.3/protocol 22 和 DSH 0.2.1-rc.2。PR 只生成候选包；main 必须重新通过全部质量、真实集成和浏览器检查，才将同次运行的构件发布为已授权的 GitHub alpha。既有 Release 不覆盖，npm 不发布。
 
 ## 安装和使用

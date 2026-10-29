@@ -1,9 +1,9 @@
-import { Component, useEffect, useMemo, useState, useRef, useId, type CSSProperties, type ErrorInfo, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { Component, useEffect, useLayoutEffect, useMemo, useState, useRef, useId, type CSSProperties, type ErrorInfo, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, Blocks, ChevronRight, Command, Home, Layers3, Menu, Search, Settings, ShieldCheck, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import type { Locale, RouteLocation, WorkbenchClient } from '@workbench/contracts'
 import { platformSnapshotSchema, preferencesSchema, type Preferences } from '@workbench/contracts/schemas'
-import { Badge, Button, Card, DataTable, EmptyState, ErrorNotice, Field, Input, Modal, PageHeader, Select, Skeleton, UiProvider, request, useWorkbench, type MessageKey, type WebModule } from '@workbench/ui'
+import { Badge, Button, Card, DataTable, EmptyState, ErrorNotice, Field, Input, Modal, PageHeader, Select, Skeleton, UiProvider, mountWorkbenchStyles, request, useWorkbench, type MessageKey, type WebModule } from '@workbench/ui'
 const preferenceKey='namewta.workbench.preferences.v1'
 function readPreferences(locale:Locale):Preferences{
   try{return preferencesSchema.parse(JSON.parse(localStorage.getItem(preferenceKey)??'null'))}
@@ -25,6 +25,8 @@ export function Workbench({client,modules,initialRoute,locale='zh',conversationI
 }
 function Shell({client,modules,initialRoute,locale,conversationId,projectPath,sessionEntry,presentation}:{client:WorkbenchClient;modules:readonly WebModule[];initialRoute:string;locale:Locale;conversationId?:string;projectPath?:string;sessionEntry:boolean;presentation:'app'|'entry'|'rail'}){
   const cache=useQueryClient(),[prefs,setPrefs]=useState(()=>readPreferences(locale)),[route,setRoute]=useState(()=>readRoute(initialRoute,conversationId)),[systemDark,setSystemDark]=useState(()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-color-scheme: dark)').matches)
+  const frame=useRef<HTMLDivElement>(null)
+  useLayoutEffect(()=>{mountWorkbenchStyles(frame.current)})
   const platform=useQuery({queryKey:['platform','snapshot'],queryFn:async({signal})=>platformSnapshotSchema.parse(await request(client,'platform.snapshot',{},signal)),refetchInterval:10000})
   const capabilities=useMemo(()=>new Set(platform.data?.capabilities??[]),[platform.data?.capabilities])
   useEffect(()=>{const media=matchMedia('(prefers-color-scheme: dark)'),change=()=>setSystemDark(media.matches);media.addEventListener('change',change);return()=>media.removeEventListener('change',change)},[])
@@ -49,7 +51,7 @@ function Shell({client,modules,initialRoute,locale,conversationId,projectPath,se
   }
   const setPreferences=(partial:Partial<Preferences>)=>setPrefs(current=>{const next=preferencesSchema.parse({...current,...partial});try{localStorage.setItem(preferenceKey,JSON.stringify(next))}catch{/* private mode: keep preferences in memory */}return next})
   const theme=prefs.theme==='system'?(systemDark?'dark':'light'):prefs.theme
-  return <div className="wb-root" data-theme={theme} data-density={prefs.density} lang={prefs.locale}>
+  return <div ref={frame} className="wb-root" data-theme={theme} data-density={prefs.density} lang={prefs.locale}>
     <UiProvider value={{client,locale:prefs.locale,preferences:prefs,setPreferences,route,navigate,capabilities,...conversationId?{conversationId}:{},...projectPath?{projectPath}:{}}}>
       <Chrome modules={modules} platform={platform.data} loading={platform.isLoading} error={platform.error} retry={()=>void platform.refetch()} presentation={presentation} sessionEntry={sessionEntry}/>
     </UiProvider>
@@ -113,7 +115,7 @@ function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}
     window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)
   }
   if(presentation==='entry')return <div className="wb-session-inline">{sessionEntry&&<SessionSlots modules={available}/>}</div>
-  if(presentation==='rail')return <div className="wb-session-inline wb-rightbar-host"><RailSlots modules={available}/></div>
+  if(presentation==='rail')return <div className="wb-rightbar-host"><RailSlots modules={available}/></div>
   const showRail=sessionEntry&&!!ui.conversationId&&!narrow
   return <div ref={root} className="wb-shell" data-secondary-open={expanded&&!narrow} data-rightbar={showRail} style={{'--wb-side':side+'px'} as CSSProperties}>
     <nav className="wb-rail" aria-label={t('moduleRail')}>

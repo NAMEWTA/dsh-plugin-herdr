@@ -19,6 +19,15 @@ export interface WebContext {
   sidebarRight?: { openTab(kind: string, options?: { params?: Record<string, unknown> }): void }
   sidebarRightTabs?: { register(definition: { id: string; kind: string; priority?: 'extension' | 'builtin' | 'fallback'; title: (address: string) => string; guide?: ReadonlyArray<{ id: string; order?: number; title: () => string; description?: () => string }> }): () => void }
   sessions?: { list: SessionCatalog }
+  /** Present when @deepseek-ai/dsh-client-ui-layout is injected. Selects a registered main panel. */
+  layout?: { selectPanel(panelId: string | null): void }
+}
+type PageBinder = (conversationId: string, open: () => void) => () => void
+let pageBinder: PageBinder | undefined
+/** The plugin client registers this. The adapter stays free of the Herdr package. */
+export function bindWorkbenchPageBridge(bind: PageBinder): () => void {
+  pageBinder = bind
+  return () => { if (pageBinder === bind) pageBinder = undefined }
 }
 interface WebScope extends Omit<WebContext, 'remote'> { remote: { workbench: RemoteNamespace }; locale?: LocaleService }
 const noSubscribe = () => () => {}
@@ -57,7 +66,15 @@ export async function mountWorkbench(ctx: WebContext, modules: readonly WebModul
     scope.slots.inject('main', function* () { yield scope.slots.register({name:'main',key:'workbench'}, Panel) })
     scope.slots.inject('conversation.view', () => scope.slots.register({name:'conversation.view',id:'workbench',order:20,label:title}, ({sessionId}:{sessionId:string}) => sessionId?<Panel conversationId={sessionId}/>:<MissingSession/>))
     scope.slots.inject('settings.plugins.tab', () => scope.slots.register({name:'settings.plugins.tab',id:'workbench-settings',order:30,label:title}, () => <Panel settings/>))
-    scope.slots.inject('conversation.session.header.actions', () => scope.slots.register({name:'conversation.session.header.actions',id:'workbench-session-terminals',order:40}, ({sessionId}:{sessionId?:string}) => sessionId ? <Panel conversationId={sessionId} entry/> : null))
+    function SessionHeader({sessionId, selectView, actions}:{sessionId?:string; selectView?:(view:string)=>void; actions?:{setView?:(view:string)=>void}}) {
+      const choose = selectView ?? actions?.setView
+      useEffect(() => {
+        if (!sessionId || !choose || !pageBinder) return
+        return pageBinder(sessionId, () => choose('workbench'))
+      }, [sessionId, choose])
+      return sessionId ? <Panel conversationId={sessionId} entry/> : null
+    }
+    scope.slots.inject('conversation.session.header.actions', () => scope.slots.register({name:'conversation.session.header.actions',id:'workbench-session-terminals',order:40}, SessionHeader))
     if (ctx.sidebarRightTabs) scope.slots.inject('sidebar.right.pane.tab', () => scope.slots.register({name:'sidebar.right.pane.tab',key:herdrTabId}, ({sessionId}:{sessionId?:string}) => sessionId ? <Panel conversationId={sessionId} rail/> : null))
   })
 }
