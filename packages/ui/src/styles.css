@@ -264,7 +264,8 @@
 .wb-root .wb-segment{display:inline-flex;padding:2px;border-radius:9px;background:var(--wb-raised)}
 .wb-root .wb-segment button{border:0;background:transparent;color:var(--wb-muted);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:12px}
 .wb-root .wb-segment button[aria-pressed="true"]{background:var(--wb-surface);color:var(--wb-text)}
-.wb-root .wb-tab-strip{display:flex;align-items:center;gap:4px;overflow:auto;padding-bottom:2px}
+.wb-root .wb-tab-strip,.wb-root .wb-tab-strip [role="tablist"]{display:flex;align-items:center;gap:4px;min-width:0}
+.wb-root .wb-tab-strip{overflow:auto;padding-bottom:2px}
 .wb-root .wb-tab-strip button{border:0;background:transparent;color:var(--wb-muted);border-radius:8px 8px 0 0;padding:7px 10px;cursor:pointer;font-size:12px}
 .wb-root .wb-tab-strip button[aria-selected="true"]{color:var(--wb-text);box-shadow:inset 0 -2px 0 var(--wb-brand)}
 .wb-root .wb-pane-canvas{display:flex;gap:8px;flex-wrap:wrap}
