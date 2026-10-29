@@ -1,8 +1,8 @@
 # Workbench 安装与配置 / Installation
 
-> 当前预览版是 `1.0.3-alpha.1`，宿主基线是 DSH `0.2.1-rc.2`。已经发布的 `v1.0.2-alpha.1` 附件保持不变，那一版仍是旧 `0.2.1-alpha.2` 宿主构件，不要把它当成 rc.2 包。合并到 main 并通过三项验收后，CI 发布 `v1.0.3-alpha.1` prerelease，不覆盖旧 Release，不发布 npm。安装前核对 `build.json` 中的源码 SHA 与 `dsh` 字段。
+> 当前预览版是 `1.0.4-alpha.1`，宿主基线是 DSH `0.2.1-rc.2`。已经发布的 `v1.0.3-alpha.1` 与 `v1.0.2-alpha.1` 附件保持不变。`v1.0.2-alpha.1` 仍是旧 `0.2.1-alpha.2` 宿主构件，不要把它当成 rc.2 包。合并到 main 并通过三项验收后，CI 发布 `v1.0.4-alpha.1` prerelease，不覆盖旧 Release，不发布 npm。安装前核对 `build.json` 中的源码 SHA 与 `dsh` 字段。
 
-这是独立包 `@namewta/dsh-workbench@1.0.3-alpha.1`，不是旧包的兼容更新。合并发布前的候选构件不等于已经发布到 npm。
+这是独立包 `@namewta/dsh-workbench@1.0.4-alpha.1`，不是旧包的兼容更新。合并发布前的候选构件不等于已经发布到 npm。
 
 ## 冻结环境
 
@@ -13,7 +13,7 @@ npm install --global pnpm@10.28.2
 npm install --global @deepseek-ai/dsh@0.2.1-rc.2
 # 在候选包与 SHA256SUMS 所在目录检查校验值：
 sha256sum --check SHA256SUMS
-dsh plugin --profile web add /absolute/path/namewta-dsh-workbench-1.0.3-alpha.1.tgz
+dsh plugin --profile web add /absolute/path/namewta-dsh-workbench-1.0.4-alpha.1.tgz
 dsh web
 ```
 
@@ -26,11 +26,11 @@ dsh web
 ```sh
 pnpm install --frozen-lockfile
 pnpm pack:plugin
-dsh plugin --profile web add "$(pwd)/artifacts/namewta-dsh-workbench-1.0.3-alpha.1.tgz"
+dsh plugin --profile web add "$(pwd)/artifacts/namewta-dsh-workbench-1.0.4-alpha.1.tgz"
 dsh web
 ```
 
-`artifacts/` 里的 tarball 才是安装对象。源码目录不能 `dsh plugin add`。右侧栏 Herdr 页签在会话尚未绑定工作区时，可以直接为当前项目路径创建并绑定，不需要模型或工具调用。
+`artifacts/` 里的 tarball 才是安装对象。源码目录不能 `dsh plugin add`。右侧栏 Herdr 页签在会话有项目路径时会自动创建或复用并绑定工作区，不需要再点创建，也不需要先让模型调用工具。没有项目路径时才保留空态。
 
 ## 新配置
 
@@ -62,7 +62,7 @@ WORKBENCH_HERDR_SOCKET=/absolute/private/herdr.sock WORKBENCH_HERDR_BINARY=/abso
 
 Workbench 的控制互斥不阻止外部 Herdr TUI。所有 DSH 已鉴权浏览器继承同一宿主 operator 权限；这是单用户本地产品，不是多租户远程 shell。保持在可信私网内。
 
-对话页需显式绑定工作区。`workbench_herdr_inspect` 只读取该绑定；`workbench_herdr_action` 必须经过 DSH 人工审批，不提供原始按键、隐式接管或跨工作区操作。断线/重启改变资源 epoch 后，旧绑定失败关闭，应重新选择当前资源。
+有项目路径的会话会在第一次工具调用或打开右侧栏时绑定该路径上的工作区。没有路径时不会猜测当前聚焦工作区。`workbench_herdr_inspect` 只读取该绑定；`workbench_herdr_launch` 在批准后启动 Codex 或 Claude Code，且不发送内容；`workbench_herdr_action` 必须经过 DSH 人工审批，只改已绑定工作区内的资源，不提供原始按键、隐式接管或跨工作区操作。断线/重启改变资源 epoch 后，旧绑定失败关闭，应重新选择当前资源。
 
 ## 卸载与回退
 

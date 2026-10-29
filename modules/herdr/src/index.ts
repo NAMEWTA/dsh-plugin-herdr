@@ -12,6 +12,9 @@ import { TerminalLeases } from './application/terminals.ts'
 import { TerminalSessionManager } from './infrastructure/terminal/manager.ts'
 import { EnvironmentService, workspaceDirectory } from './infrastructure/environment/service.ts'
 import { assertSessionAccess, loadSessionTree, projectResources, recordSession } from './application/session-ledger.ts'
+import { ensureConversation, type EnsureResult } from './application/conversation-ensure.ts'
+import { launchAgents } from './application/launch-agents.ts'
+import { agentInstanceName, resolveAgentKind } from './domain/agent-launch.ts'
 export { herdrManifest } from './manifest.ts'
 export function createHerdrModule(configInput:ConnectionConfig,dependencies:{port?:HerdrPort;manager?:TerminalSessionManager}={}) {
   const config=connectionConfigSchema.parse(configInput)
@@ -44,9 +47,9 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
     ctx.interval(async()=>{await subscribe();await model.refresh();await terminal.reconcile()},config.pollMs)
     for(const contribution of herdrManifest.contributions)ctx.contribution(contribution)
     const connection=(p:Principal)=>{if(!p.connectionIds.has(config.id))throw new WorkbenchError('FORBIDDEN')}
-    const action=async(ref:ResourceRef,context:OperationContext,method:string,params:unknown)=>{
+    const action=async(ref:ResourceRef,context:OperationContext,method:string,params:unknown,timeoutMs?:number)=>{
       connection(context.principal);await model.assert(ref,true)
-      await port.request(method,params,context.signal,true);await model.refresh();return {}
+      await port.request(method,params,context.signal,true,timeoutMs);await model.refresh();return {}
     }
     register({...catalog['herdr.snapshot'],id:'herdr.snapshot',run:(_input,c)=>{connection(c.principal);return model.snapshot()}})
     register({...catalog['herdr.pane.inspect'],id:'herdr.pane.inspect',run:async(input,c)=>{
@@ -94,10 +97,13 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
       await model.refresh();const ref=model.find('pane',parsed.data.pane.pane_id);model.mark(ref,'created');await model.refresh();return ref
     }})
     register({...catalog['herdr.agent.start'],id:'herdr.agent.start',run:async(input,c)=>{
-      if(input.ref.kind!=='pane'||!config.allowedAgentKinds.includes(input.kind))throw new WorkbenchError('FORBIDDEN')
-      const name=input.kind+'-'+input.ref.id.replace(/[^a-zA-Z0-9-]/g,'-')
-      await action(input.ref,c,'agent.start',{pane_id:input.ref.id,kind:input.kind,name,args:[],timeout_ms:10000})
-      return {ref:input.ref,kind:input.kind,name}
+      if(input.ref.kind!=='pane')throw new WorkbenchError('INVALID_REQUEST','field ref.kind must be "pane". To start one or more agents without sending a prompt, call workbench_herdr_launch with {"agents":[{"kind":"codex","count":4},{"kind":"claude","count":4}],"send":false}.')
+      const resolved=resolveAgentKind(input.kind)
+      if(!resolved)throw new WorkbenchError('INVALID_REQUEST',`field kind must be one of codex, claude, claude-code. Received ${JSON.stringify(input.kind)}. codex runs the codex command; claude and claude-code both run the claude command.`)
+      if(!config.allowedAgentKinds.includes(resolved.kind))throw new WorkbenchError('INVALID_REQUEST',`field kind ${resolved.kind} is not in the administrator allow-list (${config.allowedAgentKinds.join(', ') || 'none'}).`)
+      const name=agentInstanceName(resolved.kind,1)
+      await action(input.ref,c,'agent.start',{pane_id:input.ref.id,kind:resolved.kind,name,args:[],timeout_ms:8000},20000)
+      return {ref:input.ref,kind:resolved.kind,name}
     }})
     register({...catalog['herdr.terminal.open'],id:'herdr.terminal.open',run:(input,c)=>{connection(c.principal);return terminal.open(input,c)}})
     register({...catalog['herdr.terminal.release'],id:'herdr.terminal.release',run:async(input,c)=>{connection(c.principal);await terminal.release(input.leaseId,c.principal);return {}}})
@@ -110,11 +116,13 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
     }
     // Serialize per-conversation create-and-bind, without adopting a focused/external workspace.
     const creatingBindings=new Set<string>()
+    const ensuring=new Map<string,Promise<EnsureResult>>()
+    const reservedPanes=new Set<string>()
     register({...catalog['herdr.conversation.create'],id:'herdr.conversation.create',run:async(input,c)=>{
       connection(c.principal)
       if(c.principal.conversationId&&c.principal.conversationId!==input.conversationId)throw new WorkbenchError('FORBIDDEN')
       const key=bindingKey(c.principal,input.conversationId)
-      if(creatingBindings.has(key))throw new WorkbenchError('MODULE_CONFLICT')
+      if(creatingBindings.has(key)||ensuring.has(key))throw new WorkbenchError('MODULE_CONFLICT')
       creatingBindings.add(key)
       try{
         const stored=await ctx.storage.read<Json>(key)
@@ -150,6 +158,19 @@ export function createHerdrModule(configInput:ConnectionConfig,dependencies:{por
         return {conversationId:input.conversationId,ref,cwd:input.cwd}
       }finally{creatingBindings.delete(key)}
     }})
+    register({...catalog['herdr.conversation.ensure'],id:'herdr.conversation.ensure',run:(input,c)=>{
+      connection(c.principal)
+      const key=bindingKey(c.principal,input.conversationId)
+      if(creatingBindings.has(key))throw new WorkbenchError('MODULE_CONFLICT')
+      const pending=ensuring.get(key)
+      if(pending)return pending
+      const work=ensureConversation({config,model,storage:ctx.storage,context:c,bindingKey:key,cwdKey:cwdKey(c.principal,input.conversationId),createWorkspace,emit:()=>ctx.emit({type:'invalidate'})},{conversationId:input.conversationId,cwd:input.cwd,...input.label?{label:input.label}:{},origin:input.origin}).finally(()=>{if(ensuring.get(key)===work)ensuring.delete(key)})
+      ensuring.set(key,work)
+      return work
+    }})
+    register({...catalog['herdr.agents.launch'],id:'herdr.agents.launch',run:(input,c)=>launchAgents({
+      config,port,model,storage:ctx.storage,context:c,reserved:reservedPanes,bindingKey:bindingKey(c.principal,input.conversationId),cwdKey:cwdKey(c.principal,input.conversationId),
+    },{conversationId:input.conversationId,agents:input.agents,...input.parentConversationId?{parentConversationId:input.parentConversationId}:{}})})
     register({...catalog['herdr.binding.get'],id:'herdr.binding.get',run:async(input,c)=>{
       connection(c.principal)
       const stored=await ctx.storage.read<Json>(bindingKey(c.principal,input.conversationId))

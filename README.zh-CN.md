@@ -20,7 +20,7 @@
 
 </div>
 
-> **状态：alpha 预览版（`1.0.3-alpha.1`）。** 以 GitHub prerelease 的 tarball 发布，不发布到 npm。已在 Linux x86_64 + DSH 0.2.1-rc.2 + Herdr 0.9.3 上验证。详见[发布说明](docs/releases/1.0.3-alpha.1.md)。
+> **状态：alpha 预览版（`1.0.4-alpha.1`）。** 以 GitHub prerelease 的 tarball 发布，不发布到 npm。已在 Linux x86_64 + DSH 0.2.1-rc.2 + Herdr 0.9.3 上验证。详见[发布说明](docs/releases/1.0.4-alpha.1.md)。
 >
 > 演示动图和大部分截图录制时界面语言为英文，G6 演示了切换到简体中文；界面语言可在“外观设置”里随时切换。
 
@@ -50,11 +50,11 @@ DSH Workbench for Herdr 把 Herdr 带进 DSH Web：一个总览看全部工作�
 
 ### 每个 DSH 会话里都有 Herdr 页签
 
-DSH 会话的右侧栏多了一个 **Herdr** 页签。会话还没有工作区时，点 **Create and bind a workspace for this path（为此路径创建并绑定工作区）**，就会在会话的项目路径下新建一个工作区并完成绑定，不需要模型或工具调用。之后页签里会显示会话树（工作区 › 标签页 › 终端），也可以直接打开终端。
+DSH 会话的右侧栏多了一个 **Herdr** 页签。会话有项目路径且尚未绑定时，这个路径会自动成为该会话的工作区，不需要再点创建，也不需要先让模型调用工具。只有解析不出项目路径时才显示「此会话还没有工作区」。之后页签里会显示会话树（工作区 › 标签页 › 终端），也可以直接打开终端。
 
 <img src="docs/assets/demos/g3-session-rail.gif" width="860" alt="在 DSH 会话右侧栏创建并绑定 Herdr 工作区，然后观察它的终端">
 
-绑定同时限定了两个模型工具的范围：`workbench_herdr_inspect`（只读，只能看已绑定的工作区）和 `workbench_herdr_action`（只允许少量操作，每次都要经过 DSH 审批）。详见[让模型帮忙](#让模型帮忙)。
+绑定同时限定了模型工具的范围：`workbench_herdr_inspect`（第一次调用会按项目路径自动绑定，之后只读该工作区）、`workbench_herdr_launch`（启动 Codex 或 Claude Code，不向它们发送内容，每次都要经过 DSH 审批）和 `workbench_herdr_action`（只改已绑定工作区里的资源，同样要审批）。详见[让模型帮忙](#让模型帮忙)。
 
 ### 命令面板
 
@@ -114,7 +114,7 @@ chmod +x ~/.local/bin/herdr
 ### 2. 下载并校验插件
 
 ```sh
-V=1.0.3-alpha.1
+V=1.0.4-alpha.1
 BASE=https://github.com/NAMEWTA/dsh-plugin-herdr/releases/download/v$V
 for f in namewta-dsh-workbench-$V.tgz build.json SHA256SUMS; do curl -fLO "$BASE/$f"; done
 sha256sum --check --ignore-missing SHA256SUMS
@@ -158,16 +158,17 @@ dsh web          # 在另一个终端运行；会打印一个带一次性 token 
 
 ### 绑定 DSH 会话
 
-打开一个会话，展开右侧栏，选 **Herdr**，再点 **Create and bind a workspace for this path**。绑定是显式的，Workbench 不会退回去用“当前聚焦的工作区”。Herdr 重启后，过期的绑定会失效关闭，不会误连。
+打开一个带项目路径的会话。Herdr 页签会把这个目录绑定为该会话的工作区。Workbench 不会退回去用“当前聚焦的工作区”。Herdr 重启后，过期的绑定会失效关闭，不会误连。没有项目路径的会话会保持未绑定，直到手动选择。
 
 ### 让模型帮忙
 
-`toolsEnabled` 开启时（默认开启），模型可以使用两个工具：
+`toolsEnabled` 开启时（默认开启），模型可以使用三个工具：
 
 | 工具 | 能做什么 |
 |---|---|
-| `workbench_herdr_inspect` | 读取当前会话绑定的工作区（标签页、窗格、Agent 状态）。未绑定时直接失败。 |
-| `workbench_herdr_action` | 新建并绑定一个工作区，或者**在已绑定的工作区内**重命名、关闭、拆分、新建标签页、启动 Agent。每次调用都会先弹出 DSH 审批框。不能发送原始按键，不能隐式接管资源，也不能跨工作区操作。 |
+| `workbench_herdr_inspect` | 读取当前会话的工作区。第一次调用时，若尚未绑定，就按会话项目路径创建或复用并绑定。没有项目路径时返回 `INVALID_REQUEST`。 |
+| `workbench_herdr_launch` | 在该工作区启动 Codex 和 Claude Code，并且不发送内容。示例：`{"agents":[{"kind":"codex","count":4},{"kind":"claude","count":4}],"send":false}`。一次最多 8 个。每次调用都会先弹出 DSH 审批框。 |
+| `workbench_herdr_action` | **在已绑定的工作区内**重命名、关闭、拆分或新建标签页。不用于启动 Agent。每次调用都会先弹出 DSH 审批框。不能发送原始按键，不能隐式接管资源，也不能跨工作区操作。 |
 
 Agent 预设 **Workbench · Herdr** 会引导模型按这种方式使用工具。使用模型需要 DSH 已登录或已配置 API Key。
 
@@ -194,7 +195,7 @@ Workbench 在 profile 里的条目 id 是 `namewta-workbench`。在 profile 的�
 | `dataDirectory` | `<profile>/workbench/` | Workbench 的状态数据（绑定、台账、审计）。 |
 | `readOnly` | `false` | 只授予读取和观察权限，不能取得控制，也不能修改资源。 |
 | `pollMs` | `3000` | 事件推送不可用时的轮询间隔（500–30000）。 |
-| `toolsEnabled` | `true` | 注册两个模型工具。 |
+| `toolsEnabled` | `true` | 注册三个模型工具。 |
 | `maxObservers` | `8` | 同时观察的会话数（0–64）。 |
 | `maxControllers` | `2` | 同时控制的会话数（0–16）。 |
 | `maxProcesses` | `16` | 终端桥接进程数，正在清理的也计入（1–128）。 |
@@ -214,7 +215,7 @@ WORKBENCH_HERDR_SOCKET=/abs/path/herdr.sock WORKBENCH_HERDR_BINARY=/abs/path/her
 | 任何通过 DSH 认证的浏览器 | DSH 宿主操作者能做的一切，信任级别与 `dsh web` 本身相同 | — |
 | 观察者 | 读取终端输出和状态 | 发送输入 |
 | 控制者 | 向持有租约的窗格输入 | 持有超过 `maxControllers` 个租约；断线后重放未确认的输入 |
-| 模型 | `inspect` 已绑定的工作区；经你在 DSH 里批准后执行 `action` | 操作未绑定的工作区；发送原始按键；未经批准接管或关闭外部资源 |
+| 模型 | `inspect` 会按会话项目路径绑定后再读取；`launch` 经批准后启动 Agent 且不发送内容；`action` 经批准后修改该工作区 | 使用其他会话或当前聚焦工作区；发送 prompt 或原始按键；未经批准接管或关闭无关的外部资源 |
 | `readOnly: true` | 读取和观察 | 控制、新建、关闭 |
 
 - 身份来自 DSH 服务端（`invocation.peer.id`），不采信浏览器自报的身份。每一次读取、写入和流消息都在服务端鉴权。

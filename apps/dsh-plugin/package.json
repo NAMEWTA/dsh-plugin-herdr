@@ -1,6 +1,6 @@
 {
   "name": "@namewta/dsh-workbench",
-  "version": "1.0.3-alpha.1",
+  "version": "1.0.4-alpha.1",
   "description": "A modular, independently maintained developer workbench. Herdr is its first module.",
   "license": "MIT",
   "author": "NAMEWTA",

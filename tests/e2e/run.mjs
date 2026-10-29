@@ -24,7 +24,7 @@ try{
    const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'}),page=await context.newPage()
    page.on('pageerror',e=>errors.push(e.message))
    if(offline){await page.setContent('<!doctype html><html lang="en"><head><title>Workbench component evidence</title></head><body style="margin:0;height:100vh"><div id="root" style="height:100vh"></div></body></html>');await page.addStyleTag({content:css});await page.evaluate(options=>{window.fixtureOptions=options},{scenario,route});await page.addScriptTag({content:htmlScript})}
-   else await page.goto('http://127.0.0.1:5183/?lang=en&scenario='+scenario+'&wb.route='+route,{waitUntil:'domcontentloaded'})
+   else await page.goto('http://127.0.0.1:5183/?lang=en&scenario='+scenario+'&wb.route='+route+(scenario==='empty'?'&nopath=1':''),{waitUntil:'domcontentloaded'})
    await page.locator('.wb-root').waitFor();return page
  }
  async function go(page,name){
@@ -51,7 +51,7 @@ try{
    await audit(page,scenario);await page.screenshot({path:resolve(out,scenario+'.png'),fullPage:true});results.push({case:scenario,passed:true});await page.close()
  }
  const page=await open('normal','herdr.workspaces')
- await page.getByText('Not bound',{exact:true}).waitFor()
+ await page.getByText('Bound · workbench',{exact:true}).waitFor()
  const trigger=page.getByRole('button',{name:'New workspace',exact:true});await trigger.click();const dialog=page.getByRole('dialog');await dialog.waitFor();await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.equal(await trigger.evaluate(el=>el===document.activeElement),true,'Dialog must restore focus')
  await page.keyboard.press('Control+k');await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'hidden'});results.push({case:'dialog-focus-and-keyboard',passed:true})
  await go(page,'Notes');await page.getByRole('heading',{level:1}).waitFor();await audit(page,'second-module');results.push({case:'second-module',passed:true});await page.close()

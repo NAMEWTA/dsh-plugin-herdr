@@ -16,18 +16,19 @@ const rawSnapshot=z.object({version:z.string(),protocol:z.number().int(),panes:z
 export interface HerdrPort {
   snapshot(signal?:AbortSignal):Promise<SessionSnapshot>
   identity():Promise<string>
-  request(method:string,params:unknown,signal?:AbortSignal,mutation?:boolean):Promise<unknown>
+  request(method:string,params:unknown,signal?:AbortSignal,mutation?:boolean,timeoutMs?:number):Promise<unknown>
   subscribe(onEvent:(event:unknown)=>void,onClose:()=>void,signal:AbortSignal):Promise<()=>void>
 }
 export class LocalHerdrClient implements HerdrPort {
   private readonly incarnation=randomUUID()
   constructor(private readonly config:ConnectionConfig) {}
-  async request(method:string,params:unknown,signal?:AbortSignal,mutation=false):Promise<unknown> {
-    try {return (await socketRequest(this.config,method,params,{signal})).result}
+  async request(method:string,params:unknown,signal?:AbortSignal,mutation=false,timeoutMs?:number):Promise<unknown> {
+    try {return (await socketRequest(this.config,method,params,{signal,...timeoutMs?{timeoutMs}:{}})).result}
     catch(error) {
-      if (error instanceof HerdrError && error.code==='HERDR_ERROR') throw new WorkbenchError('INVALID_REQUEST')
+      const detail=error instanceof HerdrError&&error.message?error.message.slice(0,500):undefined
+      if (error instanceof HerdrError && error.code==='HERDR_ERROR') throw new WorkbenchError('INVALID_REQUEST', detail)
       if (signal?.aborted&&!mutation) throw new WorkbenchError('CANCELLED')
-      throw new WorkbenchError(mutation?'OPERATION_OUTCOME_UNKNOWN':'CONNECTION_UNAVAILABLE')
+      throw new WorkbenchError(mutation?'OPERATION_OUTCOME_UNKNOWN':'CONNECTION_UNAVAILABLE', detail)
     }
   }
   async snapshot(signal?:AbortSignal):Promise<SessionSnapshot> {

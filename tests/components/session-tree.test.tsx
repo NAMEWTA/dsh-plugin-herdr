@@ -43,20 +43,19 @@ test('the right rail lists the bound project workspace and opens a pane read-onl
   } finally { await d.close() }
 })
 
-test('the unbound right rail creates and binds a workspace for the session project path', async () => {
+test('the unbound right rail binds the session project path without a click', async () => {
   const d = await start('unlinked', '/demo/workbench')
   try {
     const rail = within(await screen.findByRole('region', {name: 'Herdr'}))
-    expect(rail.getByRole('heading', {name: 'This session has no workspace yet'})).toBeTruthy()
-    expect(rail.getByText('/demo/workbench')).toBeTruthy()
-    const button = await rail.findByRole('button', {name: 'Create and bind a workspace for this path'})
-    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
-    await userEvent.click(button)
-    await waitFor(() => expect(d.request.mock.calls.filter(([call]) => call.operation === 'herdr.conversation.create')).toHaveLength(1))
-    const created = d.request.mock.calls.filter(([call]) => call.operation === 'herdr.conversation.create')
-    expect(created[0]![0].input).toMatchObject({cwd: '/demo/workbench', confirmed: true, label: 'workbench', conversationId: 'demo-conversation', origin: 'ui'})
-    expect(d.request.mock.calls.filter(([call]) => call.operation === 'herdr.workspace.create')).toHaveLength(0)
+    await waitFor(() => expect(d.request.mock.calls.filter(([call]) => call.operation === 'herdr.conversation.ensure').length).toBeGreaterThanOrEqual(1))
+    const ensured = d.request.mock.calls.filter(([call]) => call.operation === 'herdr.conversation.ensure')
+    expect(ensured.every(([call]) => call.input && typeof call.input === 'object' && (call.input as {origin?: string}).origin === 'ui')).toBe(true)
+    expect(ensured[0]![0].input).toMatchObject({cwd: '/demo/workbench', confirmed: true, label: 'workbench', conversationId: 'demo-conversation', origin: 'ui'})
+    expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.conversation.create' || call.operation === 'herdr.workspace.create')).toBe(false)
+    expect(rail.queryByRole('heading', {name: 'This session has no workspace yet'})).toBeNull()
     await rail.findByRole('button', {name: /Idle · Shell · Created in the UI/})
+    expect(rail.getByText('workbench', {exact: true})).toBeTruthy()
+    expect(rail.getByText(/Project path \/demo\/workbench/)).toBeTruthy()
     expect(rail.getByText('Tab 1')).toBeTruthy()
     expect(rail.queryByText(/Unknown/)).toBeNull()
     await waitFor(() => expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.session.record')).toBe(true))
@@ -71,12 +70,15 @@ test('the unbound right rail does not create a workspace without a project path'
   const d = await start('unlinked')
   try {
     const rail = within(await screen.findByRole('region', {name: 'Herdr'}))
+    expect(rail.getByRole('heading', {name: 'This session has no workspace yet'})).toBeTruthy()
     expect(rail.getByText('This session has no project path, so a workspace cannot be created here.')).toBeTruthy()
     const button = await rail.findByRole('button', {name: 'Create and bind a workspace for this path'})
     await waitFor(() => expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.binding.get')).toBe(true))
     expect((button as HTMLButtonElement).disabled).toBe(true)
     await userEvent.click(button)
-    expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.conversation.create')).toBe(false)
+    expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.conversation.create' || call.operation === 'herdr.conversation.ensure' || call.operation === 'herdr.workspace.create')).toBe(false)
+    await userEvent.click(await rail.findByRole('button', {name: 'Open the Workbench page'}))
+    await screen.findByRole('heading', {level: 1, name: 'Workspaces'})
   } finally { await d.close() }
 })
 
@@ -97,12 +99,12 @@ test('the host locale replaces a stored language preference', async () => {
   }
 })
 
-test('the right rail opens the Workbench page without a tool call', async () => {
+test('a project path does not leave the right rail on the empty state', async () => {
   const d = await start('unlinked', '/demo/workbench')
   try {
     const rail = within(await screen.findByRole('region', {name: 'Herdr'}))
-    await userEvent.click(await rail.findByRole('button', {name: 'Open the Workbench page'}))
-    await screen.findByRole('heading', {level: 1, name: 'Workspaces'})
-    expect(d.request.mock.calls.some(([call]) => call.operation === 'herdr.conversation.create' || call.operation === 'herdr.workspace.create')).toBe(false)
+    await rail.findByRole('button', {name: /Idle · Shell · Created in the UI/})
+    expect(rail.queryByRole('button', {name: 'Open the Workbench page'})).toBeNull()
+    expect(rail.queryByRole('button', {name: 'Create and bind a workspace for this path'})).toBeNull()
   } finally { await d.close() }
 })

@@ -48,6 +48,8 @@ export interface Failure {
   readonly requestId: string
   readonly retryable: boolean
   readonly issues?: readonly { path: string; message: string }[]
+  /** Present only when a trusted error has a message other than its code. */
+  readonly detail?: string
 }
 export type Result<T> = { readonly ok: true; readonly data: T; readonly requestId: string }
   | { readonly ok: false; readonly error: Failure }

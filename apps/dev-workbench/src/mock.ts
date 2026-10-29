@@ -19,10 +19,11 @@ export function fixture(scenario='normal'): HerdrSnapshot {
 }
 export async function createDemo(scenario: string): Promise<{client:WorkbenchClient;dispose:()=>Promise<void>}> {
   const storage = new MemoryStorage(),audit = new MemoryAudit(),runtime = new WorkbenchRuntime({storage,audit})
-  runtime.register(createPlatformModule(runtime,audit,{version:'1.0.3-alpha.1 · FIXTURE',sha:'development'}))
+  runtime.register(createPlatformModule(runtime,audit,{version:'1.0.4-alpha.1 · FIXTURE',sha:'development'}))
   let state = fixture(scenario),serial = 10
   const bindings=new Map<string,ResourceRef|null>();if(scenario==='bound')bindings.set('demo-conversation',ref('workspace','w1'))
   const paths=new Map<string,string|null>();if(scenario==='bound')paths.set('demo-conversation','/demo/workbench')
+  const ensuring=new Map<string,Promise<unknown>>()
   const ledgers=new Map<string,SessionLedger>()
   if(!['empty','forbidden','loading','unlinked','large'].includes(scenario)&&state.workspaces.length){
     const paneEntries=state.panes.filter(pane=>pane.workspaceId==='w1').map(pane=>({ref:pane.ref,role:pane.agent?'agent' as const:'terminal' as const,origin:'tool' as const,operation:'herdr.workspace.create',requestId:'seed-'+pane.ref.id,createdAt:Date.now(),...pane.agent?{agentKind:pane.agent}:{},label:pane.label}))
@@ -36,6 +37,26 @@ export async function createDemo(scenario: string): Promise<{client:WorkbenchCli
     if(childPane)ledgers.set('demo-subagent',sessionLedgerSchema.parse({conversationId:'demo-subagent',parentConversationId:'demo-conversation',childConversationIds:[],entries:[{ref:childPane.ref,role:'agent',origin:'tool',operation:'herdr.agent.start',requestId:'seed-sub',createdAt:Date.now(),agentKind:childPane.agent??'codex',label:childPane.label}]}))
   }
   runtime.register({manifest:herdrManifest,start(ctx:ModuleContext){
+    function rememberOwned(conversationId:string,workspaceId:string,origin:'tool'|'ui'|'bound',operation:string){
+      const workspace=state.workspaces.find(item=>item.ref.id===workspaceId)
+      if(!workspace)return
+      const tabs=state.tabs.filter(item=>item.workspaceId===workspaceId)
+      const panes=state.panes.filter(item=>item.workspaceId===workspaceId)
+      const entries:SessionLedger['entries']=[
+        {ref:workspace.ref,role:'workspace' as const,origin,operation,requestId:'mock-'+(++serial),createdAt:Date.now(),label:workspace.label},
+        ...tabs.map(item=>({ref:item.ref,role:'tab' as const,origin,operation,requestId:'mock-'+(++serial),createdAt:Date.now(),label:item.label})),
+        ...panes.map(item=>({ref:item.ref,role:(item.agent?'agent':'terminal') as 'agent'|'terminal',origin,operation,requestId:'mock-'+(++serial),createdAt:Date.now(),...item.agent?{agentKind:item.agent}:{},label:item.label})),
+      ].slice(0,24)
+      const current=ledgers.get(conversationId)??{conversationId,childConversationIds:[],entries:[]}
+      const merged=[...current.entries]
+      for(const entry of entries){
+        const key=entry.role+entry.ref.id
+        const index=merged.findIndex(item=>item.role+item.ref.id===key)
+        if(index>=0)merged[index]={...merged[index]!,...entry,createdAt:merged[index]!.createdAt,origin:merged[index]!.origin}
+        else merged.push(entry)
+      }
+      ledgers.set(conversationId,{...current,entries:merged})
+    }
     for (const c of herdrManifest.contributions) ctx.contribution(c)
     for (const [id,definition] of Object.entries(catalog)) {
       ctx.operation({id,...definition,input:definition.input as z.ZodType<unknown>,output:definition.output as z.ZodType<unknown>,run:async input=>{
@@ -54,6 +75,49 @@ export async function createDemo(scenario: string): Promise<{client:WorkbenchCli
           ctx.emit({type:'invalidate'})
           if(id==='herdr.conversation.create'){bindings.set(conversation,r);paths.set(conversation,String(value.cwd||''));return {conversationId:conversation,ref:r,cwd:String(value.cwd||'')||null}}
           return r
+        }
+        if(id==='herdr.conversation.ensure'){
+          const conversation=String(value.conversationId)
+          const pending=ensuring.get(conversation)
+          if(pending)return pending
+          const work=Promise.resolve().then(()=>{
+            const cwd=String(value.cwd||'')
+            const stored=bindings.get(conversation)
+            if(stored&&state.workspaces.some(item=>item.ref.id===stored.id))return {conversationId:conversation,ref:stored,cwd:paths.get(conversation)||cwd,created:false,reused:false,origin:'bound' as const}
+            const base=cwd.split(/[\\/]/).filter(part=>part.length>0).at(-1)??''
+            const matches=state.workspaces.filter(workspace=>state.panes.some(pane=>pane.workspaceId===workspace.ref.id&&pane.cwd===cwd))
+            const labeled=matches.filter(workspace=>workspace.label===base)
+            const chosen=matches.length===1?matches[0]:labeled.length===1?labeled[0]:undefined
+            if(chosen){
+              if(chosen.ownership==='external')state={...state,workspaces:state.workspaces.map(item=>item.ref.id===chosen.ref.id?{...item,ownership:'adopted' as const}:item),tabs:state.tabs.map(item=>item.workspaceId===chosen.ref.id&&item.ownership==='external'?{...item,ownership:'adopted' as const}:item),panes:state.panes.map(item=>item.workspaceId===chosen.ref.id&&item.ownership==='external'?{...item,ownership:'adopted' as const}:item)}
+              bindings.set(conversation,chosen.ref);paths.set(conversation,cwd);rememberOwned(conversation,chosen.ref.id,'bound','herdr.conversation.ensure');ctx.emit({type:'invalidate'})
+              return {conversationId:conversation,ref:chosen.ref,cwd,created:false,reused:true,origin:'bound' as const}
+            }
+            const origin=value.origin==='ui'?'ui' as const:'tool' as const
+            const created=ref('workspace','w'+(++serial)),pane=ref('pane',created.id+':p1'),tab=ref('tab',created.id+':t1')
+            state={...state,workspaces:[...state.workspaces,{ref:created,label:String(value.label||base||'workspace'),paneCount:1,tabCount:1,ownership:'created'}],tabs:[...state.tabs,{ref:tab,workspaceId:created.id,label:'1',ownership:'created'}],panes:[...state.panes,{ref:pane,workspaceId:created.id,tabId:tab.id,terminalId:'fixture-'+created.id,label:'Shell',title:'Shell',agent:null,state:'unknown',stateSequence:1,cwd,revision:1,ownership:'created'}]}
+            bindings.set(conversation,created);paths.set(conversation,cwd);rememberOwned(conversation,created.id,origin,'herdr.conversation.ensure');ctx.emit({type:'invalidate'})
+            return {conversationId:conversation,ref:created,cwd,created:true,reused:false,origin}
+          })
+          ensuring.set(conversation,work)
+          return work.finally(()=>{if(ensuring.get(conversation)===work)ensuring.delete(conversation)})
+        }
+        if(id==='herdr.agents.launch'){
+          const conversation=String(value.conversationId)
+          const bound=bindings.get(conversation)
+          if(!bound)throw new WorkbenchError('INVALID_REQUEST','This conversation has no Herdr workspace yet.')
+          const cwd=paths.get(conversation)||String(bound.id)
+          const started:Array<Record<string,unknown>>=[]
+          for(const group of value.agents as Array<{kind:string;count:number}>){
+            const kind=group.kind==='codex'?'codex':'claude'
+            for(let index=0;index<group.count;index++){
+              const pane=ref('pane',bound.id+':p'+(++serial)),tab=ref('tab',bound.id+':t'+serial)
+              state={...state,tabs:[...state.tabs,{ref:tab,workspaceId:bound.id,label:String(state.tabs.length+1),ownership:'created'}],panes:[...state.panes,{ref:pane,workspaceId:bound.id,tabId:tab.id,terminalId:'fixture-'+pane.id,label:kind,title:kind,agent:kind,state:'idle',stateSequence:1,cwd,revision:1,ownership:'created'}]}
+              started.push({kind,command:kind,name:kind+'-'+started.length,paneId:pane.id,terminalId:'fixture-'+pane.id,tabId:tab.id,workspaceId:bound.id,ref:pane})
+            }
+          }
+          ctx.emit({type:'invalidate'})
+          return {send:false as const,workspaceId:bound.id,cwd,started}
         }
         if (id==='herdr.resource.rename') { const target=value.ref as ResourceRef;state={...state,workspaces:state.workspaces.map(w=>w.ref.id===target.id?{...w,label:String(value.label)}:w),panes:state.panes.map(p=>p.ref.id===target.id?{...p,label:String(value.label)}:p)};ctx.emit({type:'invalidate'});return {} }
         if (id==='herdr.resource.close') { const target=value.ref as ResourceRef;state={...state,workspaces:state.workspaces.filter(w=>w.ref.id!==target.id),panes:state.panes.filter(p=>p.ref.id!==target.id&&p.workspaceId!==target.id)};ctx.emit({type:'invalidate'});return {} }

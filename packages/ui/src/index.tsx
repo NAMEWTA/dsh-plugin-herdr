@@ -38,10 +38,21 @@ export function DataTable<T>({items,columns,rowKey,label}:{items:readonly T[];co
   return <><div className="wb-table-scroll" tabIndex={0} role="region" aria-label={label}><table className="wb-table"><caption className="wb-sr-only">{label}</caption><thead><tr>{columns.map(c=><th scope="col" key={c.key}>{c.label}</th>)}</tr></thead><tbody>{visible.map(item=><tr key={rowKey(item)}>{columns.map(c=><td key={c.key} className={c.className}>{c.render(item)}</td>)}</tr>)}</tbody></table></div><PageControls count={items.length} page={current} size={size} onPage={setPage}/></>
 }
 export function PageControls({count,page,size,onPage}:{count:number;page:number;size:number;onPage:(page:number)=>void}){const {t}=useWorkbench(),pages=Math.max(1,Math.ceil(count/size));if(pages===1)return null;return <nav className="wb-toolbar" aria-label={t('pagination')}><span className="wb-muted wb-small">{page+1} / {pages} · {count}</span><div className="wb-actions"><Button disabled={page===0} onClick={()=>onPage(page-1)}>{t('previousPage')}</Button><Button disabled={page>=pages-1} onClick={()=>onPage(page+1)}>{t('nextPage')}</Button></div></nav>}
-export class RequestError extends Error{constructor(readonly code:string,readonly requestId:string){super(code);this.name='RequestError'}}
+export class RequestError extends Error{
+  readonly detail?: string
+  readonly issues?: readonly {path: string; message: string}[]
+  constructor(readonly code: string, readonly requestId: string, detail?: string, issues?: readonly {path: string; message: string}[]){
+    const issueText = issues?.map(issue => `${issue.path || '(root)'}: ${issue.message}`).join('; ')
+    const extra = [detail && detail !== code ? detail : '', issueText].filter(Boolean).join(' ')
+    super(extra || code)
+    this.name = 'RequestError'
+    if (detail) this.detail = detail
+    if (issues?.length) this.issues = issues
+  }
+}
 export async function request<T>(client:WorkbenchClient,operation:string,input:Json={},signal?:AbortSignal):Promise<T>{
   const id=crypto.randomUUID(),response=await client.request<T>({operation,input,requestId:id},signal)
-  if(!response.ok)throw new RequestError(response.error.code,response.error.requestId)
+  if(!response.ok)throw new RequestError(response.error.code,response.error.requestId,response.error.detail,response.error.issues)
   return response.data
 }
 interface ConfirmOptions{title:string;description:string;danger?:boolean;confirmLabel?:string;target?:string}
@@ -89,5 +100,6 @@ export function Modal({open,onOpenChange,title,description,children,className}:{
 export function ErrorNotice({error,retry}:{error:unknown;retry?:()=>void}){
   const {t}=useWorkbench(),code=error&&typeof error==='object'&&'code'in error&&typeof error.code==='string'?error.code:'INTERNAL_ERROR'
   const known=Object.hasOwn(messages,code),local=!(error instanceof RequestError)
-  return <Notice tone="danger" title={t('errorTitle')}><p>{local&&(!known||code==='INTERNAL_ERROR')?t('LOCAL_OPERATION_FAILED'):known?t(code as MessageKey):t('INTERNAL_ERROR')}</p>{local&&<p className="wb-small">{t('diagnosticCode')}: <code>{known?code:'LOCAL_OPERATION_FAILED'}</code></p>}{error instanceof RequestError&&<p className="wb-small">{t('requestId')}: <code>{error.requestId}</code></p>}{retry&&<Button onClick={retry}>{t('retry')}</Button>}</Notice>
+  const detail=error instanceof RequestError&&error.message!==error.code?error.message:''
+  return <Notice tone="danger" title={t('errorTitle')}><p>{local&&(!known||code==='INTERNAL_ERROR')?t('LOCAL_OPERATION_FAILED'):known?t(code as MessageKey):t('INTERNAL_ERROR')}</p>{detail&&<p>{detail}</p>}{local&&<p className="wb-small">{t('diagnosticCode')}: <code>{known?code:'LOCAL_OPERATION_FAILED'}</code></p>}{error instanceof RequestError&&<p className="wb-small">{t('requestId')}: <code>{error.requestId}</code></p>}{retry&&<Button onClick={retry}>{t('retry')}</Button>}</Notice>
 }

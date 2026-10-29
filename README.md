@@ -20,7 +20,7 @@ Read-only by default. Taking control is always a separate, confirmed step.
 
 </div>
 
-> **Status: alpha preview (`1.0.3-alpha.1`).** Distributed as a GitHub prerelease tarball, not on npm. Verified on Linux x86_64 with DSH 0.2.1-rc.2 and Herdr 0.9.3. See [release notes](docs/releases/1.0.3-alpha.1.md).
+> **Status: alpha preview (`1.0.4-alpha.1`).** Distributed as a GitHub prerelease tarball, not on npm. Verified on Linux x86_64 with DSH 0.2.1-rc.2 and Herdr 0.9.3. See [release notes](docs/releases/1.0.4-alpha.1.md).
 
 ## Contents
 
@@ -48,11 +48,11 @@ Opening a pane attaches a browser terminal (xterm) in **observe** mode, so input
 
 ### A Herdr tab in every DSH session
 
-The right sidebar of a DSH session gets a **Herdr** tab. When the session has no workspace yet, **Create and bind a workspace for this path** creates one at the session's project path and binds it. No model or tool call is needed. The tab then shows the session tree (workspace › tab › terminal) and opens terminals inline.
+The right sidebar of a DSH session gets a **Herdr** tab. When the session has a project path and nothing is bound yet, that path becomes this session's workspace automatically. No model or tool call is needed. The empty state stays only when the project path cannot be resolved. The tab then shows the session tree (workspace › tab › terminal) and opens terminals inline.
 
 <img src="docs/assets/demos/g3-session-rail.gif" width="860" alt="Creating and binding a Herdr workspace from the DSH session sidebar, then observing its terminal">
 
-Binding also scopes the two model tools: `workbench_herdr_inspect` (read-only, bound workspace only) and `workbench_herdr_action` (a short allow-list of actions, always behind a DSH approval prompt). See [Let the model help](#let-the-model-help).
+Binding also scopes the model tools: `workbench_herdr_inspect` (read-only, and it binds the project path on the first call), `workbench_herdr_launch` (start Codex or Claude Code without sending them anything, behind a DSH approval prompt), and `workbench_herdr_action` (a short allow-list of changes inside the bound workspace, also behind approval). See [Let the model help](#let-the-model-help).
 
 ### Command palette
 
@@ -112,7 +112,7 @@ chmod +x ~/.local/bin/herdr
 ### 2. Download and verify the plugin
 
 ```sh
-V=1.0.3-alpha.1
+V=1.0.4-alpha.1
 BASE=https://github.com/NAMEWTA/dsh-plugin-herdr/releases/download/v$V
 for f in namewta-dsh-workbench-$V.tgz build.json SHA256SUMS; do curl -fLO "$BASE/$f"; done
 sha256sum --check --ignore-missing SHA256SUMS
@@ -156,16 +156,17 @@ From Workbench you can create a workspace (under the approved root), rename, spl
 
 ### Bind a DSH session
 
-Open a session, open the right sidebar, choose **Herdr**, then **Create and bind a workspace for this path**. The binding is explicit. Workbench never falls back to "the focused workspace", and a stale binding fails closed after Herdr restarts.
+Open a session whose directory is the project path. The Herdr tab binds that directory for this session. Workbench never falls back to "the focused workspace", and a stale binding fails closed after Herdr restarts. A session with no project path stays unbound until you bind one manually.
 
 ### Let the model help
 
-With `toolsEnabled` on (default), the model gets two tools:
+With `toolsEnabled` on (default), the model gets three tools:
 
 | Tool | What it can do |
 |---|---|
-| `workbench_herdr_inspect` | Read the workspace bound to this session (tabs, panes, agent state). Fails when nothing is bound. |
-| `workbench_herdr_action` | Create and bind a new workspace, or rename, close, split, open a tab or start an agent **inside the bound workspace**. Every call shows a DSH approval prompt first. No raw keystrokes, no implicit adoption, no cross-workspace actions. |
+| `workbench_herdr_inspect` | Read this session's workspace. The first call binds the session project path when nothing is bound. `INVALID_REQUEST` when the session has no project path. |
+| `workbench_herdr_launch` | Start Codex and Claude Code in that workspace and do not send them a prompt. `{"agents":[{"kind":"codex","count":4},{"kind":"claude","count":4}],"send":false}`. One call starts up to 8. Every call shows a DSH approval prompt first. |
+| `workbench_herdr_action` | Rename, close, split, or open a tab **inside the bound workspace**. Every call shows a DSH approval prompt first. It does not start agents. No raw keystrokes, no implicit adoption, no cross-workspace actions. |
 
 The agent preset **Workbench · Herdr** primes the model to use these tools this way. Using the model requires DSH to be signed in or configured with an API key.
 
@@ -192,7 +193,7 @@ Run `dsh web --dump-config` to check the composed result. All paths must be abso
 | `dataDirectory` | `<profile>/workbench/` | Workbench state (bindings, ledger, audit). |
 | `readOnly` | `false` | Grant only read and observe. No control and no resource changes. |
 | `pollMs` | `3000` | Poll interval when the event stream is unavailable (500–30000). |
-| `toolsEnabled` | `true` | Register the two model tools. |
+| `toolsEnabled` | `true` | Register the three model tools. |
 | `maxObservers` | `8` | Concurrent observe sessions (0–64). |
 | `maxControllers` | `2` | Concurrent control sessions (0–16). |
 | `maxProcesses` | `16` | Terminal bridge processes, including ones still closing (1–128). |
@@ -212,7 +213,7 @@ Taking control of a terminal means running programs as the user who runs Herdr. 
 | Any authenticated DSH browser | Everything the DSH host operator can, which is the same trust level as `dsh web` itself | — |
 | Observer | Read terminal output and state | Send input |
 | Controller | Type into the panes it holds a lease on | Hold more than `maxControllers` leases. Replay unconfirmed input after a disconnect. |
-| The model | `inspect` the bound workspace. `action` after your approval in DSH. | Touch unbound workspaces. Send raw keystrokes. Adopt or close external resources without approval. |
+| The model | `inspect` binds the session project path, then reads that workspace. `launch` starts approved agents after your approval and sends them nothing. `action` changes that workspace after approval. | Use another conversation or the focused workspace. Send a prompt or raw keystrokes. Adopt or close unrelated external resources. |
 | `readOnly: true` | Read and observe | Control, create, close |
 
 - Identity comes from the DSH server (`invocation.peer.id`), never from the browser. Every read, write and stream is authorized on the server.
