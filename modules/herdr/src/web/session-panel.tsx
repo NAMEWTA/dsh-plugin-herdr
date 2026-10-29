@@ -45,7 +45,7 @@ export function SessionChrome() {
   const choose = (pane: Pane) => { selectSessionPane(pane.ref); setOpen(false); setPinned(false) }
   return <div className="wb-session-anchor" onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
     <button type="button" className="wb-session-trigger" data-session-terminals aria-expanded={open} aria-haspopup="dialog" onClick={() => { setPinned(value => !value); setOpen(value => !value); openSessionRail() }}>
-      <Terminal size={14} aria-hidden="true"/><span>{ui.locale === 'zh' ? `终端 ${count}` : `${count} terminals`}</span>
+      <Terminal size={14} aria-hidden="true"/><span>{h('terminalCount').replaceAll('{count}', String(count))}</span>
     </button>
     {open && <div className="wb-session-popover" role="dialog" aria-label={h('sessionTree')} onMouseEnter={() => hover(true)}>
       <BoardView board={board} onOpen={choose}/>
@@ -85,7 +85,7 @@ function RailEmpty({ path, ready }: { path: string | null; ready: boolean }) {
   const onCreate = () => {
     if (!canCreate || !path || !ui.conversationId) return
     const conversationId = ui.conversationId
-    create.mutate({ conversationId, label: workspaceLabelFromPath(path, ui.locale === 'zh' ? '工作区' : 'workspace'), cwd: path, confirmed: true, origin: 'ui' }, {
+    create.mutate({ conversationId, label: workspaceLabelFromPath(path, h('workspaceFallback')), cwd: path, confirmed: true, origin: 'ui' }, {
       onSuccess: async value => {
         if (value.ref) await rememberWorkspace(ui.client, conversationId, value.ref.id, 'ui', 'herdr.conversation.create').catch(() => {})
         await cache.invalidateQueries({queryKey: ['herdr', 'session', conversationId]})

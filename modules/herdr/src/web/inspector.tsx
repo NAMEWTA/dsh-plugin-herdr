@@ -10,7 +10,7 @@ import { goToPane, readTarget } from './parts.tsx'
 
 const words={
   title:['面板详情与 CLI','Pane inspector'],select:['选择面板','Select a pane'],
-  notice:['仅展示与复制；不会执行命令或取得控制权限。请在运行 DSH 的主机上使用 POSIX shell。','Inspect and copy only; no commands are executed and no control is acquired. Use a POSIX shell on the DSH host.'],
+  notice:['仅展示与复制；不会执行命令或取得控制权限。请在运行 DSH 的主机上使用 POSIX 命令行。','Inspect and copy only; no commands are executed and no control is acquired. Use a POSIX shell on the DSH host.'],
   unavailable:['目标未验证，暂不提供命令。请检查 Herdr 连接。','Commands are unavailable until the executable and endpoint are verified. Check the Herdr connection.'],
   pane:['面板 ID','Pane ID'],workspace:['工作区 ID','Workspace ID'],tab:['标签 ID','Tab ID'],
   cwd:['面板当前目录','Pane working directory'],agent:['Agent','Agent'],state:['上报状态','Reported status'],

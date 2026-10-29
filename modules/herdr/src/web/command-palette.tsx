@@ -38,12 +38,12 @@ export function ResourcePalette({open,onOpenChange}:{open:boolean;onOpenChange:(
 }
 
 interface PaletteItem {id:string;label:string;text:string;run:(ui:ReturnType<typeof useWorkbench>,snapshot:HerdrSnapshot)=>void}
-function paletteItems(snapshot: HerdrSnapshot, h: (key: 'workspaces'|'tabs'|'panes'|'agents'|'connectionSettings') => string): PaletteItem[] {
+function paletteItems(snapshot: HerdrSnapshot, h: (key: 'workspaces'|'tabs'|'panes'|'agents'|'connectionSettings'|'shellKind') => string): PaletteItem[] {
   const workspace = (id: string) => snapshot.workspaces.find(item => item.ref.id === id)
   return [
     ...snapshot.workspaces.map(item => ({id:'ws-'+item.ref.id,label:item.label||item.ref.id,text:[h('workspaces'),item.label,item.ref.id].join(' '),run:(ui:ReturnType<typeof useWorkbench>) => ui.navigate('herdr.workspaces',{target:JSON.stringify(item.ref)})})),
     ...snapshot.tabs.map(item => ({id:'tab-'+item.ref.id,label:(item.label||item.ref.id)+' · '+(workspace(item.workspaceId)?.label??item.workspaceId),text:[h('tabs'),item.label,item.ref.id,workspace(item.workspaceId)?.label??''].join(' '),run:(ui:ReturnType<typeof useWorkbench>) => ui.navigate('herdr.workspaces',{target:JSON.stringify(workspace(item.workspaceId)?.ref??item.ref)})})),
-    ...snapshot.panes.map(item => ({id:'pane-'+item.ref.id,label:(item.label||item.ref.id)+' · '+(item.agent??h('connectionSettings')),text:[h('panes'),item.label,item.ref.id,item.agent??'',item.cwd??'',workspace(item.workspaceId)?.label??''].join(' '),run:(ui:ReturnType<typeof useWorkbench>) => {if(!snapshot.stale)goToPane(ui,item)}})),
+    ...snapshot.panes.map(item => ({id:'pane-'+item.ref.id,label:(item.label||item.ref.id)+' · '+(item.agent??h('shellKind')),text:[h('panes'),item.label,item.ref.id,item.agent??'',item.cwd??'',workspace(item.workspaceId)?.label??''].join(' '),run:(ui:ReturnType<typeof useWorkbench>) => {if(!snapshot.stale)goToPane(ui,item)}})),
     ...[...new Set(snapshot.panes.map(item => item.agent).filter((agent): agent is string => !!agent))].map(agent => ({id:'kind-'+agent,label:agent,text:h('agents')+' '+agent,run:(ui:ReturnType<typeof useWorkbench>) => ui.navigate('herdr.agents',{agent})})),
     {id:'settings',label:h('connectionSettings'),text:h('connectionSettings'),run:ui => ui.navigate('herdr.environment')},
   ]

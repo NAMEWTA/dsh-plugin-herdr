@@ -8,7 +8,7 @@ export const messages={
   moduleNavigation:['模块导航','Module navigation'], preferencesArea:['偏好与管理','Preferences and administration'],
 
   pagination: ['分页','Pagination'], previousPage: ['上一页','Previous page'], nextPage: ['下一页','Next page'],
-  workbench:['工作台','Workbench'],home:['首页','Home'],modules:['模块管理','Modules'],settings:['外观设置','Appearance'],audit:['操作审计','Audit log'],search:['搜索','Search'],commands:['命令面板','Command palette'],
+  workbench:['工作台','Workbench'],studioEyebrow:['工作区工作室','Workspace studio'],home:['首页','Home'],modules:['模块管理','Modules'],settings:['外观设置','Appearance'],audit:['操作审计','Audit log'],search:['搜索','Search'],commands:['命令面板','Command palette'],
   loading:['正在加载…','Loading…'],retry:['重试','Retry'],refresh:['刷新','Refresh'],cancel:['取消','Cancel'],confirm:['确认','Confirm'],close:['关闭','Close'],save:['保存','Save'],saved:['已保存','Saved'],
   enabled:['已启用','Enabled'],enable:['启用','Enable'],disable:['停用','Disable'],disabled:['已停用','Disabled'],failed:['失败','Failed'],active:['运行中','Active'],draining:['正在清理','Draining'],registered:['未启动','Registered'],stopped:['已停用','Stopped'],starting:['启动中','Starting'],disposed:['已卸载','Disposed'],
   scope:['目标','Target'],

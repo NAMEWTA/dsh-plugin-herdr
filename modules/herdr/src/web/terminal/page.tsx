@@ -80,7 +80,7 @@ export function PaneSession({pane,stale,initialMode}:{pane:Pane;stale:boolean;in
   const copy=async()=>{const text=handle.current?.copy();if(!text)return;try{await navigator.clipboard.writeText(text);ui.notify(h('copied'))}catch{ui.notify(h('copyFailed'),'danger')}}
   const editable=ui.capabilities.has('herdr.control')&&(pane.ownership!=='external'||ui.capabilities.has('herdr.manage'))&&!stale
   return <><Card className="wb-terminal-canvas">
-    <div className="wb-terminal-actions"><div className="wb-actions"><Badge tone={lease?.mode==='control'?'warning':'neutral'}>{busy?ui.t('loading'):lease?h(lease.mode==='control'?'controlling':'observing'):h('terminalStopped')}</Badge><span className="wb-small wb-muted">{pane.agent??'Shell'}</span></div><div className="wb-actions">
+    <div className="wb-terminal-actions"><div className="wb-actions"><Badge tone={lease?.mode==='control'?'warning':'neutral'}>{busy?ui.t('loading'):lease?h(lease.mode==='control'?'controlling':'observing'):h('terminalStopped')}</Badge><span className="wb-small wb-muted">{pane.agent??h('shellKind')}</span></div><div className="wb-actions">
       <Button size="sm" disabled={busy||stale||!ui.capabilities.has('herdr.observe')} onClick={()=>void open('observe')}><Eye size={15}/>{h('observe')}</Button>
       <Button size="sm" variant="primary" disabled={!editable||busy||lease?.mode==='control'} onClick={()=>void open('control')}><Keyboard size={15}/>{h('control')}</Button>
       <Button size="sm" variant="ghost" disabled={!editable||busy} onClick={()=>void open('control',true)}><LockKeyhole size={15}/>{h('takeover')}</Button>

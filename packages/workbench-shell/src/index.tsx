@@ -106,7 +106,7 @@ function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}
   const go=(id:string)=>{navigate(id);if(narrow)setExpanded(false)}
   const nav=(id:string,label:string,icon:ReactNode)=><button key={id} className="wb-nav-link" aria-current={route.id===id?'page':undefined} onClick={()=>go(id)}>{icon}<span>{label}</span></button>
   const sidebar=<>
-    <div className="wb-sidebar-heading"><div><span className="wb-eyebrow">{section==='platform'?'WORKBENCH':'WORKSPACE STUDIO'}</span><h2>{browsing?localize(browsing.manifest.title):t('systemArea')}</h2></div><Button variant="ghost" size="icon" aria-label={t('collapseNavigation')} onPointerDown={press('collapse',()=>{pinnedClosed.current=true;setExpanded(false)})} onClick={press('collapse',()=>{pinnedClosed.current=true;setExpanded(false)})}><PanelLeftClose size={17}/></Button></div>
+    <div className="wb-sidebar-heading"><div><span className="wb-eyebrow">{section==='platform'?t('workbench'):t('studioEyebrow')}</span><h2>{browsing?localize(browsing.manifest.title):t('systemArea')}</h2></div><Button variant="ghost" size="icon" aria-label={t('collapseNavigation')} onPointerDown={press('collapse',()=>{pinnedClosed.current=true;setExpanded(false)})} onClick={press('collapse',()=>{pinnedClosed.current=true;setExpanded(false)})}><PanelLeftClose size={17}/></Button></div>
     {section==='platform'?<nav className="wb-nav-group" aria-label={t('preferencesArea')}>
       {nav('platform.settings',t('settings'),<Settings size={17}/>)}
       {nav('platform.modules',t('modules'),<Blocks size={17}/>)}
@@ -114,7 +114,7 @@ function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}
     </nav>:Navigation?<PageBoundary key={section} fallback={<ErrorNotice error={new Error('navigation')}/>}><Navigation/></PageBoundary>:<nav className="wb-nav-group" aria-label={t('moduleNavigation')}>
       {browsing?.manifest.contributions.filter(c=>(c.kind==='route'||c.kind==='settings')&&capabilities.has(c.capability)).map(c=>nav(c.id,localize(c.title),<ChevronRight size={16}/>))}
     </nav>}
-    <div className="wb-sidebar-footer"><span>Workbench</span><span>{platform?.build.version??'—'}</span></div>
+    <div className="wb-sidebar-footer"><span>{t('workbench')}</span><span>{platform?.build.version??'—'}</span></div>
   </>
   const resize=(event:ReactPointerEvent<HTMLDivElement>)=>{
     if(narrow)return
@@ -128,7 +128,7 @@ function Chrome({modules,platform,loading,error,retry,presentation,sessionEntry}
   const showRail=sessionEntry&&!!ui.conversationId&&!narrow
   return <div ref={root} className="wb-shell" data-secondary-open={expanded&&!narrow} data-rightbar={showRail} style={{'--wb-side':side+'px'} as CSSProperties}>
     <nav className="wb-rail" aria-label={t('moduleRail')}>
-      <div className="wb-rail-brand" title="Workbench"><Layers3 size={23}/></div>
+      <div className="wb-rail-brand" title={t('workbench')}><Layers3 size={23}/></div>
       <div className="wb-rail-modules">{available.map(m=>{const Icon=m.icon??Blocks;const open=()=>chooseSection(m.manifest.id);return <button key={m.manifest.id} className="wb-rail-button" title={localize(m.manifest.title)} aria-label={localize(m.manifest.title)} aria-pressed={section===m.manifest.id} aria-expanded={section===m.manifest.id&&expanded} aria-controls={navigationId} onPointerDown={press('section-'+m.manifest.id,open)} onClick={press('section-'+m.manifest.id,open)}><Icon size={21}/><span className="wb-rail-indicator"/></button>})}</div>
       <div className="wb-rail-bottom"><button className="wb-rail-button" title={t('commands')} aria-label={t('commands')} onClick={()=>setPalette(true)}><Search size={20}/></button><button className="wb-rail-button" title={t('systemArea')} aria-label={t('systemArea')} aria-pressed={section==='platform'} aria-expanded={section==='platform'&&expanded} aria-controls={navigationId} onPointerDown={press('section-platform',()=>chooseSection('platform'))} onClick={press('section-platform',()=>chooseSection('platform'))}><Settings size={21}/></button></div>
     </nav>
@@ -157,7 +157,7 @@ class PageBoundary extends Component<{children:ReactNode;fallback:ReactNode},{fa
 }
 function HomePage({modules,active}:{modules:readonly WebModule[];active:Set<string>}){
   const {t,localize,navigate,capabilities}=useWorkbench()
-  return <><PageHeader eyebrow="WORKBENCH" title={t('home')} description={t('moduleHint')}/><div className="wb-grid">{modules.filter(m=>active.has(m.manifest.id)).map(m=><Card key={m.manifest.id}><Section module={m}/><p className="wb-muted">{localize(m.manifest.description)}</p><div className="wb-actions" style={{marginTop:16}}>{m.manifest.contributions.filter(c=>c.kind==='route'&&capabilities.has(c.capability)).slice(0,1).map(c=><Button key={c.id} variant="primary" onClick={()=>navigate(c.id)}>{localize(c.title)}<ArrowRight size={15}/></Button>)}</div></Card>)}</div>{modules.filter(m=>active.has(m.manifest.id)).flatMap(m=>Object.entries(m.widgets??{}).filter(([id])=>{const c=m.manifest.contributions.find(c=>c.id===id);return c&&capabilities.has(c.capability)}).map(([id,Widget])=><PageBoundary key={id} fallback={<ErrorNotice error={new Error('widget')}/>}><Widget/></PageBoundary>))}</>
+  return <><PageHeader eyebrow={t('workbench')} title={t('home')} description={t('moduleHint')}/><div className="wb-grid">{modules.filter(m=>active.has(m.manifest.id)).map(m=><Card key={m.manifest.id}><Section module={m}/><p className="wb-muted">{localize(m.manifest.description)}</p><div className="wb-actions" style={{marginTop:16}}>{m.manifest.contributions.filter(c=>c.kind==='route'&&capabilities.has(c.capability)).slice(0,1).map(c=><Button key={c.id} variant="primary" onClick={()=>navigate(c.id)}>{localize(c.title)}<ArrowRight size={15}/></Button>)}</div></Card>)}</div>{modules.filter(m=>active.has(m.manifest.id)).flatMap(m=>Object.entries(m.widgets??{}).filter(([id])=>{const c=m.manifest.contributions.find(c=>c.id===id);return c&&capabilities.has(c.capability)}).map(([id,Widget])=><PageBoundary key={id} fallback={<ErrorNotice error={new Error('widget')}/>}><Widget/></PageBoundary>))}</>
 }
 function Section({module}:{module:WebModule}){const {localize}=useWorkbench();return <h2 style={{marginBottom:8}}>{localize(module.manifest.title)}</h2>}
 function ModulesPage({platform}:{platform:Platform|undefined}){

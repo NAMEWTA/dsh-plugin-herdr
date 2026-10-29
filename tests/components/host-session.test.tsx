@@ -52,6 +52,18 @@ test('Herdr registers a right-sidebar page tab when the host provides the regist
   render(<Tab sessionId="conversation-a"/>)
   expect(screen.getByTestId('host-slot').getAttribute('data-session')).toBe('conversation-a')
 })
+test('host sidebar labels follow the DSH locale',async()=>{
+  const labels:string[]=[]
+  const scope={
+    slots:{inject(_name:string,register:()=>unknown){const result=register();if(result&&typeof result==='object'&&Symbol.iterator in result)Array.from(result as Iterable<unknown>);return result},register(options:Record<string,unknown>){if(typeof options.label==='function')labels.push((options.label as ()=>string)())}},
+    locale:{getSnapshot:()=>({active:'zh'}),subscribe:()=>()=>{}},
+    remote:{workbench:{}},effect:()=>{}
+  }
+  const ctx={...scope,remote:{$mount:async()=>async()=>{}},inject(_names:string[],register:(scope:unknown)=>unknown){register(scope)}}
+  await mountWorkbench(ctx as WebContext,[])
+  expect(labels.length).toBeGreaterThan(0)
+  expect(labels.every(label=>label==='工作台')).toBe(true)
+})
 test('global entry stays independent from conversation and system settings has its own default route',async()=>{
   const {slots}=await host(),Main=slots.get('main')!,Settings=slots.get('settings.plugins.tab')!
   const view=render(<Main/>)

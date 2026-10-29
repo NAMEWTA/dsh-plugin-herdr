@@ -35,8 +35,16 @@ const defaultLocale = () => 'zh'
 /** Register only documented slot contributions; never inspect or patch the host DOM. */
 const herdrTabId = '@namewta/dsh-workbench/herdr'
 let hostLocale: 'zh' | 'en' = 'en'
+const hostCopy = {
+  panel: ['工作台', 'Workbench'],
+  guide: ['此会话的终端与 Agent', 'Terminals and agents for this session'],
+  missing: ['无法识别当前会话', 'Session identity unavailable'],
+} as const
+function hostText(key: keyof typeof hostCopy): string {
+  return hostCopy[key][hostLocale === 'zh' ? 0 : 1]
+}
 function railGuide(): string {
-  return hostLocale === 'zh' ? '此会话的终端与 Agent' : 'Terminals and agents for this session'
+  return hostText('guide')
 }
 export async function mountWorkbench(ctx: WebContext, modules: readonly WebModule[]): Promise<void> {
   let closed = false
@@ -66,9 +74,9 @@ export async function mountWorkbench(ctx: WebContext, modules: readonly WebModul
     }
     function MissingSession() {
       const language=useSyncExternalStore(subscribeLocale,readLocale,defaultLocale)
-      return <div role="alert">{language.startsWith('zh')?'无法识别当前会话':'Session identity unavailable'}</div>
+      return <div role="alert">{hostText('missing')}</div>
     }
-    const title = () => 'Workbench'
+    const title = () => hostText('panel')
     scope.slots.inject('sidebar.panellist', () => scope.slots.register({name:'sidebar.panellist',id:'workbench',order:20,label:title}, () => <Layers3 size={20} data-workbench-entry/>))
     scope.slots.inject('main', function* () { yield scope.slots.register({name:'main',key:'workbench'}, Panel) })
     scope.slots.inject('conversation.view', () => scope.slots.register({name:'conversation.view',id:'workbench',order:20,label:title}, ({sessionId}:{sessionId:string}) => sessionId?<Panel conversationId={sessionId}/>:<MissingSession/>))

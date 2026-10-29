@@ -145,3 +145,19 @@ test('late observation response after navigating away is released, never attache
     expect(screen.queryByTestId('terminal-renderer')).toBeNull()
   }finally{view.unmount();await demo.dispose()}
 })
+test('chinese chrome translates the studio title, workbench label, shell kind and attention states',async()=>{
+  const demo=await createDemo('normal')
+  const view=render(<Workbench client={demo.client} modules={[herdrWeb]} initialRoute="herdr.overview" locale="zh" conversationId="demo-conversation"/>)
+  try{
+    await screen.findByRole('heading',{level:1,name:'你的 Agent 工作室'})
+    const side=screen.getByRole('complementary',{name:'功能导航'})
+    expect(side.querySelector('.wb-eyebrow')?.textContent).toBe('工作区工作室')
+    expect(side.querySelector('.wb-sidebar-footer')?.textContent).toContain('工作台')
+    expect(side.querySelector('.wb-sidebar-footer')?.textContent).not.toContain('Workbench')
+    expect(screen.getByTitle('工作台')).toBeTruthy()
+    expect(document.querySelector('.wb-studio-kicker')?.textContent?.replace(/\s+/g,' ')).toBe('Herdr / 工作区工作室')
+    expect(await screen.findByText('等待介入的事项需要查看原始终端；回合结束只表示一轮结束，不代表任务成功。')).toBeTruthy()
+    expect(screen.queryByText(/blocked|done/)).toBeNull()
+    expect(screen.getByText('终端 · 空闲')).toBeTruthy()
+  }finally{view.unmount();await demo.dispose()}
+})
