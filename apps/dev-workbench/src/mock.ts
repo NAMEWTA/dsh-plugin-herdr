@@ -19,7 +19,7 @@ export function fixture(scenario='normal'): HerdrSnapshot {
 }
 export async function createDemo(scenario: string): Promise<{client:WorkbenchClient;dispose:()=>Promise<void>}> {
   const storage = new MemoryStorage(),audit = new MemoryAudit(),runtime = new WorkbenchRuntime({storage,audit})
-  runtime.register(createPlatformModule(runtime,audit,{version:'1.0.2-alpha.1 · FIXTURE',sha:'development'}))
+  runtime.register(createPlatformModule(runtime,audit,{version:'1.0.3-alpha.1 · FIXTURE',sha:'development'}))
   let state = fixture(scenario),serial = 10
   const bindings=new Map<string,ResourceRef|null>();if(scenario==='bound')bindings.set('demo-conversation',ref('workspace','w1'))
   const paths=new Map<string,string|null>();if(scenario==='bound')paths.set('demo-conversation','/demo/workbench')

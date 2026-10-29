@@ -1,6 +1,6 @@
 import type { ModuleManifest } from '@workbench/contracts'
 export const herdrManifest: ModuleManifest = {
-  id: 'herdr', version: '1.0.2-alpha.1', platformApi: 1,
+  id: 'herdr', version: '1.0.3-alpha.1', platformApi: 1,
   title: {zh:'Herdr',en:'Herdr'}, description:{zh:'工作区、Agent 与安全终端管理',en:'Workspaces, agents and controlled terminals'}, dependencies:[],
   capabilities:['herdr.read','herdr.manage','herdr.observe','herdr.control','herdr.settings'],
   contributions:[
